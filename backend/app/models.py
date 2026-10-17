@@ -25,7 +25,7 @@ class StorageLocation(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(50), unique=True, nullable=False)
     name = Column(String(120), unique=True, nullable=False)
-    location_type = Column(String(50), default="WAREHOUSE")  # DISPLAY, WAREHOUSE, GODOWN, OTHER
+    location_type = Column(String(50), default="WAREHOUSE")
     address = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -48,6 +48,7 @@ class Product(Base):
     sale_rate = Column(Float, default=0.0)
     current_stock = Column(Integer, default=0)
     reorder_level = Column(Integer, default=12)
+    is_favorite = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
 
     brand = relationship("Brand", back_populates="products")
@@ -79,7 +80,7 @@ class Supplier(Base):
     address = Column(Text, nullable=True)
     opening_payable = Column(Float, default=0.0)
     current_payable = Column(Float, default=0.0)
-    is_favorite = Column(Boolean, default=False)
+    is_favorite = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
 
     purchases = relationship("Purchase", back_populates="supplier")
@@ -98,7 +99,7 @@ class Customer(Base):
     credit_limit = Column(Float, default=50000.0)
     opening_receivable = Column(Float, default=0.0)
     current_receivable = Column(Float, default=0.0)
-    is_favorite = Column(Boolean, default=False)
+    is_favorite = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
 
     sales = relationship("Sale", back_populates="customer")
@@ -201,6 +202,22 @@ class FinancialAccount(Base):
     current_balance = Column(Float, default=0.0)
 
 
+class AccountTransaction(Base):
+    __tablename__ = "account_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tx_number = Column(String(50), unique=True, index=True, nullable=False)
+    tx_date = Column(DateTime, default=datetime.utcnow)
+    tx_type = Column(String(40), nullable=False)  # DEPOSIT, WITHDRAW, TRANSFER
+    account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    to_account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    channel = Column(String(40), default="CASH")
+    party = Column(String(150), nullable=True)
+    description = Column(String(255), nullable=True)
+    cash_in = Column(Float, default=0.0)
+    cash_out = Column(Float, default=0.0)
+
+
 class Expense(Base):
     __tablename__ = "expenses"
 
@@ -219,7 +236,7 @@ class RecycleBin(Base):
     __tablename__ = "recycle_bin"
 
     id = Column(Integer, primary_key=True, index=True)
-    entity_type = Column(String(50), nullable=False)  # SALE, PURCHASE, EXPENSE, PRODUCT, CUSTOMER, SUPPLIER, ACCOUNT, LOCATION
+    entity_type = Column(String(50), nullable=False)
     entity_id = Column(Integer, nullable=False)
     reference_code = Column(String(100), nullable=False)
     title = Column(String(255), nullable=False)

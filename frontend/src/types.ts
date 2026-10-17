@@ -8,7 +8,8 @@ export type EntityType =
   | 'CUSTOMER'
   | 'SUPPLIER'
   | 'LOCATION'
-  | 'ACCOUNT';
+  | 'ACCOUNT'
+  | 'ACCOUNT_TX';
 
 export interface DashboardStats {
   period: TimePeriod;
@@ -36,6 +37,7 @@ export interface DashboardStats {
 export interface LocationStockItem {
   product_id: number;
   product_name: string;
+  company_name?: string;
   sku: string;
   pack_size: string;
   units_per_carton: number;
@@ -88,6 +90,7 @@ export interface Product {
   stock_valuation: number;
   reorder_level: number;
   is_low_stock: boolean;
+  is_favorite?: boolean;
   locations?: ProductLocationBreakdown[];
 }
 
@@ -174,7 +177,7 @@ export interface AccountHistoryEntry {
   entity_id: number;
   date: string;
   timestamp: string;
-  type: 'SALE INFLOW' | 'PURCHASE OUTFLOW' | 'EXPENSE OUTFLOW';
+  type: string;
   reference: string;
   party: string;
   channel: string;

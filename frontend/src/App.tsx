@@ -125,7 +125,10 @@ export default function App() {
   const [saleCustomerName, setSaleCustomerName] = useState<string>('');
   const [saleCustomerCity, setSaleCustomerCity] = useState<string>('');
   const [saleMarkFav, setSaleMarkFav] = useState<boolean>(false);
-  const [saleProductId, setSaleProductId] = useState<number>(1);
+  const [saleProductId, setSaleProductId] = useState<number>(0);
+  const [saleProductName, setSaleProductName] = useState<string>('');
+  const [saleCompanyName, setSaleCompanyName] = useState<string>('');
+  const [saleProdFav, setSaleProdFav] = useState<boolean>(true);
   const [saleLocationId, setSaleLocationId] = useState<number>(1);
   const [saleUnitType, setSaleUnitType] = useState<'CARTON' | 'BOTTLE'>('CARTON');
   const [salePackSize, setSalePackSize] = useState<string>('700');
@@ -142,7 +145,10 @@ export default function App() {
   const [purSupplierName, setPurSupplierName] = useState<string>('');
   const [purSupplierCity, setPurSupplierCity] = useState<string>('');
   const [purMarkFav, setPurMarkFav] = useState<boolean>(false);
-  const [purProductId, setPurProductId] = useState<number>(1);
+  const [purProductId, setPurProductId] = useState<number>(0);
+  const [purProductName, setPurProductName] = useState<string>('');
+  const [purCompanyName, setPurCompanyName] = useState<string>('');
+  const [purProdFav, setPurProdFav] = useState<boolean>(true);
   const [purLocationId, setPurLocationId] = useState<number>(2);
   const [purUnitType, setPurUnitType] = useState<'CARTON' | 'BOTTLE'>('CARTON');
   const [purPackSize, setPurPackSize] = useState<string>('700');
@@ -207,11 +213,24 @@ export default function App() {
   const [supCity, setSupCity] = useState<string>('');
   const [supPayable, setSupPayable] = useState<string>('');
 
+  const [prodCompanyName, setProdCompanyName] = useState<string>('ATH Oils');
+
   const [editingAccountId, setEditingAccountId] = useState<number | null>(null);
   const [accName, setAccName] = useState<string>('');
   const [accType, setAccType] = useState<string>('CASH');
   const [accNumber, setAccNumber] = useState<string>('');
   const [accBalance, setAccBalance] = useState<string>('');
+
+  // Incremental Deposit (+3000) / Withdraw & Account-to-Account Transfer (JazzCash -> Easypaisa)
+  const [adjAccountId, setAdjAccountId] = useState<number>(1);
+  const [adjOperation, setAdjOperation] = useState<'DEPOSIT' | 'WITHDRAW'>('DEPOSIT');
+  const [adjAmount, setAdjAmount] = useState<string>('');
+  const [adjRemarks, setAdjRemarks] = useState<string>('');
+
+  const [trfFromAccId, setTrfFromAccId] = useState<number>(4);
+  const [trfToAccId, setTrfToAccId] = useState<number>(3);
+  const [trfAccAmount, setTrfAccAmount] = useState<string>('');
+  const [trfAccRemarks, setTrfAccRemarks] = useState<string>('');
 
   // ==================== MODALS ====================
   const [partialModal, setPartialModal] = useState<{
@@ -306,63 +325,91 @@ export default function App() {
     setLoginPass('');
   };
 
-  // ==================== FETCH ALL DATA ====================
+  // ==================== VERCEL SNAPSHOT PERSISTENCE & ATOMIC BOOTSTRAP ====================
+  const getSavedSnapshot = () => {
+    try {
+      const raw = localStorage.getItem('ath_erp_snapshot');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveSnapshot = (snap: any) => {
+    if (snap && typeof snap === 'object' && snap.version) {
+      try {
+        localStorage.setItem('ath_erp_snapshot', JSON.stringify(snap));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }
+  };
+
+  const apiSend = async (endpoint: string, method: 'POST' | 'PUT', payload: Record<string, any>) => {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        client_snapshot: getSavedSnapshot()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Operation failed');
+    }
+    if (data.snapshot) {
+      saveSnapshot(data.snapshot);
+    }
+    return data;
+  };
+
   const fetchData = async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
-      const [
-        sRes, locRes, pRes, cRes, supRes,
-        salesRes, purRes, eRes, aRes, hRes, binRes
-      ] = await Promise.all([
-        fetch(`${API_BASE}/dashboard/stats?period=${period}`),
-        fetch(`${API_BASE}/locations`),
-        fetch(`${API_BASE}/products`),
-        fetch(`${API_BASE}/customers`),
-        fetch(`${API_BASE}/suppliers`),
-        fetch(`${API_BASE}/sales?period=${period}`),
-        fetch(`${API_BASE}/purchases?period=${period}`),
-        fetch(`${API_BASE}/expenses?period=${period}`),
-        fetch(`${API_BASE}/accounts`),
-        fetch(`${API_BASE}/accounts/history?period=${period}&channel=${channelFilter}`),
-        fetch(`${API_BASE}/recycle-bin`)
-      ]);
+      const res = await fetch(`${API_BASE}/bootstrap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          period,
+          channel: channelFilter,
+          client_snapshot: getSavedSnapshot()
+        })
+      });
+      if (!res.ok) throw new Error('Bootstrap sync failed');
+      const data = await res.json();
 
-      if (sRes.ok) setStats(await sRes.json());
-      if (locRes.ok) {
-        const locData: StorageLocation[] = await locRes.json();
-        setLocations(Array.isArray(locData) ? locData : []);
-        if (Array.isArray(locData) && locData.length > 0) {
-          const disp = locData.find(l => l.location_type === 'DISPLAY') || locData[0];
-          const wh = locData.find(l => l.location_type === 'WAREHOUSE') || locData[0];
-          setSaleLocationId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
-          setPurLocationId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
-          setProdInitialLocId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
-          setSetStockLocId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
-        }
-      }
-      if (pRes.ok) {
-        const prodData: Product[] = await pRes.json();
-        const safeProds = Array.isArray(prodData) ? prodData : [];
-        setProducts(safeProds);
-        if (safeProds.length > 0) {
-          const sp = safeProds.find(p => p.id === saleProductId) || safeProds[0];
-          setSalePackSize(String(sp.pack_size_num || 700));
-          setSaleCartonSize(String(sp.units_per_carton || 12));
+      if (data.snapshot) saveSnapshot(data.snapshot);
+      if (data.stats) setStats(data.stats);
 
-          const pp = safeProds.find(p => p.id === purProductId) || safeProds[0];
-          setPurPackSize(String(pp.pack_size_num || 700));
-          setPurCartonSize(String(pp.units_per_carton || 12));
-        }
+      const locData: StorageLocation[] = Array.isArray(data.locations) ? data.locations : [];
+      setLocations(locData);
+      if (locData.length > 0) {
+        const disp = locData.find(l => l.location_type === 'DISPLAY') || locData[0];
+        const wh = locData.find(l => l.location_type === 'WAREHOUSE') || locData[0];
+        setSaleLocationId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
+        setPurLocationId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
+        setProdInitialLocId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
+        setSetStockLocId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
       }
-      if (cRes.ok) setCustomers(await cRes.json());
-      if (supRes.ok) setSuppliers(await supRes.json());
-      if (salesRes.ok) setSales(await salesRes.json());
-      if (purRes.ok) setPurchases(await purRes.json());
-      if (eRes.ok) setExpenses(await eRes.json());
-      if (aRes.ok) setAccounts(await aRes.json());
-      if (hRes.ok) setAccountHistory(await hRes.json());
-      if (binRes.ok) setRecycleBin(await binRes.json());
+
+      const safeProds: Product[] = Array.isArray(data.products) ? data.products : [];
+      setProducts(safeProds);
+      setCustomers(Array.isArray(data.customers) ? data.customers : []);
+      setSuppliers(Array.isArray(data.suppliers) ? data.suppliers : []);
+      setSales(Array.isArray(data.sales) ? data.sales : []);
+      setPurchases(Array.isArray(data.purchases) ? data.purchases : []);
+      setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
+
+      const accList: FinancialAccount[] = Array.isArray(data.accounts) ? data.accounts : [];
+      setAccounts(accList);
+      if (accList.length > 0) {
+        setAdjAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
+      }
+
+      setAccountHistory(Array.isArray(data.account_history) ? data.account_history : []);
+      setRecycleBin(Array.isArray(data.recycle_bin) ? data.recycle_bin : []);
     } catch (err) {
       console.error('Error syncing with backend:', err);
     } finally {
@@ -378,8 +425,11 @@ export default function App() {
     setSaleProductId(id);
     const p = products.find(x => x.id === id);
     if (p) {
+      setSaleProductName(p.name);
+      setSaleCompanyName(p.brand_name || 'ATH Oils');
       setSalePackSize(String(p.pack_size_num || 700));
       setSaleCartonSize(String(p.units_per_carton || 12));
+      setSaleProdFav(Boolean(p.is_favorite));
     }
   };
 
@@ -387,8 +437,11 @@ export default function App() {
     setPurProductId(id);
     const p = products.find(x => x.id === id);
     if (p) {
+      setPurProductName(p.name);
+      setPurCompanyName(p.brand_name || 'ATH Oils');
       setPurPackSize(String(p.pack_size_num || 700));
       setPurCartonSize(String(p.units_per_carton || 12));
+      setPurProdFav(Boolean(p.is_favorite));
     }
   };
 
@@ -429,15 +482,21 @@ export default function App() {
   // ==================== FAVORITES & STOCK INTELLIGENCE ====================
   const favoriteCustomers = useMemo(() => customers.filter(c => c.is_favorite), [customers]);
   const favoriteSuppliers = useMemo(() => suppliers.filter(s => s.is_favorite), [suppliers]);
+  const favoriteProducts = useMemo(() => products.filter(p => p.is_favorite !== false), [products]);
 
-  const selectedSaleProduct = useMemo(
-    () => products.find(p => p.id === Number(saleProductId)) || null,
-    [products, saleProductId]
-  );
+  const selectedSaleProduct = useMemo(() => {
+    if (saleProductId) return products.find(p => p.id === Number(saleProductId)) || null;
+    if (saleProductName.trim()) {
+      return products.find(p => p.name.toLowerCase() === saleProductName.trim().toLowerCase()) || null;
+    }
+    return null;
+  }, [products, saleProductId, saleProductName]);
+
   const selectedSaleLocName = useMemo(
     () => locations.find(l => l.id === Number(saleLocationId))?.name || 'Selected Location',
     [locations, saleLocationId]
   );
+
   const saleLocAvailableBottles = useMemo(() => {
     if (!selectedSaleProduct) return 0;
     const match = (selectedSaleProduct.locations || []).find(l => l.location_id === Number(saleLocationId));
@@ -452,29 +511,26 @@ export default function App() {
   }, [selectedSaleProduct, saleLocationId]);
 
   const isSaleStockInsufficient =
-    saleLocAvailableBottles <= 0 || (saleTotalBottles > 0 && saleTotalBottles > saleLocAvailableBottles);
+    !selectedSaleProduct ||
+    saleLocAvailableBottles <= 0 ||
+    (saleTotalBottles > 0 && saleTotalBottles > saleLocAvailableBottles);
 
-  const selectedPurchaseProduct = useMemo(
-    () => products.find(p => p.id === Number(purProductId)) || null,
-    [products, purProductId]
-  );
+  const selectedPurchaseProduct = useMemo(() => {
+    if (purProductId) return products.find(p => p.id === Number(purProductId)) || null;
+    if (purProductName.trim()) {
+      return products.find(p => p.name.toLowerCase() === purProductName.trim().toLowerCase()) || null;
+    }
+    return null;
+  }, [products, purProductId, purProductName]);
 
   const toggleCustomerFavorite = async (c: Customer) => {
-    await fetch(`${API_BASE}/customers/${c.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_favorite: !c.is_favorite })
-    });
+    await apiSend(`/customers/${c.id}`, 'PUT', { is_favorite: !c.is_favorite });
     notify(`${c.name} ${!c.is_favorite ? 'added to' : 'removed from'} Favorites!`);
     fetchData();
   };
 
   const toggleSupplierFavorite = async (s: Supplier) => {
-    await fetch(`${API_BASE}/suppliers/${s.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_favorite: !s.is_favorite })
-    });
+    await apiSend(`/suppliers/${s.id}`, 'PUT', { is_favorite: !s.is_favorite });
     notify(`${s.name} ${!s.is_favorite ? 'added to' : 'removed from'} Favorites!`);
     fetchData();
   };
@@ -492,30 +548,19 @@ export default function App() {
         c => c.id === saleCustomerId || c.name.toLowerCase() === cleanName.toLowerCase()
       );
       if (existing) {
-        await fetch(`${API_BASE}/customers/${existing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_favorite: nextFav })
-        });
+        await apiSend(`/customers/${existing.id}`, 'PUT', { is_favorite: nextFav });
         setSaleCustomerId(existing.id);
         notify(`${existing.name} ${nextFav ? 'saved to Favorites ★' : 'removed from Favorites'}`);
       } else if (nextFav) {
-        const res = await fetch(`${API_BASE}/customers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: cleanName,
-            city: saleCustomerCity.trim() || 'Local',
-            credit_limit: 50000,
-            current_receivable: 0,
-            is_favorite: true
-          })
+        const created = await apiSend('/customers', 'POST', {
+          name: cleanName,
+          city: saleCustomerCity.trim() || 'Local',
+          credit_limit: 50000,
+          current_receivable: 0,
+          is_favorite: true
         });
-        if (res.ok) {
-          const created = await res.json();
-          setSaleCustomerId(created.id);
-          notify(`New Customer '${cleanName}' created & added to Favorites ★`);
-        }
+        setSaleCustomerId(created.id);
+        notify(`New Customer '${cleanName}' created & added to Favorites ★`);
       }
       fetchData();
     } catch (err: any) {
@@ -536,29 +581,59 @@ export default function App() {
         s => s.id === purSupplierId || s.name.toLowerCase() === cleanName.toLowerCase()
       );
       if (existing) {
-        await fetch(`${API_BASE}/suppliers/${existing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_favorite: nextFav })
-        });
+        await apiSend(`/suppliers/${existing.id}`, 'PUT', { is_favorite: nextFav });
         setPurSupplierId(existing.id);
         notify(`${existing.name} ${nextFav ? 'saved to Favorites ★' : 'removed from Favorites'}`);
       } else if (nextFav) {
-        const res = await fetch(`${API_BASE}/suppliers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: cleanName,
-            city: purSupplierCity.trim() || 'Local',
-            current_payable: 0,
-            is_favorite: true
-          })
+        const created = await apiSend('/suppliers', 'POST', {
+          name: cleanName,
+          city: purSupplierCity.trim() || 'Local',
+          current_payable: 0,
+          is_favorite: true
         });
-        if (res.ok) {
-          const created = await res.json();
-          setPurSupplierId(created.id);
-          notify(`New Supplier '${cleanName}' created & added to Favorites ★`);
-        }
+        setPurSupplierId(created.id);
+        notify(`New Supplier '${cleanName}' created & added to Favorites ★`);
+      }
+      fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
+  };
+
+  const handleInstantProductFavorite = async (mode: 'SALE' | 'PURCHASE') => {
+    const pName = (mode === 'SALE' ? saleProductName : purProductName).trim();
+    const cName = (mode === 'SALE' ? saleCompanyName : purCompanyName).trim() || 'ATH Oils';
+    const pSize = Number(mode === 'SALE' ? salePackSize : purPackSize) || 700;
+    const cSize = Number(mode === 'SALE' ? saleCartonSize : purCartonSize) || 12;
+    const currentFav = mode === 'SALE' ? saleProdFav : purProdFav;
+
+    if (!pName) {
+      notify('Please type or select a Product name first.', true);
+      return;
+    }
+    const nextFav = !currentFav;
+    if (mode === 'SALE') setSaleProdFav(nextFav);
+    else setPurProdFav(nextFav);
+
+    try {
+      const existing = products.find(p => p.name.toLowerCase() === pName.toLowerCase());
+      if (existing) {
+        await apiSend(`/products/${existing.id}`, 'PUT', {
+          is_favorite: nextFav,
+          company_name: cName
+        });
+        notify(`${existing.name} ${nextFav ? 'saved to Favorite Products ★' : 'removed from Favorites'}`);
+      } else {
+        const created = await apiSend('/products', 'POST', {
+          name: pName,
+          company_name: cName,
+          pack_size: pSize,
+          units_per_carton: cSize,
+          is_favorite: true
+        });
+        if (mode === 'SALE') setSaleProductId(created.id);
+        else setPurProductId(created.id);
+        notify(`New Product '${pName}' (${cName}) created & added to Favorites ★`);
       }
       fetchData();
     } catch (err: any) {
@@ -573,48 +648,48 @@ export default function App() {
       notify('Please type a Customer / Dealership name or pick from Favorites.', true);
       return;
     }
+    if (!saleProductName.trim() && !saleProductId) {
+      notify('Please select or type a Product name.', true);
+      return;
+    }
     if (!saleQuantity || !saleRate || Number(saleQuantity) <= 0) {
       notify('Please enter valid Sale Quantity and Rate.', true);
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/sales`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_id: saleCustomerId || null,
-          customer_name: saleCustomerName.trim(),
-          customer_city: saleCustomerCity.trim() || 'Local',
-          mark_favorite: saleMarkFav,
-          items: [
-            {
-              product_id: Number(saleProductId),
-              location_id: Number(saleLocationId),
-              unit_type: saleUnitType,
-              quantity: Number(saleQuantity),
-              unit_rate: Number(saleRate),
-              units_per_carton: saleUpc,
-              pack_size: Number(salePackSize) || 700
-            }
-          ],
-          received_amount: computedSaleReceived,
-          payment_method: saleMethod,
-          remarks: saleRemarks
-        })
+      const data = await apiSend('/sales', 'POST', {
+        customer_id: saleCustomerId || null,
+        customer_name: saleCustomerName.trim(),
+        customer_city: saleCustomerCity.trim() || 'Local',
+        mark_favorite: saleMarkFav,
+        items: [
+          {
+            product_id: saleProductId || null,
+            product_name: saleProductName.trim(),
+            company_name: saleCompanyName.trim() || 'ATH Oils',
+            mark_product_favorite: saleProdFav,
+            location_id: Number(saleLocationId),
+            unit_type: saleUnitType,
+            quantity: Number(saleQuantity),
+            unit_rate: Number(saleRate),
+            units_per_carton: saleUpc,
+            pack_size: Number(salePackSize) || 700
+          }
+        ],
+        received_amount: computedSaleReceived,
+        payment_method: saleMethod,
+        remarks: saleRemarks
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Sale failed');
       notify(`Invoice ${data.invoice_number} posted (${saleTotalBottles} Bottles = ${saleCalcCartons} Cartons & ${saleCalcLoose} Bottles).`);
       setSaleCustomerId(0);
       setSaleCustomerName('');
       setSaleCustomerCity('');
-      setSaleMarkFav(false);
       setSaleQuantity('');
       setSaleRate('');
       setSaleReceived('');
       setSalePaymentMode('UNPAID');
       setSaleRemarks('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -626,50 +701,50 @@ export default function App() {
       notify('Please type a Supplier / Dealership name or pick from Favorites.', true);
       return;
     }
+    if (!purProductName.trim() && !purProductId) {
+      notify('Please type a Product name (any company) or pick from Favorites.', true);
+      return;
+    }
     if (!purQuantity || !purRate || Number(purQuantity) <= 0) {
       notify('Please enter valid Purchase Quantity and Rate.', true);
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/purchases`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplier_id: purSupplierId || null,
-          supplier_name: purSupplierName.trim(),
-          supplier_city: purSupplierCity.trim() || 'Local',
-          mark_favorite: purMarkFav,
-          items: [
-            {
-              product_id: Number(purProductId),
-              location_id: Number(purLocationId),
-              unit_type: purUnitType,
-              quantity: Number(purQuantity),
-              unit_rate: Number(purRate),
-              units_per_carton: purUpc,
-              pack_size: Number(purPackSize) || 700,
-              new_sale_rate_per_bottle: purNewSaleRatePerBottle ? Number(purNewSaleRatePerBottle) : null
-            }
-          ],
-          paid_amount: computedPurPaid,
-          payment_method: purMethod,
-          remarks: purRemarks
-        })
+      const data = await apiSend('/purchases', 'POST', {
+        supplier_id: purSupplierId || null,
+        supplier_name: purSupplierName.trim(),
+        supplier_city: purSupplierCity.trim() || 'Local',
+        mark_favorite: purMarkFav,
+        items: [
+          {
+            product_id: purProductId || null,
+            product_name: purProductName.trim(),
+            company_name: purCompanyName.trim() || 'ATH Oils',
+            mark_product_favorite: purProdFav,
+            location_id: Number(purLocationId),
+            unit_type: purUnitType,
+            quantity: Number(purQuantity),
+            unit_rate: Number(purRate),
+            units_per_carton: purUpc,
+            pack_size: Number(purPackSize) || 700,
+            new_sale_rate_per_bottle: purNewSaleRatePerBottle ? Number(purNewSaleRatePerBottle) : null
+          }
+        ],
+        paid_amount: computedPurPaid,
+        payment_method: purMethod,
+        remarks: purRemarks
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Purchase failed');
-      notify(`Purchase Bill ${data.purchase_number} recorded (${purTotalBottles} Bottles = ${purCalcCartons} Cartons & ${purCalcLoose} Bottles).`);
+      notify(`Purchase Bill ${data.purchase_number} recorded (+${purTotalBottles} Bottles = ${purCalcCartons} Cartons & ${purCalcLoose} Bottles).`);
       setPurSupplierId(0);
       setPurSupplierName('');
       setPurSupplierCity('');
-      setPurMarkFav(false);
       setPurQuantity('');
       setPurRate('');
       setPurNewSaleRatePerBottle('');
       setPurPaid('');
       setPurPaymentMode('UNPAID');
       setPurRemarks('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -680,22 +755,16 @@ export default function App() {
     e.preventDefault();
     if (setStockBottles === '') return;
     try {
-      const res = await fetch(`${API_BASE}/inventory/set-location-stock`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: Number(setStockProdId),
-          location_id: Number(setStockLocId),
-          stock_bottles: directStockNum,
-          pack_size: Number(directPackSize) || 700,
-          units_per_carton: directCartonMaxNum
-        })
+      const data = await apiSend('/inventory/set-location-stock', 'POST', {
+        product_id: Number(setStockProdId),
+        location_id: Number(setStockLocId),
+        stock_bottles: directStockNum,
+        pack_size: Number(directPackSize) || 700,
+        units_per_carton: directCartonMaxNum
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to update location stock');
       notify(data.message);
       setSetStockBottles('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -705,28 +774,22 @@ export default function App() {
   const handleRecordPartialPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!partialModal || !partialAmount || Number(partialAmount) <= 0) return;
-    const url =
+    const endpoint =
       partialModal.kind === 'SALE'
-        ? `${API_BASE}/sales/${partialModal.id}/payment`
-        : `${API_BASE}/purchases/${partialModal.id}/payment`;
+        ? `/sales/${partialModal.id}/payment`
+        : `/purchases/${partialModal.id}/payment`;
 
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: Number(partialAmount),
-          payment_method: partialMethod,
-          remarks: partialRemarks
-        })
+      await apiSend(endpoint, 'POST', {
+        amount: Number(partialAmount),
+        payment_method: partialMethod,
+        remarks: partialRemarks
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Installment failed');
       notify(`Installment of PKR ${Number(partialAmount).toLocaleString()} settled against ${partialModal.refNumber}!`);
       setPartialModal(null);
       setPartialAmount('');
       setPartialRemarks('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -735,25 +798,19 @@ export default function App() {
   // ==================== LOCATION & STOCK TRANSFER HANDLERS ====================
   const handleSaveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingLocationId ? `${API_BASE}/locations/${editingLocationId}` : `${API_BASE}/locations`;
+    const endpoint = editingLocationId ? `/locations/${editingLocationId}` : '/locations';
     const method = editingLocationId ? 'PUT' : 'POST';
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: locName,
-          location_type: locType,
-          address: locAddress
-        })
+      await apiSend(endpoint, method, {
+        name: locName,
+        location_type: locType,
+        address: locAddress
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Location save failed');
       notify(editingLocationId ? 'Storage Location updated!' : 'New Storage Location created!');
       setEditingLocationId(null);
       setLocName('');
       setLocAddress('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -763,91 +820,75 @@ export default function App() {
     e.preventDefault();
     if (!trfQuantity || Number(trfQuantity) <= 0) return;
     try {
-      const res = await fetch(`${API_BASE}/inventory/transfer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: Number(trfProductId),
-          from_location_id: Number(trfFromLocId),
-          to_location_id: Number(trfToLocId),
-          unit_type: trfUnitType,
-          quantity: Number(trfQuantity),
-          remarks: trfRemarks
-        })
+      const data = await apiSend('/inventory/transfer', 'POST', {
+        product_id: Number(trfProductId),
+        from_location_id: Number(trfFromLocId),
+        to_location_id: Number(trfToLocId),
+        unit_type: trfUnitType,
+        quantity: Number(trfQuantity),
+        remarks: trfRemarks
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Stock transfer failed');
       notify(data.message);
       setTrfQuantity('');
       setTrfRemarks('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
   };
 
-  // ==================== PRODUCT CRUD HANDLER ====================
+  // ==================== PRODUCT CRUD HANDLER (ANY COMPANY / BRAND) ====================
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingProductId ? `${API_BASE}/products/${editingProductId}` : `${API_BASE}/products`;
+    const endpoint = editingProductId ? `/products/${editingProductId}` : '/products';
     const method = editingProductId ? 'PUT' : 'POST';
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sku: prodSku,
-          name: prodName,
-          brand_id: Number(prodBrandId),
-          viscosity_grade: prodViscosity,
-          pack_size: Number(prodPackSize) || 700,
-          pack_unit: 'ML',
-          units_per_carton: Number(prodUnitsPerCarton) || 12,
-          purchase_rate: Number(prodPurchaseRate) || 0,
-          sale_rate: Number(prodSaleRate) || 0,
-          initial_stock: Number(prodInitialStock) || 0,
-          location_id: Number(prodInitialLocId),
-          reorder_level: Number(prodReorder) || 12
-        })
+      await apiSend(endpoint, method, {
+        sku: prodSku || undefined,
+        name: prodName,
+        company_name: prodCompanyName.trim() || 'ATH Oils',
+        brand_id: Number(prodBrandId),
+        viscosity_grade: prodViscosity,
+        pack_size: Number(prodPackSize) || 700,
+        pack_unit: 'ML',
+        units_per_carton: Number(prodUnitsPerCarton) || 12,
+        purchase_rate: Number(prodPurchaseRate) || 0,
+        sale_rate: Number(prodSaleRate) || 0,
+        initial_stock: Number(prodInitialStock) || 0,
+        location_id: Number(prodInitialLocId),
+        reorder_level: Number(prodReorder) || 12,
+        is_favorite: true
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Product save failed');
-      notify(editingProductId ? 'Product SKU updated!' : 'New Product SKU added!');
+      notify(editingProductId ? 'Product updated!' : `New Product '${prodName}' (${prodCompanyName}) added!`);
       setEditingProductId(null);
       setProdSku('');
       setProdName('');
       setProdPurchaseRate('');
       setProdSaleRate('');
       setProdInitialStock('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
   };
 
-  // ==================== EXPENSE, CUSTOMER, SUPPLIER, ACCOUNT HANDLERS ====================
+  // ==================== EXPENSE, CUSTOMER, SUPPLIER & ACCOUNT HANDLERS ====================
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expAmount || Number(expAmount) <= 0) return;
     try {
-      const res = await fetch(`${API_BASE}/expenses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: expCategory,
-          description: expDesc,
-          amount: Number(expAmount),
-          payment_method: expMethod,
-          paid_to: expPaidTo
-        })
+      const data = await apiSend('/expenses', 'POST', {
+        category: expCategory,
+        description: expDesc,
+        amount: Number(expAmount),
+        payment_method: expMethod,
+        paid_to: expPaidTo
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Expense failed');
       notify(`Expense ${data.expense_number} recorded for PKR ${data.amount.toLocaleString()}`);
       setExpAmount('');
       setExpDesc('');
       setExpPaidTo('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
@@ -855,71 +896,113 @@ export default function App() {
 
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingCustomerId ? `${API_BASE}/customers/${editingCustomerId}` : `${API_BASE}/customers`;
+    const endpoint = editingCustomerId ? `/customers/${editingCustomerId}` : '/customers';
     const method = editingCustomerId ? 'PUT' : 'POST';
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await apiSend(endpoint, method, {
         name: cusName,
         phone: cusPhone,
         city: cusCity,
         credit_limit: Number(cusCreditLimit) || 50000,
-        current_receivable: Number(cusReceivable) || 0
-      })
-    });
-    notify(editingCustomerId ? 'Customer updated!' : 'New Customer added!');
-    setEditingCustomerId(null);
-    setCusName('');
-    setCusPhone('');
-    setCusCity('');
-    setCusReceivable('');
-    fetchData();
+        current_receivable: Number(cusReceivable) || 0,
+        is_favorite: true
+      });
+      notify(editingCustomerId ? 'Customer updated!' : 'New Customer added!');
+      setEditingCustomerId(null);
+      setCusName('');
+      setCusPhone('');
+      setCusCity('');
+      setCusReceivable('');
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
   };
 
   const handleSaveSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingSupplierId ? `${API_BASE}/suppliers/${editingSupplierId}` : `${API_BASE}/suppliers`;
+    const endpoint = editingSupplierId ? `/suppliers/${editingSupplierId}` : '/suppliers';
     const method = editingSupplierId ? 'PUT' : 'POST';
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await apiSend(endpoint, method, {
         name: supName,
         phone: supPhone,
         city: supCity,
-        current_payable: Number(supPayable) || 0
-      })
-    });
-    notify(editingSupplierId ? 'Supplier updated!' : 'New Supplier added!');
-    setEditingSupplierId(null);
-    setSupName('');
-    setSupPhone('');
-    setSupCity('');
-    setSupPayable('');
-    fetchData();
+        current_payable: Number(supPayable) || 0,
+        is_favorite: true
+      });
+      notify(editingSupplierId ? 'Supplier updated!' : 'New Supplier added!');
+      setEditingSupplierId(null);
+      setSupName('');
+      setSupPhone('');
+      setSupCity('');
+      setSupPayable('');
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
   };
 
   const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingAccountId ? `${API_BASE}/accounts/${editingAccountId}` : `${API_BASE}/accounts`;
+    const endpoint = editingAccountId ? `/accounts/${editingAccountId}` : '/accounts';
     const method = editingAccountId ? 'PUT' : 'POST';
-    await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await apiSend(endpoint, method, {
         name: accName,
         type: accType,
         account_number: accNumber,
         current_balance: Number(accBalance) || 0
-      })
-    });
-    notify(editingAccountId ? 'Account balance updated!' : 'New Financial Account added!');
-    setEditingAccountId(null);
-    setAccName('');
-    setAccNumber('');
-    setAccBalance('');
-    fetchData();
+      });
+      notify(editingAccountId ? 'Account details updated!' : 'New Financial Account created!');
+      setEditingAccountId(null);
+      setAccName('');
+      setAccNumber('');
+      setAccBalance('');
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
+  };
+
+  // Incremental Add Cash (+3000) or Withdraw (-Amount) without overwriting total balance
+  const handleAdjustAccountBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjAmount || Number(adjAmount) <= 0) return;
+    try {
+      const data = await apiSend('/accounts/adjust', 'POST', {
+        account_id: Number(adjAccountId),
+        operation: adjOperation,
+        amount: Number(adjAmount),
+        remarks: adjRemarks
+      });
+      notify(data.message);
+      setAdjAmount('');
+      setAdjRemarks('');
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
+  };
+
+  // Direct Wallet/Bank Transfer (e.g. JazzCash -> Easypaisa)
+  const handleTransferBetweenAccounts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trfAccAmount || Number(trfAccAmount) <= 0) return;
+    try {
+      const data = await apiSend('/accounts/transfer', 'POST', {
+        from_account_id: Number(trfFromAccId),
+        to_account_id: Number(trfToAccId),
+        amount: Number(trfAccAmount),
+        remarks: trfAccRemarks
+      });
+      notify(data.message);
+      setTrfAccAmount('');
+      setTrfAccRemarks('');
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message, true);
+    }
   };
 
   // ==================== PASSWORD-PROTECTED REVERSE & RECYCLE BIN ====================
@@ -942,28 +1025,22 @@ export default function App() {
     setSecurityError('');
     setSecurityBusy(true);
     try {
-      let url = '';
+      let endpoint = '';
       if (securityModal.mode === 'REVERSE') {
-        url = `${API_BASE}/security/reverse/${securityModal.entityType}/${securityModal.entityId}`;
+        endpoint = `/security/reverse/${securityModal.entityType}/${securityModal.entityId}`;
       } else if (securityModal.mode === 'PERMANENT_DELETE') {
-        url = `${API_BASE}/recycle-bin/${securityModal.trashId}/permanent-delete`;
+        endpoint = `/recycle-bin/${securityModal.trashId}/permanent-delete`;
       } else {
-        url = `${API_BASE}/recycle-bin/empty`;
+        endpoint = `/recycle-bin/empty`;
       }
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_password: securityPassword.trim() })
+      const data = await apiSend(endpoint, 'POST', {
+        admin_password: securityPassword.trim()
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Authorization failed.');
-      }
       notify(data.message || 'Authorized action executed.');
       setSecurityModal(null);
       setSecurityPassword('');
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       setSecurityError(err.message || 'Failed to execute action.');
     } finally {
@@ -973,16 +1050,13 @@ export default function App() {
 
   const handleRestoreFromBin = async (trashId: number) => {
     try {
-      const res = await fetch(`${API_BASE}/recycle-bin/${trashId}/restore`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Restore failed');
+      const data = await apiSend(`/recycle-bin/${trashId}/restore`, 'POST', {});
       notify(data.message);
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       notify(err.message, true);
     }
   };
-
   const pendingSales = sales.filter(s => s.receivable_amount > 0);
   const pendingPurchases = purchases.filter(p => p.payable_amount > 0);
 
@@ -1478,19 +1552,55 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-white font-semibold">Product</label>
-                      <select
-                        value={saleProductId}
-                        onChange={e => handleSelectSaleProduct(Number(e.target.value))}
-                        className="mt-1.5 erp-input"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-white font-semibold">Product & Company</label>
+                        <button
+                          type="button"
+                          onClick={() => handleInstantProductFavorite('SALE')}
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border transition ${
+                            saleProdFav
+                              ? 'bg-amber-500/25 text-amber-300 border-amber-400'
+                              : 'bg-black/80 text-zinc-300 border-white/15 hover:text-white'
+                          }`}
+                        >
+                          <Star className={`w-3 h-3 ${saleProdFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                          {saleProdFav ? '★ Favorite Product' : '☆ Mark Favorite'}
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Type Product Name (or pick Favorite below)"
+                        value={saleProductName}
+                        onChange={e => {
+                          setSaleProductName(e.target.value);
+                          const match = products.find(p => p.name.toLowerCase() === e.target.value.trim().toLowerCase());
+                          setSaleProductId(match ? match.id : 0);
+                        }}
+                        className="erp-input"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={saleProductId}
+                          onChange={e => handleSelectSaleProduct(Number(e.target.value))}
+                          className="erp-input text-amber-300 font-semibold"
+                        >
+                          <option value={0}>★ Pick Favorite ({favoriteProducts.length})</option>
+                          {favoriteProducts.map(p => (
+                            <option key={p.id} value={p.id}>
+                              ★ {p.name} ({p.brand_name})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Company (e.g. Shell / Honda)"
+                          value={saleCompanyName}
+                          onChange={e => setSaleCompanyName(e.target.value)}
+                          className="erp-input"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -1810,19 +1920,55 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-white font-semibold">Product</label>
-                      <select
-                        value={purProductId}
-                        onChange={e => handleSelectPurProduct(Number(e.target.value))}
-                        className="mt-1.5 erp-input"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-white font-semibold">Product & Company Name</label>
+                        <button
+                          type="button"
+                          onClick={() => handleInstantProductFavorite('PURCHASE')}
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border transition ${
+                            purProdFav
+                              ? 'bg-amber-500/25 text-amber-300 border-amber-400'
+                              : 'bg-black/80 text-zinc-300 border-white/15 hover:text-white'
+                          }`}
+                        >
+                          <Star className={`w-3 h-3 ${purProdFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                          {purProdFav ? '★ Favorite Product' : '☆ Mark Favorite'}
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Type new or existing Product Name"
+                        value={purProductName}
+                        onChange={e => {
+                          setPurProductName(e.target.value);
+                          const match = products.find(p => p.name.toLowerCase() === e.target.value.trim().toLowerCase());
+                          setPurProductId(match ? match.id : 0);
+                        }}
+                        className="erp-input"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={purProductId}
+                          onChange={e => handleSelectPurProduct(Number(e.target.value))}
+                          className="erp-input text-amber-300 font-semibold"
+                        >
+                          <option value={0}>★ Pick Favorite ({favoriteProducts.length})</option>
+                          {favoriteProducts.map(p => (
+                            <option key={p.id} value={p.id}>
+                              ★ {p.name} ({p.brand_name})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Company (e.g. Havoline / Total)"
+                          value={purCompanyName}
+                          onChange={e => setPurCompanyName(e.target.value)}
+                          className="erp-input"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -2244,102 +2390,219 @@ export default function App() {
             )}
 
             {currentNav.accSub === 'wallets' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <form onSubmit={handleSaveAccount} className="glass-panel rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
-                    {editingAccountId ? 'EDIT FINANCIAL ACCOUNT' : 'ADD FINANCIAL ACCOUNT'}
-                  </h3>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Account Title (e.g. Meezan Bank / Cash)"
-                    value={accName}
-                    onChange={e => setAccName(e.target.value)}
-                    className="erp-input"
-                  />
-                  <select
-                    value={accType}
-                    onChange={e => setAccType(e.target.value)}
-                    className="erp-input"
-                  >
-                    <option value="CASH">CASH</option>
-                    <option value="BANK">BANK</option>
-                    <option value="EASYPAISA">EASYPAISA</option>
-                    <option value="JAZZCASH">JAZZCASH</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Account / IBAN / Mobile #"
-                    value={accNumber}
-                    onChange={e => setAccNumber(e.target.value)}
-                    className="erp-input"
-                  />
-                  <input
-                    type="number"
-                    required
-                    placeholder="Current Balance (PKR)"
-                    value={accBalance}
-                    onChange={e => setAccBalance(e.target.value)}
-                    className="erp-input"
-                  />
-                  <div className="flex gap-2">
+              <div className="space-y-6">
+                {/* Top Action Row: 1. Add/Withdraw Incremental Cash (+3000) | 2. Transfer JazzCash <-> Easypaisa | 3. Create/Edit Account */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Card 1: Add (+3,000) or Withdraw Cash without overwriting existing balance */}
+                  <form onSubmit={handleAdjustAccountBalance} className="glass-panel rounded-2xl p-5 space-y-3 border border-emerald-500/30">
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
+                      <Plus className="w-4 h-4 text-emerald-400" /> ADD OR WITHDRAW FUNDS (+PKR)
+                    </h3>
+                    <p className="text-[11px] text-zinc-300">
+                      Enter only the new amount to add (e.g. type 3000 to add onto existing 1000 = 4000)
+                    </p>
+                    <select
+                      value={adjAccountId}
+                      onChange={e => setAdjAccountId(Number(e.target.value))}
+                      className="erp-input"
+                    >
+                      {accounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.type}) — Curr: PKR {acc.current_balance.toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={adjOperation}
+                        onChange={e => setAdjOperation(e.target.value as 'DEPOSIT' | 'WITHDRAW')}
+                        className="erp-input font-bold text-amber-400"
+                      >
+                        <option value="DEPOSIT">+ ADD / DEPOSIT</option>
+                        <option value="WITHDRAW">- WITHDRAW</option>
+                      </select>
+                      <input
+                        type="number"
+                        required
+                        placeholder="Amount (e.g. 3000)"
+                        value={adjAmount}
+                        onChange={e => setAdjAmount(e.target.value)}
+                        className="erp-input"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Optional note / reason"
+                      value={adjRemarks}
+                      onChange={e => setAdjRemarks(e.target.value)}
+                      className="erp-input"
+                    />
                     <button
                       type="submit"
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase transition"
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase transition shadow-lg shadow-emerald-600/25"
                     >
-                      {editingAccountId ? 'Update Account' : 'Add Account'}
+                      {adjOperation === 'DEPOSIT' ? '+ Add Amount to Account' : '- Withdraw Amount'}
                     </button>
-                    {editingAccountId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingAccountId(null);
-                          setAccName('');
-                          setAccNumber('');
-                          setAccBalance('');
-                        }}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
+                  </form>
 
-                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {accounts.map(acc => (
-                    <div key={acc.id} className="glass-panel p-5 rounded-2xl flex justify-between items-center">
+                  {/* Card 2: Transfer Between Wallets & Banks (e.g. JazzCash -> Easypaisa) */}
+                  <form onSubmit={handleTransferBetweenAccounts} className="glass-panel rounded-2xl p-5 space-y-3 border border-amber-500/30">
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
+                      <ArrowLeftRight className="w-4 h-4 text-amber-400" /> TRANSFER BETWEEN ACCOUNTS
+                    </h3>
+                    <p className="text-[11px] text-zinc-300">
+                      Move money instantly between JazzCash, Easypaisa, HBL Bank & Cash Drawer
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="text-[10px] font-mono uppercase bg-black px-2.5 py-0.5 rounded-full text-amber-400 border border-amber-500/30">
-                          {acc.type}
-                        </span>
-                        <div className="text-base font-bold text-white mt-1.5">{acc.name}</div>
-                        <div className="text-xs text-zinc-300 font-mono">{acc.account_number || 'N/A'}</div>
-                        <div className="text-xl font-extrabold text-emerald-400 mt-2 tabular-nums">
-                          PKR {acc.current_balance.toLocaleString()}
-                        </div>
+                        <label className="text-[11px] text-rose-400 font-bold">From Account</label>
+                        <select
+                          value={trfFromAccId}
+                          onChange={e => setTrfFromAccId(Number(e.target.value))}
+                          className="mt-1 erp-input"
+                        >
+                          {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.name} (PKR {acc.current_balance.toLocaleString()})
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div>
+                        <label className="text-[11px] text-emerald-400 font-bold">To Account</label>
+                        <select
+                          value={trfToAccId}
+                          onChange={e => setTrfToAccId(Number(e.target.value))}
+                          className="mt-1 erp-input"
+                        >
+                          {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.name} (PKR {acc.current_balance.toLocaleString()})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <input
+                      type="number"
+                      required
+                      placeholder="Transfer Amount in PKR"
+                      value={trfAccAmount}
+                      onChange={e => setTrfAccAmount(e.target.value)}
+                      className="erp-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Transfer Note (e.g. JazzCash to Easypaisa)"
+                      value={trfAccRemarks}
+                      onChange={e => setTrfAccRemarks(e.target.value)}
+                      className="erp-input"
+                    />
+                    <button type="submit" className="w-full btn-oil py-2.5 text-xs uppercase">
+                      Transfer Funds Now
+                    </button>
+                  </form>
+
+                  {/* Card 3: Create New or Edit Account Details */}
+                  <form onSubmit={handleSaveAccount} className="glass-panel rounded-2xl p-5 space-y-3">
+                    <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
+                      {editingAccountId ? 'EDIT ACCOUNT DETAILS' : 'CREATE NEW ACCOUNT'}
+                    </h3>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Account Title (e.g. Meezan Bank / UBL)"
+                      value={accName}
+                      onChange={e => setAccName(e.target.value)}
+                      className="erp-input"
+                    />
+                    <select
+                      value={accType}
+                      onChange={e => setAccType(e.target.value)}
+                      className="erp-input"
+                    >
+                      <option value="CASH">CASH</option>
+                      <option value="BANK">BANK</option>
+                      <option value="EASYPAISA">EASYPAISA</option>
+                      <option value="JAZZCASH">JAZZCASH</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Account / IBAN / Mobile #"
+                      value={accNumber}
+                      onChange={e => setAccNumber(e.target.value)}
+                      className="erp-input"
+                    />
+                    <input
+                      type="number"
+                      required
+                      placeholder="Opening / Set Balance (PKR)"
+                      value={accBalance}
+                      onChange={e => setAccBalance(e.target.value)}
+                      className="erp-input"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="flex-1 btn-primary py-2.5 text-xs uppercase"
+                      >
+                        {editingAccountId ? 'Save Changes' : 'Create Account'}
+                      </button>
+                      {editingAccountId && (
                         <button
+                          type="button"
                           onClick={() => {
-                            setEditingAccountId(acc.id);
-                            setAccName(acc.name);
-                            setAccType(acc.type);
-                            setAccNumber(acc.account_number || '');
-                            setAccBalance(String(acc.current_balance));
+                            setEditingAccountId(null);
+                            setAccName('');
+                            setAccNumber('');
+                            setAccBalance('');
                           }}
-                          className="p-2.5 bg-black/80 hover:bg-amber-500/20 text-amber-400 rounded-xl border border-white/10 transition"
-                          title="Edit Account"
+                          className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          Cancel
                         </button>
-                        <button
-                          onClick={() => triggerReverse('ACCOUNT', acc.id, acc.name)}
-                          className="p-2.5 bg-black/80 hover:bg-rose-500/20 text-rose-400 rounded-xl border border-white/10 transition"
-                          title="Delete Account to Recycle Bin"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* Live Account Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {accounts.map(acc => (
+                    <div key={acc.id} className="glass-panel p-5 rounded-2xl flex flex-col justify-between gap-4">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase bg-black px-2.5 py-0.5 rounded-full text-amber-400 border border-amber-500/30">
+                            {acc.type}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingAccountId(acc.id);
+                                setAccName(acc.name);
+                                setAccType(acc.type);
+                                setAccNumber(acc.account_number || '');
+                                setAccBalance(String(acc.current_balance));
+                              }}
+                              className="p-1.5 bg-black/80 hover:bg-amber-500/20 text-amber-400 rounded-lg border border-white/10 transition"
+                              title="Edit Account"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => triggerReverse('ACCOUNT', acc.id, acc.name)}
+                              className="p-1.5 bg-black/80 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-white/10 transition"
+                              title="Move Account to Recycle Bin"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-base font-bold text-white mt-2">{acc.name}</div>
+                        <div className="text-xs text-zinc-400 font-mono">{acc.account_number || 'N/A'}</div>
+                      </div>
+                      <div className="text-2xl font-black text-emerald-400 tabular-nums border-t border-white/10 pt-3">
+                        PKR {acc.current_balance.toLocaleString()}
                       </div>
                     </div>
                   ))}
@@ -2701,6 +2964,17 @@ export default function App() {
                       placeholder="e.g. ATH 700ML / Altus"
                       value={prodName}
                       onChange={e => setProdName(e.target.value)}
+                      className="mt-1.5 erp-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-amber-400 font-semibold">Company / Brand Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. ATH Oils / Shell / Honda / Havoline"
+                      value={prodCompanyName}
+                      onChange={e => setProdCompanyName(e.target.value)}
                       className="mt-1.5 erp-input"
                     />
                   </div>

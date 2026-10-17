@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 import json
 import uuid
 
@@ -11,15 +11,17 @@ from .database import engine, Base, get_db
 from .models import (
     Brand, StorageLocation, Product, ProductLocationStock,
     Supplier, Customer, Purchase, PurchaseItem,
-    Sale, SaleItem, StockMovement, FinancialAccount, Expense, RecycleBin
+    Sale, SaleItem, StockMovement, FinancialAccount,
+    AccountTransaction, Expense, RecycleBin
 )
 from .schemas import (
-    LoginRequest, PasswordVerifyRequest, PartialPaymentRequest,
+    BootstrapRequest, LoginRequest, PasswordVerifyRequest, PartialPaymentRequest,
     LocationCreate, LocationUpdate, StockTransferRequest, DirectLocationStockSet,
     ProductCreate, ProductUpdate,
     CustomerCreate, CustomerUpdate,
     SupplierCreate, SupplierUpdate,
     FinancialAccountCreate, FinancialAccountUpdate,
+    AccountAdjustRequest, AccountTransferRequest,
     PurchaseCreate, SaleCreate, ExpenseCreate
 )
 from .seed import seed_database
@@ -36,24 +38,260 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SERVER_STATE_VERSION = 0
+
 
 @app.on_event("startup")
 def on_startup():
     seed_database()
     with engine.connect() as conn:
-        for tbl in ["customers", "suppliers"]:
+        for tbl in ["customers", "suppliers", "products"]:
             try:
                 cols = [r[1] for r in conn.execute(text(f"PRAGMA table_info({tbl})")).fetchall()]
                 if "is_favorite" not in cols:
                     conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN is_favorite BOOLEAN DEFAULT 1"))
                     conn.commit()
-                # If no favorites are marked yet, mark existing records as favorite so dropdown is populated
                 fav_count = conn.execute(text(f"SELECT COUNT(*) FROM {tbl} WHERE is_favorite = 1")).scalar()
                 if fav_count == 0:
                     conn.execute(text(f"UPDATE {tbl} SET is_favorite = 1"))
                     conn.commit()
             except Exception:
                 pass
+
+
+def bump_version() -> int:
+    global SERVER_STATE_VERSION
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    SERVER_STATE_VERSION = max(SERVER_STATE_VERSION + 1, now_ms)
+    return SERVER_STATE_VERSION
+
+
+def export_full_snapshot(db: Session) -> Dict[str, Any]:
+    global SERVER_STATE_VERSION
+    if SERVER_STATE_VERSION == 0:
+        SERVER_STATE_VERSION = 1000
+
+    return {
+        "version": SERVER_STATE_VERSION,
+        "brands": [
+            {"id": b.id, "code": b.code, "name": b.name, "is_owned_brand": b.is_owned_brand}
+            for b in db.query(Brand).all()
+        ],
+        "locations": [
+            {"id": l.id, "code": l.code, "name": l.name, "location_type": l.location_type, "address": l.address}
+            for l in db.query(StorageLocation).all()
+        ],
+        "products": [
+            {
+                "id": p.id, "sku": p.sku, "name": p.name, "brand_id": p.brand_id,
+                "viscosity_grade": p.viscosity_grade, "pack_size": p.pack_size,
+                "pack_unit": p.pack_unit, "units_per_carton": p.units_per_carton,
+                "purchase_rate": p.purchase_rate, "sale_rate": p.sale_rate,
+                "current_stock": p.current_stock, "reorder_level": p.reorder_level,
+                "is_favorite": bool(getattr(p, "is_favorite", True))
+            }
+            for p in db.query(Product).all()
+        ],
+        "location_stocks": [
+            {"id": ls.id, "product_id": ls.product_id, "location_id": ls.location_id, "stock_bottles": ls.stock_bottles}
+            for ls in db.query(ProductLocationStock).all()
+        ],
+        "suppliers": [
+            {
+                "id": s.id, "code": s.code, "name": s.name, "phone": s.phone,
+                "city": s.city, "opening_payable": s.opening_payable,
+                "current_payable": s.current_payable, "is_favorite": bool(getattr(s, "is_favorite", True))
+            }
+            for s in db.query(Supplier).all()
+        ],
+        "customers": [
+            {
+                "id": c.id, "code": c.code, "name": c.name, "phone": c.phone,
+                "city": c.city, "credit_limit": c.credit_limit,
+                "opening_receivable": c.opening_receivable, "current_receivable": c.current_receivable,
+                "is_favorite": bool(getattr(c, "is_favorite", True))
+            }
+            for c in db.query(Customer).all()
+        ],
+        "accounts": [
+            {"id": a.id, "name": a.name, "type": a.type, "account_number": a.account_number, "current_balance": a.current_balance}
+            for a in db.query(FinancialAccount).all()
+        ],
+        "account_transactions": [
+            {
+                "id": t.id, "tx_number": t.tx_number, "tx_date": t.tx_date.isoformat(),
+                "tx_type": t.tx_type, "account_id": t.account_id, "to_account_id": t.to_account_id,
+                "channel": t.channel, "party": t.party, "description": t.description,
+                "cash_in": t.cash_in, "cash_out": t.cash_out
+            }
+            for t in db.query(AccountTransaction).all()
+        ],
+        "purchases": [
+            {
+                "id": p.id, "purchase_number": p.purchase_number, "supplier_id": p.supplier_id,
+                "invoice_date": p.invoice_date.isoformat(), "total_amount": p.total_amount,
+                "paid_amount": p.paid_amount, "payable_amount": p.payable_amount,
+                "payment_status": p.payment_status, "remarks": p.remarks,
+                "items": [
+                    {
+                        "product_id": i.product_id, "location_id": i.location_id,
+                        "unit_type": i.unit_type, "quantity": i.quantity,
+                        "units_per_carton": i.units_per_carton, "base_quantity": i.base_quantity,
+                        "unit_rate": i.unit_rate, "line_total": i.line_total
+                    }
+                    for i in p.items
+                ]
+            }
+            for p in db.query(Purchase).all()
+        ],
+        "sales": [
+            {
+                "id": s.id, "invoice_number": s.invoice_number, "customer_id": s.customer_id,
+                "invoice_date": s.invoice_date.isoformat(), "total_amount": s.total_amount,
+                "received_amount": s.received_amount, "receivable_amount": s.receivable_amount,
+                "payment_status": s.payment_status, "remarks": s.remarks,
+                "items": [
+                    {
+                        "product_id": i.product_id, "location_id": i.location_id,
+                        "unit_type": i.unit_type, "quantity": i.quantity,
+                        "units_per_carton": i.units_per_carton, "base_quantity": i.base_quantity,
+                        "unit_rate": i.unit_rate, "line_total": i.line_total
+                    }
+                    for i in s.items
+                ]
+            }
+            for s in db.query(Sale).all()
+        ],
+        "expenses": [
+            {
+                "id": e.id, "expense_number": e.expense_number, "expense_date": e.expense_date.isoformat(),
+                "category": e.category, "description": e.description, "payment_method": e.payment_method,
+                "amount": e.amount, "paid_to": e.paid_to
+            }
+            for e in db.query(Expense).all()
+        ],
+        "recycle_bin": [
+            {
+                "id": r.id, "entity_type": r.entity_type, "entity_id": r.entity_id,
+                "reference_code": r.reference_code, "title": r.title, "summary": r.summary,
+                "amount": r.amount, "payload_json": r.payload_json,
+                "deleted_at": r.deleted_at.isoformat()
+            }
+            for r in db.query(RecycleBin).all()
+        ]
+    }
+
+
+def sync_from_client_snapshot_if_newer(db: Session, snap: Optional[Dict[str, Any]]):
+    """Hydrates this serverless container if the client holds a newer state snapshot."""
+    global SERVER_STATE_VERSION
+    if not snap or not isinstance(snap, dict):
+        return
+    client_ver = int(snap.get("version") or 0)
+    if client_ver <= SERVER_STATE_VERSION:
+        return
+
+    try:
+        db.execute(text("PRAGMA foreign_keys=OFF"))
+        for tbl in [
+            "sale_items", "sales", "purchase_items", "purchases",
+            "product_location_stocks", "stock_movements", "products",
+            "brands", "storage_locations", "suppliers", "customers",
+            "account_transactions", "financial_accounts", "expenses", "recycle_bin"
+        ]:
+            db.execute(text(f"DELETE FROM {tbl}"))
+        db.flush()
+
+        for b in snap.get("brands", []):
+            db.add(Brand(id=b["id"], code=b["code"], name=b["name"], is_owned_brand=b.get("is_owned_brand", False)))
+        for l in snap.get("locations", []):
+            db.add(StorageLocation(id=l["id"], code=l["code"], name=l["name"], location_type=l.get("location_type", "WAREHOUSE"), address=l.get("address")))
+        for p in snap.get("products", []):
+            db.add(Product(
+                id=p["id"], sku=p["sku"], name=p["name"], brand_id=p.get("brand_id", 1),
+                viscosity_grade=p.get("viscosity_grade", "20W-50 4T"), pack_size=p.get("pack_size", 700),
+                pack_unit=p.get("pack_unit", "ML"), units_per_carton=p.get("units_per_carton", 12),
+                purchase_rate=p.get("purchase_rate", 0.0), sale_rate=p.get("sale_rate", 0.0),
+                current_stock=p.get("current_stock", 0), reorder_level=p.get("reorder_level", 12),
+                is_favorite=bool(p.get("is_favorite", True))
+            ))
+        for ls in snap.get("location_stocks", []):
+            db.add(ProductLocationStock(id=ls["id"], product_id=ls["product_id"], location_id=ls["location_id"], stock_bottles=ls["stock_bottles"]))
+        for s in snap.get("suppliers", []):
+            db.add(Supplier(
+                id=s["id"], code=s["code"], name=s["name"], phone=s.get("phone"),
+                city=s.get("city", "Local"), opening_payable=s.get("opening_payable", 0.0),
+                current_payable=s.get("current_payable", 0.0), is_favorite=bool(s.get("is_favorite", True))
+            ))
+        for c in snap.get("customers", []):
+            db.add(Customer(
+                id=c["id"], code=c["code"], name=c["name"], phone=c.get("phone"),
+                city=c.get("city", "Local"), credit_limit=c.get("credit_limit", 50000.0),
+                opening_receivable=c.get("opening_receivable", 0.0), current_receivable=c.get("current_receivable", 0.0),
+                is_favorite=bool(c.get("is_favorite", True))
+            ))
+        for a in snap.get("accounts", []):
+            db.add(FinancialAccount(id=a["id"], name=a["name"], type=a["type"], account_number=a.get("account_number"), current_balance=a.get("current_balance", 0.0)))
+        for t in snap.get("account_transactions", []):
+            db.add(AccountTransaction(
+                id=t["id"], tx_number=t["tx_number"],
+                tx_date=datetime.fromisoformat(t["tx_date"]) if t.get("tx_date") else datetime.utcnow(),
+                tx_type=t["tx_type"], account_id=t.get("account_id"), to_account_id=t.get("to_account_id"),
+                channel=t.get("channel", "CASH"), party=t.get("party"), description=t.get("description"),
+                cash_in=t.get("cash_in", 0.0), cash_out=t.get("cash_out", 0.0)
+            ))
+        for p in snap.get("purchases", []):
+            pur = Purchase(
+                id=p["id"], purchase_number=p["purchase_number"], supplier_id=p["supplier_id"],
+                invoice_date=datetime.fromisoformat(p["invoice_date"]) if p.get("invoice_date") else datetime.utcnow(),
+                total_amount=p["total_amount"], paid_amount=p["paid_amount"],
+                payable_amount=p["payable_amount"], payment_status=p["payment_status"], remarks=p.get("remarks")
+            )
+            db.add(pur)
+            db.flush()
+            for i in p.get("items", []):
+                db.add(PurchaseItem(
+                    purchase_id=pur.id, product_id=i["product_id"], location_id=i.get("location_id"),
+                    unit_type=i["unit_type"], quantity=i["quantity"], units_per_carton=i["units_per_carton"],
+                    base_quantity=i["base_quantity"], unit_rate=i["unit_rate"], line_total=i["line_total"]
+                ))
+        for s in snap.get("sales", []):
+            sal = Sale(
+                id=s["id"], invoice_number=s["invoice_number"], customer_id=s["customer_id"],
+                invoice_date=datetime.fromisoformat(s["invoice_date"]) if s.get("invoice_date") else datetime.utcnow(),
+                total_amount=s["total_amount"], received_amount=s["received_amount"],
+                receivable_amount=s["receivable_amount"], payment_status=s["payment_status"], remarks=s.get("remarks")
+            )
+            db.add(sal)
+            db.flush()
+            for i in s.get("items", []):
+                db.add(SaleItem(
+                    sale_id=sal.id, product_id=i["product_id"], location_id=i.get("location_id"),
+                    unit_type=i["unit_type"], quantity=i["quantity"], units_per_carton=i["units_per_carton"],
+                    base_quantity=i["base_quantity"], unit_rate=i["unit_rate"], line_total=i["line_total"]
+                ))
+        for e in snap.get("expenses", []):
+            db.add(Expense(
+                id=e["id"], expense_number=e["expense_number"],
+                expense_date=datetime.fromisoformat(e["expense_date"]) if e.get("expense_date") else datetime.utcnow(),
+                category=e["category"], description=e.get("description"),
+                payment_method=e.get("payment_method", "CASH"), amount=e["amount"], paid_to=e.get("paid_to")
+            ))
+        for r in snap.get("recycle_bin", []):
+            db.add(RecycleBin(
+                id=r["id"], entity_type=r["entity_type"], entity_id=r["entity_id"],
+                reference_code=r["reference_code"], title=r["title"], summary=r.get("summary"),
+                amount=r.get("amount", 0.0), payload_json=r["payload_json"],
+                deleted_at=datetime.fromisoformat(r["deleted_at"]) if r.get("deleted_at") else datetime.utcnow()
+            ))
+
+        db.commit()
+        SERVER_STATE_VERSION = client_ver
+    except Exception as exc:
+        db.rollback()
+        print("Snapshot sync warning:", exc)
+    finally:
+        db.execute(text("PRAGMA foreign_keys=ON"))
 
 
 def verify_admin_password(pw: str):
@@ -79,6 +317,72 @@ def extract_channel_and_remarks(raw_remarks: Optional[str], default_channel: str
         parts = raw_remarks.split("|", 1)
         return parts[0].strip().upper(), parts[1].strip()
     return default_channel, raw_remarks
+
+
+def resolve_or_create_brand(db: Session, company_name: Optional[str], default_brand_id: int = 1) -> Brand:
+    if company_name and company_name.strip():
+        clean_co = company_name.strip()
+        brand = db.query(Brand).filter(Brand.name.ilike(clean_co)).first()
+        if not brand:
+            brand = Brand(
+                code=f"BR-{uuid.uuid4().hex[:4].upper()}",
+                name=clean_co,
+                is_owned_brand=("ATH" in clean_co.upper())
+            )
+            db.add(brand)
+            db.flush()
+        return brand
+    brand = db.query(Brand).filter(Brand.id == default_brand_id).first()
+    if not brand:
+        brand = db.query(Brand).first()
+    return brand
+
+
+def resolve_or_create_product(
+    db: Session,
+    product_id: Optional[int],
+    product_name: Optional[str],
+    company_name: Optional[str],
+    pack_size: Optional[float],
+    units_per_carton: Optional[int],
+    mark_fav: Optional[bool]
+) -> Product:
+    prod = None
+    if product_name and product_name.strip():
+        clean_name = product_name.strip()
+        prod = db.query(Product).filter(Product.name.ilike(clean_name)).first()
+        if not prod:
+            brand = resolve_or_create_brand(db, company_name, 1)
+            prod = Product(
+                sku=f"SKU-{uuid.uuid4().hex[:4].upper()}",
+                name=clean_name,
+                brand_id=brand.id if brand else 1,
+                viscosity_grade="20W-50 4T",
+                pack_size=pack_size if (pack_size and pack_size > 0) else 700.0,
+                pack_unit="ML",
+                units_per_carton=units_per_carton if (units_per_carton and units_per_carton > 0) else 12,
+                purchase_rate=0.0,
+                sale_rate=0.0,
+                current_stock=0,
+                reorder_level=12,
+                is_favorite=bool(mark_fav) if mark_fav is not None else True
+            )
+            db.add(prod)
+            db.flush()
+        elif company_name and company_name.strip():
+            brand = resolve_or_create_brand(db, company_name, prod.brand_id)
+            if brand:
+                prod.brand_id = brand.id
+    elif product_id:
+        prod = db.query(Product).filter(Product.id == product_id).first()
+
+    if not prod:
+        raise HTTPException(status_code=400, detail="Please select or type a valid Product name.")
+
+    if mark_fav is not None:
+        prod.is_favorite = bool(mark_fav)
+
+    return prod
 
 
 def adjust_location_stock(db: Session, product: Product, location_id: int, delta_bottles: int):
@@ -127,6 +431,29 @@ def adjust_location_stock(db: Session, product: Product, location_id: int, delta
 
     all_loc_stocks = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == product.id).all()
     product.current_stock = sum(ls.stock_bottles for ls in all_loc_stocks)
+
+
+# ==================== UNIFIED SINGLE-REQUEST BOOTSTRAP & SYNC ENGINE ====================
+@app.post("/api/bootstrap")
+def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    period = payload.period if payload.period in ("daily", "weekly", "monthly", "all") else "monthly"
+    channel = payload.channel or "ALL"
+
+    return {
+        "stats": get_dashboard_stats(period=period, db=db),
+        "locations": list_locations(db=db),
+        "products": list_products(db=db),
+        "customers": list_customers(db=db),
+        "suppliers": list_suppliers(db=db),
+        "sales": list_sales(period=period, db=db),
+        "purchases": list_purchases(period=period, db=db),
+        "expenses": list_expenses(period=period, db=db),
+        "accounts": list_financial_accounts(db=db),
+        "account_history": get_accounts_history(period=period, channel=channel, db=db),
+        "recycle_bin": list_recycle_bin(db=db),
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 # ==================== AUTHENTICATION ====================
@@ -239,6 +566,7 @@ def list_locations(db: Session = Depends(get_db)):
                 items_detail.append({
                     "product_id": ps.product.id,
                     "product_name": ps.product.name,
+                    "company_name": ps.product.brand.name if ps.product.brand else "ATH Oils",
                     "sku": ps.product.sku,
                     "pack_size": f"{int(ps.product.pack_size)} {ps.product.pack_unit}",
                     "units_per_carton": upc,
@@ -261,6 +589,7 @@ def list_locations(db: Session = Depends(get_db)):
 
 @app.post("/api/locations")
 def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     existing = db.query(StorageLocation).filter(StorageLocation.name == payload.name.strip()).first()
     if existing:
         raise HTTPException(status_code=400, detail="A location with this name already exists.")
@@ -272,28 +601,38 @@ def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
         address=payload.address
     )
     db.add(loc)
+    bump_version()
     db.commit()
     db.refresh(loc)
-    return loc
+    return {"status": "success", "location": loc, "snapshot": export_full_snapshot(db)}
 
 
 @app.put("/api/locations/{location_id}")
 def update_location(location_id: int, payload: LocationUpdate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     loc = db.query(StorageLocation).filter(StorageLocation.id == location_id).first()
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
-    for k, v in payload.dict(exclude_unset=True).items():
+    for k, v in payload.dict(exclude_unset=True, exclude={"client_snapshot"}).items():
         setattr(loc, k, v)
+    bump_version()
     db.commit()
-    return loc
+    return {"status": "success", "snapshot": export_full_snapshot(db)}
 
 
 # ==================== DIRECT LOCATION STOCK SET & STOCK TRANSFER ====================
 @app.post("/api/inventory/set-location-stock")
 def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.id == payload.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found.")
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    product = resolve_or_create_product(
+        db=db,
+        product_id=payload.product_id,
+        product_name=payload.product_name,
+        company_name=payload.company_name,
+        pack_size=payload.pack_size,
+        units_per_carton=payload.units_per_carton,
+        mark_fav=True
+    )
     loc = db.query(StorageLocation).filter(StorageLocation.id == payload.location_id).first()
     if not loc:
         raise HTTPException(status_code=404, detail="Storage location not found.")
@@ -321,6 +660,7 @@ def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Dep
     db.flush()
     all_loc_stocks = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == product.id).all()
     product.current_stock = sum(ls.stock_bottles for ls in all_loc_stocks)
+    bump_version()
     db.commit()
 
     upc = product.units_per_carton if product.units_per_carton > 0 else 12
@@ -328,12 +668,14 @@ def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Dep
     loose = payload.stock_bottles % upc
     return {
         "status": "success",
-        "message": f"Updated {product.name} ({int(product.pack_size)} {product.pack_unit}) in {loc.name} to {payload.stock_bottles} Bottles ({ctns} Cartons + {loose} Bottles)."
+        "message": f"Updated {product.name} ({int(product.pack_size)} {product.pack_unit}) in {loc.name} to {payload.stock_bottles} Bottles ({ctns} Cartons + {loose} Bottles).",
+        "snapshot": export_full_snapshot(db)
     }
 
 
 @app.post("/api/inventory/transfer")
 def transfer_stock(payload: StockTransferRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     if payload.from_location_id == payload.to_location_id:
         raise HTTPException(status_code=400, detail="Source and Destination locations must be different.")
 
@@ -361,11 +703,13 @@ def transfer_stock(payload: StockTransferRequest, db: Session = Depends(get_db))
         qty_out=base_bottles,
         running_balance=product.current_stock
     ))
+    bump_version()
     db.commit()
     return {
         "status": "success",
         "reference": ref_no,
-        "message": f"Transferred {base_bottles} bottles ({int(product.pack_size)} {product.pack_unit}) of {product.name} from {from_loc.name} to {to_loc.name}."
+        "message": f"Transferred {base_bottles} bottles ({int(product.pack_size)} {product.pack_unit}) of {product.name} from {from_loc.name} to {to_loc.name}.",
+        "snapshot": export_full_snapshot(db)
     }
 
 
@@ -417,6 +761,7 @@ def list_products(db: Session = Depends(get_db)):
             "stock_valuation": round(p.current_stock * p.purchase_rate, 2),
             "reorder_level": p.reorder_level,
             "is_low_stock": p.current_stock <= p.reorder_level,
+            "is_favorite": bool(getattr(p, "is_favorite", True)),
             "locations": loc_breakdown
         })
     return result
@@ -424,14 +769,18 @@ def list_products(db: Session = Depends(get_db)):
 
 @app.post("/api/products")
 def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
-    existing = db.query(Product).filter(Product.sku == payload.sku.strip().upper()).first()
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    sku_code = (payload.sku or f"SKU-{uuid.uuid4().hex[:4].upper()}").strip().upper()
+    existing = db.query(Product).filter(Product.sku == sku_code).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"SKU {payload.sku} already exists.")
+        sku_code = f"{sku_code}-{uuid.uuid4().hex[:2].upper()}"
+
+    brand = resolve_or_create_brand(db, payload.company_name, payload.brand_id)
 
     new_prod = Product(
-        sku=payload.sku.strip().upper(),
+        sku=sku_code,
         name=payload.name.strip(),
-        brand_id=payload.brand_id,
+        brand_id=brand.id if brand else 1,
         viscosity_grade=payload.viscosity_grade,
         pack_size=payload.pack_size,
         pack_unit=payload.pack_unit,
@@ -439,7 +788,8 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
         purchase_rate=payload.purchase_rate,
         sale_rate=payload.sale_rate,
         current_stock=0,
-        reorder_level=payload.reorder_level
+        reorder_level=payload.reorder_level,
+        is_favorite=bool(payload.is_favorite)
     )
     db.add(new_prod)
     db.flush()
@@ -452,23 +802,30 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
         if target_loc_id:
             adjust_location_stock(db, new_prod, target_loc_id, payload.initial_stock)
 
+    bump_version()
     db.commit()
     db.refresh(new_prod)
-    return {"status": "success", "id": new_prod.id}
+    return {"status": "success", "id": new_prod.id, "snapshot": export_full_snapshot(db)}
 
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    if payload.company_name and payload.company_name.strip():
+        brand = resolve_or_create_brand(db, payload.company_name, prod.brand_id)
+        if brand:
+            prod.brand_id = brand.id
+    for field, value in payload.dict(exclude_unset=True, exclude={"client_snapshot", "company_name"}).items():
         setattr(prod, field, value)
+    bump_version()
     db.commit()
-    return {"status": "success", "id": prod.id}
+    return {"status": "success", "id": prod.id, "snapshot": export_full_snapshot(db)}
 
 
-# ==================== CUSTOMERS & SUPPLIERS & ACCOUNTS ====================
+# ==================== CUSTOMERS & SUPPLIERS ====================
 @app.get("/api/customers")
 def list_customers(db: Session = Depends(get_db)):
     return db.query(Customer).order_by(Customer.id.asc()).all()
@@ -476,6 +833,7 @@ def list_customers(db: Session = Depends(get_db)):
 
 @app.post("/api/customers")
 def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     code = payload.code or f"CUS-{uuid.uuid4().hex[:4].upper()}"
     c = Customer(
         code=code,
@@ -490,20 +848,23 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)):
         is_favorite=bool(payload.is_favorite)
     )
     db.add(c)
+    bump_version()
     db.commit()
     db.refresh(c)
-    return c
+    return {"id": c.id, "name": c.name, "city": c.city, "is_favorite": c.is_favorite, "snapshot": export_full_snapshot(db)}
 
 
 @app.put("/api/customers/{customer_id}")
 def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     c = db.query(Customer).filter(Customer.id == customer_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Customer not found")
-    for k, v in payload.dict(exclude_unset=True).items():
+    for k, v in payload.dict(exclude_unset=True, exclude={"client_snapshot"}).items():
         setattr(c, k, v)
+    bump_version()
     db.commit()
-    return c
+    return {"status": "success", "snapshot": export_full_snapshot(db)}
 
 
 @app.get("/api/suppliers")
@@ -513,6 +874,7 @@ def list_suppliers(db: Session = Depends(get_db)):
 
 @app.post("/api/suppliers")
 def create_supplier(payload: SupplierCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     code = payload.code or f"SUP-{uuid.uuid4().hex[:4].upper()}"
     s = Supplier(
         code=code,
@@ -526,22 +888,26 @@ def create_supplier(payload: SupplierCreate, db: Session = Depends(get_db)):
         is_favorite=bool(payload.is_favorite)
     )
     db.add(s)
+    bump_version()
     db.commit()
     db.refresh(s)
-    return s
+    return {"id": s.id, "name": s.name, "city": s.city, "is_favorite": s.is_favorite, "snapshot": export_full_snapshot(db)}
 
 
 @app.put("/api/suppliers/{supplier_id}")
 def update_supplier(supplier_id: int, payload: SupplierUpdate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     s = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    for k, v in payload.dict(exclude_unset=True).items():
+    for k, v in payload.dict(exclude_unset=True, exclude={"client_snapshot"}).items():
         setattr(s, k, v)
+    bump_version()
     db.commit()
-    return s
+    return {"status": "success", "snapshot": export_full_snapshot(db)}
 
 
+# ==================== FINANCIAL ACCOUNTS, DEPOSITS (+3000) & TRANSFERS ====================
 @app.get("/api/accounts")
 def list_financial_accounts(db: Session = Depends(get_db)):
     return db.query(FinancialAccount).order_by(FinancialAccount.id.asc()).all()
@@ -549,27 +915,131 @@ def list_financial_accounts(db: Session = Depends(get_db)):
 
 @app.post("/api/accounts")
 def create_financial_account(payload: FinancialAccountCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     acc = FinancialAccount(
-        name=payload.name,
+        name=payload.name.strip(),
         type=payload.type.upper(),
         account_number=payload.account_number,
-        current_balance=payload.current_balance
+        current_balance=round(payload.current_balance, 2)
     )
     db.add(acc)
+    bump_version()
     db.commit()
     db.refresh(acc)
-    return acc
+    return {"status": "success", "account": acc, "snapshot": export_full_snapshot(db)}
 
 
 @app.put("/api/accounts/{account_id}")
 def update_financial_account(account_id: int, payload: FinancialAccountUpdate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     acc = db.query(FinancialAccount).filter(FinancialAccount.id == account_id).first()
     if not acc:
         raise HTTPException(status_code=404, detail="Account not found")
-    for k, v in payload.dict(exclude_unset=True).items():
+    for k, v in payload.dict(exclude_unset=True, exclude={"client_snapshot"}).items():
         setattr(acc, k, v)
+    bump_version()
     db.commit()
-    return acc
+    return {"status": "success", "snapshot": export_full_snapshot(db)}
+
+
+@app.post("/api/accounts/adjust")
+def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(get_db)):
+    """Adds (+Deposit) or Deducts (-Withdraw) an incremental amount to/from an existing account balance."""
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.account_id).first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Financial account not found.")
+
+    amt = round(payload.amount, 2)
+    prev_bal = round(acc.current_balance, 2)
+
+    if payload.operation == "WITHDRAW" and prev_bal < amt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient funds in {acc.name}. Current Balance: PKR {prev_bal:,.0f}, Requested Withdrawal: PKR {amt:,.0f}."
+        )
+
+    tx_no = f"DEP-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    if payload.operation == "DEPOSIT":
+        acc.current_balance = round(prev_bal + amt, 2)
+        db.add(AccountTransaction(
+            tx_number=tx_no,
+            tx_type="CASH DEPOSIT",
+            account_id=acc.id,
+            channel=acc.type,
+            party=acc.name,
+            description=payload.remarks or f"Added +PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} → New: PKR {acc.current_balance:,.0f})",
+            cash_in=amt,
+            cash_out=0.0
+        ))
+        msg = f"Added PKR {amt:,.0f} to {acc.name}! (Previous: PKR {prev_bal:,.0f} → New Balance: PKR {acc.current_balance:,.0f})"
+    else:
+        tx_no = f"WDR-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        acc.current_balance = round(prev_bal - amt, 2)
+        db.add(AccountTransaction(
+            tx_number=tx_no,
+            tx_type="CASH WITHDRAWAL",
+            account_id=acc.id,
+            channel=acc.type,
+            party=acc.name,
+            description=payload.remarks or f"Withdrew -PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} → New: PKR {acc.current_balance:,.0f})",
+            cash_in=0.0,
+            cash_out=amt
+        ))
+        msg = f"Withdrew PKR {amt:,.0f} from {acc.name}! (Previous: PKR {prev_bal:,.0f} → New Balance: PKR {acc.current_balance:,.0f})"
+
+    bump_version()
+    db.commit()
+    return {
+        "status": "success",
+        "message": msg,
+        "new_balance": acc.current_balance,
+        "snapshot": export_full_snapshot(db)
+    }
+
+
+@app.post("/api/accounts/transfer")
+def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Depends(get_db)):
+    """Transfers money directly between two accounts (e.g., JazzCash to Easypaisa or Cash to Bank)."""
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    if payload.from_account_id == payload.to_account_id:
+        raise HTTPException(status_code=400, detail="Source and Destination accounts must be different.")
+
+    from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.from_account_id).first()
+    to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.to_account_id).first()
+    if not from_acc or not to_acc:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    amt = round(payload.amount, 2)
+    if from_acc.current_balance < amt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient balance in {from_acc.name} (Available: PKR {from_acc.current_balance:,.0f}, Transfer: PKR {amt:,.0f})."
+        )
+
+    from_acc.current_balance = round(from_acc.current_balance - amt, 2)
+    to_acc.current_balance = round(to_acc.current_balance + amt, 2)
+
+    tx_no = f"ATRF-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    db.add(AccountTransaction(
+        tx_number=tx_no,
+        tx_type="ACCOUNT TRANSFER",
+        account_id=from_acc.id,
+        to_account_id=to_acc.id,
+        channel=f"{from_acc.type} → {to_acc.type}",
+        party=f"{from_acc.name} → {to_acc.name}",
+        description=payload.remarks or f"Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}",
+        cash_in=amt,
+        cash_out=amt
+    ))
+
+    bump_version()
+    db.commit()
+    return {
+        "status": "success",
+        "message": f"Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}!",
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 # ==================== LOCATION-AWARE PURCHASES ENGINE ====================
@@ -590,13 +1060,14 @@ def list_purchases(
         loc_names = []
         for i in p.items:
             p_name = i.product.name if i.product else "Unknown"
+            co_name = i.product.brand.name if (i.product and i.product.brand) else ""
             p_size = f"{int(i.product.pack_size)}{i.product.pack_unit}" if i.product else ""
             l_name = i.location.name if i.location else "Main Warehouse"
             upc = max(1, i.units_per_carton)
             ctns = i.base_quantity // upc
             loose = i.base_quantity % upc
             item_descriptions.append(
-                f"{int(i.quantity)} {i.unit_type} {p_name} ({p_size}) → {i.base_quantity} Btls [{ctns} Ctn + {loose} Btl @ {upc}/Ctn]"
+                f"{int(i.quantity)} {i.unit_type} {p_name} [{co_name}] ({p_size}) → {i.base_quantity} Btls [{ctns} Ctn + {loose} Btl @ {upc}/Ctn]"
             )
             if l_name not in loc_names:
                 loc_names.append(l_name)
@@ -621,6 +1092,7 @@ def list_purchases(
 
 @app.post("/api/purchases")
 def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     supplier = None
     if payload.supplier_name and payload.supplier_name.strip():
         clean_name = payload.supplier_name.strip()
@@ -650,9 +1122,15 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
     stock_updates = []
 
     for item in payload.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found")
+        product = resolve_or_create_product(
+            db=db,
+            product_id=item.product_id,
+            product_name=item.product_name,
+            company_name=item.company_name,
+            pack_size=item.pack_size,
+            units_per_carton=item.units_per_carton,
+            mark_fav=item.mark_product_favorite
+        )
 
         loc = db.query(StorageLocation).filter(StorageLocation.id == item.location_id).first()
         if not loc:
@@ -722,13 +1200,21 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
         if acc:
             acc.current_balance = round(acc.current_balance - paid_amt, 2)
 
+    bump_version()
     db.commit()
     db.refresh(new_purchase)
-    return {"status": "success", "purchase_number": pur_no, "total": total_amount, "payable": payable}
+    return {
+        "status": "success",
+        "purchase_number": pur_no,
+        "total": total_amount,
+        "payable": payable,
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 @app.post("/api/purchases/{purchase_id}/payment")
 def record_purchase_partial_payment(purchase_id: int, payload: PartialPaymentRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     pur = db.query(Purchase).filter(Purchase.id == purchase_id).first()
     if not pur:
         raise HTTPException(status_code=404, detail="Purchase bill not found")
@@ -753,8 +1239,9 @@ def record_purchase_partial_payment(purchase_id: int, payload: PartialPaymentReq
     if acc:
         acc.current_balance = round(acc.current_balance - amt, 2)
 
+    bump_version()
     db.commit()
-    return {"status": "success", "purchase_number": pur.purchase_number}
+    return {"status": "success", "purchase_number": pur.purchase_number, "snapshot": export_full_snapshot(db)}
 
 
 # ==================== LOCATION-AWARE SALES ENGINE ====================
@@ -775,13 +1262,14 @@ def list_sales(
         loc_names = []
         for i in s.items:
             p_name = i.product.name if i.product else "Unknown"
+            co_name = i.product.brand.name if (i.product and i.product.brand) else ""
             p_size = f"{int(i.product.pack_size)}{i.product.pack_unit}" if i.product else ""
             l_name = i.location.name if i.location else "Shop Display"
             upc = max(1, i.units_per_carton)
             ctns = i.base_quantity // upc
             loose = i.base_quantity % upc
             item_descriptions.append(
-                f"{int(i.quantity)} {i.unit_type} {p_name} ({p_size}) → {i.base_quantity} Btls [{ctns} Ctn + {loose} Btl @ {upc}/Ctn]"
+                f"{int(i.quantity)} {i.unit_type} {p_name} [{co_name}] ({p_size}) → {i.base_quantity} Btls [{ctns} Ctn + {loose} Btl @ {upc}/Ctn]"
             )
             if l_name not in loc_names:
                 loc_names.append(l_name)
@@ -806,6 +1294,7 @@ def list_sales(
 
 @app.post("/api/sales")
 def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     customer = None
     if payload.customer_name and payload.customer_name.strip():
         clean_name = payload.customer_name.strip()
@@ -836,9 +1325,15 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
     stock_deductions = []
 
     for item in payload.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found")
+        product = resolve_or_create_product(
+            db=db,
+            product_id=item.product_id,
+            product_name=item.product_name,
+            company_name=item.company_name,
+            pack_size=item.pack_size,
+            units_per_carton=item.units_per_carton,
+            mark_fav=item.mark_product_favorite
+        )
 
         loc = db.query(StorageLocation).filter(StorageLocation.id == item.location_id).first()
         if not loc:
@@ -909,13 +1404,21 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         if acc:
             acc.current_balance = round(acc.current_balance + rec_amt, 2)
 
+    bump_version()
     db.commit()
     db.refresh(new_sale)
-    return {"status": "success", "invoice_number": invoice_no, "total": total_amount, "receivable": receivable}
+    return {
+        "status": "success",
+        "invoice_number": invoice_no,
+        "total": total_amount,
+        "receivable": receivable,
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 @app.post("/api/sales/{sale_id}/payment")
 def record_sale_partial_payment(sale_id: int, payload: PartialPaymentRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     sale = db.query(Sale).filter(Sale.id == sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale invoice not found")
@@ -940,8 +1443,9 @@ def record_sale_partial_payment(sale_id: int, payload: PartialPaymentRequest, db
     if acc:
         acc.current_balance = round(acc.current_balance + amt, 2)
 
+    bump_version()
     db.commit()
-    return {"status": "success", "invoice_number": sale.invoice_number}
+    return {"status": "success", "invoice_number": sale.invoice_number, "snapshot": export_full_snapshot(db)}
 
 
 # ==================== EXPENSES & ACCOUNTS HISTORY ====================
@@ -959,6 +1463,7 @@ def list_expenses(
 
 @app.post("/api/expenses")
 def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     exp_no = f"EXP-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     amt = round(payload.amount, 2)
     new_expense = Expense(
@@ -976,8 +1481,14 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
     if account:
         account.current_balance = round(account.current_balance - amt, 2)
 
+    bump_version()
     db.commit()
-    return {"status": "success", "expense_number": exp_no, "amount": amt}
+    return {
+        "status": "success",
+        "expense_number": exp_no,
+        "amount": amt,
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 @app.get("/api/accounts/history")
@@ -1054,11 +1565,32 @@ def get_accounts_history(
             "cash_out": round(e.amount, 2)
         })
 
+    for t in db.query(AccountTransaction).all():
+        if start_dt and t.tx_date < start_dt:
+            continue
+        if channel != "ALL" and channel not in (t.channel or ""):
+            continue
+        ledger.append({
+            "id": f"ATX-{t.id}",
+            "entity_type": "ACCOUNT_TX",
+            "entity_id": t.id,
+            "date": t.tx_date.strftime("%Y-%m-%d %H:%M"),
+            "timestamp": t.tx_date.isoformat(),
+            "type": t.tx_type,
+            "reference": t.tx_number,
+            "party": t.party or "Account",
+            "channel": t.channel,
+            "description": t.description or t.tx_type,
+            "total_bill": max(t.cash_in, t.cash_out),
+            "cash_in": round(t.cash_in, 2),
+            "cash_out": round(t.cash_out, 2)
+        })
+
     ledger.sort(key=lambda x: x["timestamp"], reverse=True)
     return ledger
 
 
-# ==================== PASSWORD-PROTECTED REVERSE & RECYCLE BIN (100% SQLITE FK-SAFE) ====================
+# ==================== PASSWORD-PROTECTED REVERSE & RECYCLE BIN ====================
 @app.post("/api/security/reverse/{entity_type}/{entity_id}")
 def reverse_and_move_to_trash(
     entity_type: str,
@@ -1066,13 +1598,13 @@ def reverse_and_move_to_trash(
     payload: PasswordVerifyRequest,
     db: Session = Depends(get_db)
 ):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     verify_admin_password(payload.admin_password)
     etype = entity_type.upper()
     default_loc = db.query(StorageLocation).first()
     default_loc_id = default_loc.id if default_loc else 1
 
     try:
-        # Temporarily disable SQLite FK enforcement during atomic cascade cleanup
         db.execute(text("PRAGMA foreign_keys=OFF"))
 
         if etype == "SALE":
@@ -1127,8 +1659,9 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale.invoice_number})
             db.execute(text("DELETE FROM sale_items WHERE sale_id = :sid"), {"sid": sale.id})
             db.execute(text("DELETE FROM sales WHERE id = :sid"), {"sid": sale.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Sale {snapshot['invoice_number']} reversed & moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Sale {snapshot['invoice_number']} reversed & moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "PURCHASE":
             pur = db.query(Purchase).filter(Purchase.id == entity_id).first()
@@ -1191,8 +1724,9 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": pur.purchase_number})
             db.execute(text("DELETE FROM purchase_items WHERE purchase_id = :pid"), {"pid": pur.id})
             db.execute(text("DELETE FROM purchases WHERE id = :pid"), {"pid": pur.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Purchase {snapshot['purchase_number']} reversed & moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Purchase {snapshot['purchase_number']} reversed & moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "EXPENSE":
             exp = db.query(Expense).filter(Expense.id == entity_id).first()
@@ -1222,8 +1756,35 @@ def reverse_and_move_to_trash(
                 payload_json=json.dumps(snapshot)
             ))
             db.execute(text("DELETE FROM expenses WHERE id = :eid"), {"eid": exp.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Expense {snapshot['expense_number']} reversed & refunded."}
+            return {"status": "reversed", "message": f"Expense {snapshot['expense_number']} reversed & refunded.", "snapshot": export_full_snapshot(db)}
+
+        elif etype == "ACCOUNT_TX":
+            atx = db.query(AccountTransaction).filter(AccountTransaction.id == entity_id).first()
+            if not atx:
+                raise HTTPException(status_code=404, detail="Account transaction not found")
+
+            if atx.tx_type == "CASH DEPOSIT" and atx.account_id:
+                acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+                if acc:
+                    acc.current_balance = round(acc.current_balance - atx.cash_in, 2)
+            elif atx.tx_type == "CASH WITHDRAWAL" and atx.account_id:
+                acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+                if acc:
+                    acc.current_balance = round(acc.current_balance + atx.cash_out, 2)
+            elif atx.tx_type == "ACCOUNT TRANSFER":
+                from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+                to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.to_account_id).first()
+                if from_acc:
+                    from_acc.current_balance = round(from_acc.current_balance + atx.cash_out, 2)
+                if to_acc:
+                    to_acc.current_balance = round(to_acc.current_balance - atx.cash_in, 2)
+
+            db.execute(text("DELETE FROM account_transactions WHERE id = :tid"), {"tid": atx.id})
+            bump_version()
+            db.commit()
+            return {"status": "reversed", "message": f"Account transaction {atx.tx_number} reversed.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "PRODUCT":
             prod = db.query(Product).filter(Product.id == entity_id).first()
@@ -1260,8 +1821,9 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM sale_items WHERE product_id = :pid"), {"pid": prod.id})
             db.execute(text("DELETE FROM purchase_items WHERE product_id = :pid"), {"pid": prod.id})
             db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Product {snapshot['name']} moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Product {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "CUSTOMER":
             cus = db.query(Customer).filter(Customer.id == entity_id).first()
@@ -1288,8 +1850,9 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE customer_id = :cid)"), {"cid": cus.id})
             db.execute(text("DELETE FROM sales WHERE customer_id = :cid"), {"cid": cus.id})
             db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cus.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Customer {snapshot['name']} moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Customer {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "SUPPLIER":
             sup = db.query(Supplier).filter(Supplier.id == entity_id).first()
@@ -1315,8 +1878,9 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM purchase_items WHERE purchase_id IN (SELECT id FROM purchases WHERE supplier_id = :sid)"), {"sid": sup.id})
             db.execute(text("DELETE FROM purchases WHERE supplier_id = :sid"), {"sid": sup.id})
             db.execute(text("DELETE FROM suppliers WHERE id = :sid"), {"sid": sup.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Supplier {snapshot['name']} moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Supplier {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "LOCATION":
             loc = db.query(StorageLocation).filter(StorageLocation.id == entity_id).first()
@@ -1340,8 +1904,9 @@ def reverse_and_move_to_trash(
             ))
             db.execute(text("DELETE FROM product_location_stocks WHERE location_id = :lid"), {"lid": loc.id})
             db.execute(text("DELETE FROM storage_locations WHERE id = :lid"), {"lid": loc.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Location {snapshot['name']} moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Location {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "ACCOUNT":
             acc = db.query(FinancialAccount).filter(FinancialAccount.id == entity_id).first()
@@ -1363,8 +1928,9 @@ def reverse_and_move_to_trash(
                 payload_json=json.dumps(snapshot)
             ))
             db.execute(text("DELETE FROM financial_accounts WHERE id = :aid"), {"aid": acc.id})
+            bump_version()
             db.commit()
-            return {"status": "reversed", "message": f"Account {snapshot['name']} moved to Recycle Bin."}
+            return {"status": "reversed", "message": f"Account {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         raise HTTPException(status_code=400, detail="Unsupported entity type.")
     except HTTPException:
@@ -1429,7 +1995,8 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
             purchase_rate=data.get("purchase_rate", 0.0),
             sale_rate=data.get("sale_rate", 0.0),
             current_stock=0,
-            reorder_level=data.get("reorder_level", 12)
+            reorder_level=data.get("reorder_level", 12),
+            is_favorite=True
         )
         db.add(prod)
         db.flush()
@@ -1443,7 +2010,8 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
             phone=data.get("phone"),
             city=data.get("city", "Local"),
             credit_limit=data.get("credit_limit", 50000.0),
-            current_receivable=data.get("current_receivable", 0.0)
+            current_receivable=data.get("current_receivable", 0.0),
+            is_favorite=True
         ))
 
     elif etype == "SUPPLIER":
@@ -1452,7 +2020,8 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
             name=data["name"],
             phone=data.get("phone"),
             city=data.get("city", "Local"),
-            current_payable=data.get("current_payable", 0.0)
+            current_payable=data.get("current_payable", 0.0),
+            is_favorite=True
         ))
 
     elif etype == "LOCATION":
@@ -1544,24 +2113,29 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
                 acc.current_balance = round(acc.current_balance - data["paid_amount"], 2)
 
     db.delete(trash)
+    bump_version()
     db.commit()
-    return {"status": "restored", "message": f"{trash.title} restored to active system."}
+    return {"status": "restored", "message": f"{trash.title} restored to active system.", "snapshot": export_full_snapshot(db)}
 
 
 @app.post("/api/recycle-bin/{trash_id}/permanent-delete")
 def permanent_delete_single(trash_id: int, payload: PasswordVerifyRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     verify_admin_password(payload.admin_password)
     trash = db.query(RecycleBin).filter(RecycleBin.id == trash_id).first()
     if not trash:
         raise HTTPException(status_code=404, detail="Record not found in Recycle Bin")
     db.delete(trash)
+    bump_version()
     db.commit()
-    return {"status": "purged", "message": "Record permanently deleted from Recycle Bin."}
+    return {"status": "purged", "message": "Record permanently deleted from Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
 
 @app.post("/api/recycle-bin/empty")
 def empty_recycle_bin(payload: PasswordVerifyRequest, db: Session = Depends(get_db)):
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     verify_admin_password(payload.admin_password)
     db.query(RecycleBin).delete(synchronize_session=False)
+    bump_version()
     db.commit()
-    return {"status": "emptied", "message": "Recycle Bin permanently emptied."}
+    return {"status": "emptied", "message": "Recycle Bin permanently emptied.", "snapshot": export_full_snapshot(db)}
