@@ -46,9 +46,11 @@ class Product(Base):
     units_per_carton = Column(Integer, default=12, nullable=False)
     purchase_rate = Column(Float, default=0.0)
     sale_rate = Column(Float, default=0.0)
+    carton_purchase_rate = Column(Float, default=0.0)
+    carton_sale_rate = Column(Float, default=0.0)
     current_stock = Column(Integer, default=0)
     reorder_level = Column(Integer, default=12)
-    is_favorite = Column(Boolean, default=True)
+    is_favorite = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
     brand = relationship("Brand", back_populates="products")
@@ -68,6 +70,19 @@ class ProductLocationStock(Base):
     location = relationship("StorageLocation", back_populates="product_stocks")
 
 
+class PartyGroup(Base):
+    __tablename__ = "party_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True, nullable=False)
+    name = Column(String(120), index=True, nullable=False)
+    party_type = Column(String(30), default="CUSTOMER", index=True)  # CUSTOMER or SUPPLIER
+    city = Column(String(100), nullable=True)
+    description = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Supplier(Base):
     __tablename__ = "suppliers"
 
@@ -76,13 +91,17 @@ class Supplier(Base):
     name = Column(String(150), nullable=False)
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(50), nullable=True)
+    cnic = Column(String(30), nullable=True)
+    group_id = Column(Integer, ForeignKey("party_groups.id"), nullable=True, index=True)
+    group_name = Column(String(100), default="General Suppliers")
     city = Column(String(100), nullable=False)
     address = Column(Text, nullable=True)
     opening_payable = Column(Float, default=0.0)
     current_payable = Column(Float, default=0.0)
-    is_favorite = Column(Boolean, default=True)
+    is_favorite = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
+    group = relationship("PartyGroup", foreign_keys=[group_id])
     purchases = relationship("Purchase", back_populates="supplier")
 
 
@@ -94,15 +113,21 @@ class Customer(Base):
     name = Column(String(150), nullable=False)
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(50), nullable=True)
+    cnic = Column(String(30), nullable=True)
+    group_id = Column(Integer, ForeignKey("party_groups.id"), nullable=True, index=True)
+    group_name = Column(String(100), default="General Market")
     city = Column(String(100), nullable=False)
     address = Column(Text, nullable=True)
     credit_limit = Column(Float, default=50000.0)
     opening_receivable = Column(Float, default=0.0)
     current_receivable = Column(Float, default=0.0)
-    is_favorite = Column(Boolean, default=True)
+    advance_credit = Column(Float, default=0.0)
+    is_favorite = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
+    group = relationship("PartyGroup", foreign_keys=[group_id])
     sales = relationship("Sale", back_populates="customer")
+    payments = relationship("CustomerPayment", back_populates="customer", cascade="all, delete-orphan")
 
 
 class Purchase(Base):
@@ -110,12 +135,18 @@ class Purchase(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     purchase_number = Column(String(50), unique=True, index=True, nullable=False)
+    doc_type = Column(String(30), default="PURCHASE")  # PURCHASE or PURCHASE_RETURN
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
     invoice_date = Column(DateTime, default=datetime.utcnow)
+    subtotal_amount = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
+    freight_amount = Column(Float, default=0.0)
     total_amount = Column(Float, nullable=False)
     paid_amount = Column(Float, default=0.0)
     payable_amount = Column(Float, default=0.0)
     payment_status = Column(String(20), default="UNPAID")
+    payment_arrangement = Column(String(40), default="WALLET")
+    account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     remarks = Column(Text, nullable=True)
 
     supplier = relationship("Supplier", back_populates="purchases")
@@ -146,12 +177,22 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_number = Column(String(50), unique=True, index=True, nullable=False)
+    doc_type = Column(String(30), default="SALE")  # SALE, SALE_RETURN, ESTIMATE
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     invoice_date = Column(DateTime, default=datetime.utcnow)
+    subtotal_amount = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
+    freight_amount = Column(Float, default=0.0)
     total_amount = Column(Float, nullable=False)
+    previous_dues = Column(Float, default=0.0)
+    include_previous_dues = Column(Boolean, default=False)
+    grand_payable = Column(Float, default=0.0)
     received_amount = Column(Float, default=0.0)
+    applied_to_previous = Column(Float, default=0.0)
     receivable_amount = Column(Float, default=0.0)
+    closing_receivable = Column(Float, default=0.0)
     payment_status = Column(String(20), default="UNPAID")
+    account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     remarks = Column(Text, nullable=True)
 
     customer = relationship("Customer", back_populates="sales")
@@ -170,6 +211,8 @@ class SaleItem(Base):
     units_per_carton = Column(Integer, default=12)
     base_quantity = Column(Integer, nullable=False)
     unit_rate = Column(Float, nullable=False)
+    cost_per_bottle = Column(Float, default=0.0)
+    line_cost = Column(Float, default=0.0)
     line_total = Column(Float, nullable=False)
 
     sale = relationship("Sale", back_populates="items")
@@ -183,7 +226,7 @@ class StockMovement(Base):
     id = Column(Integer, primary_key=True, index=True)
     movement_date = Column(DateTime, default=datetime.utcnow)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    movement_type = Column(String(30), nullable=False)
+    movement_type = Column(String(40), nullable=False)
     reference_number = Column(String(50), nullable=True)
     qty_in = Column(Integer, default=0)
     qty_out = Column(Integer, default=0)
@@ -208,14 +251,29 @@ class AccountTransaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     tx_number = Column(String(50), unique=True, index=True, nullable=False)
     tx_date = Column(DateTime, default=datetime.utcnow)
-    tx_type = Column(String(40), nullable=False)  # DEPOSIT, WITHDRAW, TRANSFER
+    tx_type = Column(String(50), nullable=False)
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     to_account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     channel = Column(String(40), default="CASH")
     party = Column(String(150), nullable=True)
+    reference_id = Column(Integer, nullable=True)
     description = Column(String(255), nullable=True)
     cash_in = Column(Float, default=0.0)
     cash_out = Column(Float, default=0.0)
+
+
+class LoanAccount(Base):
+    __tablename__ = "loan_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lender_name = Column(String(150), nullable=False)
+    loan_type = Column(String(40), default="MARKET_LOAN")  # OWNER_CAPITAL or MARKET_LOAN
+    phone = Column(String(50), nullable=True)
+    total_borrowed = Column(Float, default=0.0)
+    total_repaid = Column(Float, default=0.0)
+    current_balance = Column(Float, default=0.0)
+    notes = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Expense(Base):
@@ -227,9 +285,52 @@ class Expense(Base):
     category = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     payment_method = Column(String(50), default="CASH")
+    account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    payment_arrangement = Column(String(40), default="WALLET")
     amount = Column(Float, nullable=False)
     paid_to = Column(String(150), nullable=True)
     reference = Column(String(100), nullable=True)
+
+
+class CustomerPayment(Base):
+    __tablename__ = "customer_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_number = Column(String(50), unique=True, index=True, nullable=False)
+    idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    payment_date = Column(DateTime, default=datetime.utcnow)
+    payment_amount = Column(Float, nullable=False)
+    allocated_amount = Column(Float, default=0.0)
+    unallocated_credit = Column(Float, default=0.0)
+    outstanding_before = Column(Float, default=0.0)
+    outstanding_after = Column(Float, default=0.0)
+    payment_method = Column(String(40), default="CASH")
+    account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    remarks = Column(Text, nullable=True)
+    status = Column(String(30), default="CONFIRMED")  # CONFIRMED or REVERSED
+    reversed_at = Column(DateTime, nullable=True)
+    reversal_reason = Column(String(255), nullable=True)
+
+    customer = relationship("Customer", back_populates="payments")
+    allocations = relationship("CustomerPaymentAllocation", back_populates="payment", cascade="all, delete-orphan")
+
+
+class CustomerPaymentAllocation(Base):
+    __tablename__ = "customer_payment_allocations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey("customer_payments.id"), nullable=False, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    invoice_number = Column(String(50), nullable=False)
+    bill_original_amount = Column(Float, nullable=False)
+    outstanding_before = Column(Float, nullable=False)
+    allocated_amount = Column(Float, nullable=False)
+    remaining_after = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    payment = relationship("CustomerPayment", back_populates="allocations")
+    sale = relationship("Sale")
 
 
 class RecycleBin(Base):

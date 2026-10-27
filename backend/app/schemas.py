@@ -2,8 +2,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 
+
 class BootstrapRequest(BaseModel):
     period: str = "monthly"
+    custom_date: Optional[str] = None
     channel: str = "ALL"
     client_snapshot: Optional[Dict[str, Any]] = None
 
@@ -22,6 +24,9 @@ class PasswordVerifyRequest(BaseModel):
 class PartialPaymentRequest(BaseModel):
     amount: float = Field(..., gt=0)
     payment_method: str = "CASH"
+    account_id: Optional[int] = None
+    payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN
+    lender_name: Optional[str] = None
     remarks: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
@@ -61,6 +66,14 @@ class DirectLocationStockSet(BaseModel):
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
+class PartyGroupCreate(BaseModel):
+    name: str
+    party_type: str = "CUSTOMER"
+    city: Optional[str] = None
+    description: Optional[str] = None
+    client_snapshot: Optional[Dict[str, Any]] = None
+
+
 class ProductCreate(BaseModel):
     sku: Optional[str] = None
     name: str
@@ -75,7 +88,7 @@ class ProductCreate(BaseModel):
     initial_stock: int = 0
     location_id: Optional[int] = None
     reorder_level: int = 12
-    is_favorite: bool = True
+    is_favorite: bool = False
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -100,17 +113,23 @@ class CustomerCreate(BaseModel):
     name: str
     contact_person: Optional[str] = None
     phone: Optional[str] = None
+    cnic: Optional[str] = None
+    group_id: Optional[int] = None
+    group_name: Optional[str] = "General Market"
     city: str = "Local"
     address: Optional[str] = None
     credit_limit: float = 50000.0
     current_receivable: float = 0.0
-    is_favorite: bool = True
+    is_favorite: bool = False
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
 class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    cnic: Optional[str] = None
+    group_id: Optional[int] = None
+    group_name: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
     credit_limit: Optional[float] = None
@@ -124,16 +143,22 @@ class SupplierCreate(BaseModel):
     name: str
     contact_person: Optional[str] = None
     phone: Optional[str] = None
+    cnic: Optional[str] = None
+    group_id: Optional[int] = None
+    group_name: Optional[str] = "General Suppliers"
     city: str = "Local"
     address: Optional[str] = None
     current_payable: float = 0.0
-    is_favorite: bool = True
+    is_favorite: bool = False
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
 class SupplierUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    cnic: Optional[str] = None
+    group_id: Optional[int] = None
+    group_name: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
     current_payable: Optional[float] = None
@@ -173,11 +198,19 @@ class AccountTransferRequest(BaseModel):
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
+class LoanRepayRequest(BaseModel):
+    loan_id: int
+    amount: float = Field(..., gt=0)
+    account_id: int
+    remarks: Optional[str] = None
+    client_snapshot: Optional[Dict[str, Any]] = None
+
+
 class PurchaseItemCreate(BaseModel):
     product_id: Optional[int] = None
     product_name: Optional[str] = None
     company_name: Optional[str] = None
-    mark_product_favorite: Optional[bool] = True
+    mark_product_favorite: Optional[bool] = None
     location_id: int
     unit_type: str = Field(..., pattern="^(CARTON|BOTTLE)$")
     quantity: float = Field(..., gt=0)
@@ -188,13 +221,23 @@ class PurchaseItemCreate(BaseModel):
 
 
 class PurchaseCreate(BaseModel):
+    doc_type: str = "PURCHASE"  # PURCHASE or PURCHASE_RETURN
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
     supplier_city: Optional[str] = "Local"
-    mark_favorite: Optional[bool] = False
+    supplier_phone: Optional[str] = None
+    supplier_cnic: Optional[str] = None
+    supplier_group_id: Optional[int] = None
+    supplier_group: Optional[str] = "General Suppliers"
+    mark_favorite: Optional[bool] = None
     items: List[PurchaseItemCreate]
+    discount_amount: float = 0.0
+    freight_amount: float = 0.0
     paid_amount: float = 0.0
     payment_method: str = "CASH"
+    account_id: Optional[int] = None
+    payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN, SUPPLIER_CREDIT
+    lender_name: Optional[str] = None
     remarks: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
@@ -203,7 +246,7 @@ class SaleItemCreate(BaseModel):
     product_id: Optional[int] = None
     product_name: Optional[str] = None
     company_name: Optional[str] = None
-    mark_product_favorite: Optional[bool] = True
+    mark_product_favorite: Optional[bool] = None
     location_id: int
     unit_type: str = Field(..., pattern="^(CARTON|BOTTLE)$")
     quantity: float = Field(..., gt=0)
@@ -213,14 +256,44 @@ class SaleItemCreate(BaseModel):
 
 
 class SaleCreate(BaseModel):
+    doc_type: str = "SALE"  # SALE, SALE_RETURN, ESTIMATE
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     customer_city: Optional[str] = "Local"
-    mark_favorite: Optional[bool] = False
+    customer_phone: Optional[str] = None
+    customer_cnic: Optional[str] = None
+    customer_group_id: Optional[int] = None
+    customer_group: Optional[str] = "General Market"
+    mark_favorite: Optional[bool] = None
     items: List[SaleItemCreate]
+    discount_amount: float = 0.0
+    freight_amount: float = 0.0
+    include_previous_dues: bool = False
     received_amount: float = 0.0
     payment_method: str = "CASH"
+    account_id: Optional[int] = None
     remarks: Optional[str] = None
+    client_snapshot: Optional[Dict[str, Any]] = None
+
+
+class PaymentProposalRequest(BaseModel):
+    payment_amount: float = Field(..., gt=0)
+    allocation_policy: str = "OLDEST_FIRST"  # OLDEST_FIRST or NEWEST_FIRST
+
+
+class BillAllocationItemInput(BaseModel):
+    sale_id: int
+    allocated_amount: float = Field(..., ge=0)
+
+
+class ConfirmPaymentAllocationRequest(BaseModel):
+    payment_amount: float = Field(..., gt=0)
+    payment_method: str = "CASH"
+    account_id: Optional[int] = None
+    allocations: List[BillAllocationItemInput]
+    excess_action: str = "NONE"  # NONE, ADVANCE_CREDIT
+    remarks: Optional[str] = None
+    idempotency_key: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -228,6 +301,9 @@ class ExpenseCreate(BaseModel):
     category: str
     description: Optional[str] = None
     payment_method: str = "CASH"
+    account_id: Optional[int] = None
+    payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN
+    lender_name: Optional[str] = None
     amount: float = Field(..., gt=0)
     paid_to: Optional[str] = None
     reference: Optional[str] = None

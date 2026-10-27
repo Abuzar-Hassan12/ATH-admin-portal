@@ -5,16 +5,19 @@
 @tailwind utilities;
 
 :root {
-  --oil-gold-light: #FDE047;
-  --oil-gold: #F59E0B;
-  --oil-amber: #D97706;
-  --oil-deep: #92400E;
-  --carbon-black: #040406;
-  --obsidian-glass: rgba(8, 9, 13, 0.72);
-  --obsidian-elevated: rgba(14, 15, 22, 0.82);
-  --crimson-red: #E11D48;
-  --emerald-green: #10B981;
-  --pure-white: #FFFFFF;
+  /* ATH Logo Palette: Slate Gray, Crisp White, Crimson Red & Golden Yellow */
+  --ath-slate-base: #1E232D;
+  --ath-slate-surface: #272D3B;
+  --ath-slate-elevated: #313848;
+  --ath-gray-border: rgba(255, 255, 255, 0.16);
+  --ath-white: #FFFFFF;
+  --ath-offwhite: #F1F5F9;
+  --ath-red: #E11D48;
+  --ath-red-bright: #EF4444;
+  --ath-yellow-light: #FEF08A;
+  --ath-yellow: #FACC15;
+  --ath-amber: #F59E0B;
+  --ath-emerald: #10B981;
 }
 
 @layer base {
@@ -22,21 +25,27 @@
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
   }
 
   body {
     margin: 0;
-    background-color: var(--carbon-black);
-    color: var(--pure-white);
-    /* SamsungOne / Samsung Sharp Sans inspired geometric stack */
-    font-family: 'SamsungOne', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.015em;
+    background-color: var(--ath-slate-base);
+    color: var(--ath-white);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.012em;
     overflow-x: hidden;
     position: relative;
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
-  /* 40% Visibility Global Background Image Layer (/background.jpg) */
+  /* Global Background Image Layer (/background.jpg) blended with ATH Gray-Slate */
   body::before {
     content: '';
     position: fixed;
@@ -45,30 +54,31 @@
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
-    opacity: 0.40;
+    opacity: 0.28;
     z-index: -2;
     pointer-events: none;
     transform: scale(1.02);
-    filter: contrast(1.08) saturate(1.15);
+    filter: contrast(1.06) saturate(1.1);
   }
 
-  /* Subtle Oil & Obsidian Vignette Overlay for Maximum Text Contrast */
+  /* Metallic Slate Gray, Red & Golden Yellow Ambient Overlay (No Pitch Black) */
   body::after {
     content: '';
     position: fixed;
     inset: 0;
     background:
-      radial-gradient(circle at 20% 15%, rgba(245, 158, 11, 0.10) 0%, transparent 45%),
-      radial-gradient(circle at 85% 80%, rgba(225, 29, 72, 0.08) 0%, transparent 45%),
-      linear-gradient(180deg, rgba(4, 4, 6, 0.35) 0%, rgba(4, 4, 6, 0.65) 100%);
+      radial-gradient(circle at 15% 12%, rgba(250, 204, 21, 0.13) 0%, transparent 48%),
+      radial-gradient(circle at 88% 18%, rgba(225, 29, 72, 0.14) 0%, transparent 48%),
+      radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 55%),
+      linear-gradient(180deg, rgba(30, 35, 45, 0.78) 0%, rgba(36, 42, 54, 0.88) 50%, rgba(28, 33, 43, 0.94) 100%);
     z-index: -1;
     pointer-events: none;
   }
 
   h1, h2, h3, .samsung-heading {
     font-family: 'Space Grotesk', 'Inter', sans-serif;
-    letter-spacing: -0.03em;
-    color: #FFFFFF;
+    letter-spacing: -0.025em;
+    color: var(--ath-white);
   }
 
   .font-mono,
@@ -77,7 +87,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Completely strip up/down spin buttons from all number inputs */
+  /* Strip up/down spin buttons from all number inputs */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none !important;
@@ -91,7 +101,7 @@
   }
 }
 
-/* ==================== SAMSUNG-STYLE TEXT & SHIMMER ANIMATIONS ==================== */
+/* ==================== ATH RED, YELLOW & WHITE TEXT SHIMMER ==================== */
 @keyframes liquidGoldFlow {
   0% {
     background-position: 0% 50%;
@@ -108,9 +118,9 @@
   background: linear-gradient(
     90deg,
     #FFFFFF 0%,
-    #FDE047 25%,
-    #F59E0B 50%,
-    #EA580C 75%,
+    #FACC15 28%,
+    #EF4444 58%,
+    #FACC15 82%,
     #FFFFFF 100%
   );
   background-size: 220% auto;
@@ -130,10 +140,10 @@
   position: absolute;
   left: 0;
   bottom: -4px;
-  width: 36px;
-  height: 2.5px;
+  width: 42px;
+  height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #F59E0B, #E11D48);
+  background: linear-gradient(90deg, #E11D48, #FACC15, #FFFFFF);
   transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -141,17 +151,17 @@
   width: 100%;
 }
 
-/* ==================== VISCOUS FALLING OIL DROPLETS ANIMATION ==================== */
+/* ==================== VISCOUS FALLING GOLDEN OIL DROPLETS ==================== */
 @keyframes oilDripFall {
   0% {
     transform: translateY(-12vh) scaleX(0.85) scaleY(1.35);
     opacity: 0;
   }
   15% {
-    opacity: 0.75;
+    opacity: 0.72;
   }
   85% {
-    opacity: 0.65;
+    opacity: 0.62;
   }
   100% {
     transform: translateY(108vh) scaleX(0.75) scaleY(1.55);
@@ -162,10 +172,10 @@
 @keyframes oilHeaderDrip {
   0%, 100% {
     transform: translateY(0) scaleY(1);
-    opacity: 0.85;
+    opacity: 0.9;
   }
   50% {
-    transform: translateY(5px) scaleY(1.28);
+    transform: translateY(4px) scaleY(1.25);
     opacity: 1;
   }
 }
@@ -179,13 +189,13 @@
   background: radial-gradient(
     circle at 35% 30%,
     #FEF08A 0%,
-    #F59E0B 45%,
-    #B45309 85%,
-    #78350F 100%
+    #FACC15 45%,
+    #E11D48 88%,
+    #991B1B 100%
   );
   box-shadow:
-    0 4px 14px rgba(245, 158, 11, 0.45),
-    inset 1px 2px 3px rgba(255, 255, 255, 0.55);
+    0 4px 14px rgba(250, 204, 21, 0.42),
+    inset 1px 2px 3px rgba(255, 255, 255, 0.65);
   animation: oilDripFall linear infinite;
 }
 
@@ -197,7 +207,7 @@
 @keyframes pageEnter {
   0% {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
   }
   100% {
     opacity: 1;
@@ -217,55 +227,55 @@
 }
 
 .animate-fade-in {
-  animation: pageEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-modal {
-  animation: modalPop 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ==================== TRANSLUCENT OBSIDIAN-OIL GLASS SURFACES ==================== */
+/* ==================== METALLIC SLATE-GRAY & WHITE GLASS SURFACES ==================== */
 .glass-panel {
   background: linear-gradient(
     145deg,
-    rgba(10, 11, 15, 0.72) 0%,
-    rgba(6, 7, 10, 0.80) 100%
+    rgba(43, 50, 64, 0.88) 0%,
+    rgba(33, 39, 51, 0.94) 100%
   );
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
-    0 14px 34px -10px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+    0 12px 32px -8px rgba(15, 18, 25, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
   transition:
-    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.28s ease,
-    box-shadow 0.28s ease;
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .glass-panel:hover {
-  border-color: rgba(245, 158, 11, 0.42);
+  border-color: rgba(250, 204, 21, 0.48);
   box-shadow:
-    0 20px 42px -12px rgba(0, 0, 0, 0.9),
-    0 0 24px -8px rgba(245, 158, 11, 0.22),
-    inset 0 1px 0 0 rgba(251, 191, 36, 0.22);
+    0 18px 38px -10px rgba(15, 18, 25, 0.68),
+    0 0 22px -8px rgba(225, 29, 72, 0.24),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28);
 }
 
-/* KPI Metric Cards with Oil-Gold & Crimson Top Specular Line */
+/* KPI Metric Cards with ATH Red, Yellow & White Top Specular Ribbon */
 .kpi-card {
   position: relative;
   overflow: hidden;
   background: linear-gradient(
     160deg,
-    rgba(12, 13, 18, 0.76) 0%,
-    rgba(6, 7, 10, 0.86) 100%
+    rgba(47, 55, 70, 0.92) 0%,
+    rgba(34, 40, 52, 0.96) 100%
   );
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 10px 28px -8px rgba(0, 0, 0, 0.75),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    0 10px 26px -8px rgba(12, 15, 22, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .kpi-card::before {
@@ -274,142 +284,287 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2.5px;
-  background: linear-gradient(90deg, #F59E0B, #E11D48, #10B981);
-  opacity: 0.75;
+  height: 3.5px;
+  background: linear-gradient(90deg, #E11D48 0%, #FACC15 50%, #FFFFFF 100%);
+  opacity: 0.9;
   transition: opacity 0.28s ease, height 0.28s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(245, 158, 11, 0.55);
+  transform: translateY(-4px);
+  border-color: rgba(250, 204, 21, 0.6);
   box-shadow:
-    0 22px 40px -10px rgba(0, 0, 0, 0.88),
-    0 0 28px -6px rgba(245, 158, 11, 0.28);
+    0 20px 36px -10px rgba(12, 15, 22, 0.7),
+    0 0 24px -6px rgba(250, 204, 21, 0.25);
 }
 
 .kpi-card:hover::before {
   opacity: 1;
-  height: 3.5px;
+  height: 4.5px;
 }
 
-/* ==================== SAMSUNG-STYLE INPUTS & SELECT CONTROLS ==================== */
+/* ==================== RESPONSIVE INPUTS & SELECT CONTROLS ==================== */
 .erp-input {
   width: 100%;
-  background: rgba(5, 6, 9, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(27, 32, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 0.75rem;
   padding: 0.68rem 0.9rem;
   font-size: 0.8125rem;
   font-weight: 500;
   color: #FFFFFF;
   outline: none;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28);
 }
 
 .erp-input::placeholder {
-  color: #71717A;
+  color: #94A3B8;
   font-weight: 400;
 }
 
 .erp-input:hover {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(8, 9, 14, 0.92);
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(32, 38, 50, 0.96);
 }
 
 .erp-input:focus {
-  border-color: #F59E0B;
-  background: rgba(10, 11, 16, 0.96);
+  border-color: #FACC15;
+  background: rgba(35, 42, 55, 1);
   box-shadow:
-    0 0 0 3px rgba(245, 158, 11, 0.18),
-    inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    0 0 0 3px rgba(250, 204, 21, 0.22),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* ==================== BUTTONS WITH HOVER SHEEN ==================== */
+.erp-input option {
+  background-color: #1E232D;
+  color: #FFFFFF;
+}
+
+/* ==================== ATH BRAND BUTTONS (PRIMARY, SECONDARY, OIL & DESTRUCTIVE) ==================== */
+.btn-primary,
+.btn-oil,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
 .btn-primary {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #E11D48 0%, #B91C1C 55%, #D97706 100%);
+  background: linear-gradient(135deg, #E11D48 0%, #DC2626 55%, #EA580C 100%);
   background-size: 160% 160%;
   color: #FFFFFF;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 8px 22px -6px rgba(225, 29, 72, 0.55);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 8px 20px -6px rgba(225, 29, 72, 0.55);
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1.5px);
   background-position: 100% 50%;
-  border-color: rgba(251, 191, 36, 0.6);
+  border-color: rgba(250, 204, 21, 0.8);
   box-shadow:
-    0 14px 28px -6px rgba(225, 29, 72, 0.65),
-    0 0 18px -4px rgba(245, 158, 11, 0.45);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
+    0 14px 26px -6px rgba(225, 29, 72, 0.65),
+    0 0 18px -4px rgba(250, 204, 21, 0.45);
 }
 
 .btn-oil {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #050507;
+  background: linear-gradient(135deg, #FACC15 0%, #F59E0B 100%);
+  color: #0F172A;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 20px -6px rgba(250, 204, 21, 0.45);
+}
+
+.btn-oil:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  background: linear-gradient(135deg, #FEF08A 0%, #FACC15 100%);
+  box-shadow: 0 14px 26px -6px rgba(250, 204, 21, 0.65);
+}
+
+.btn-secondary {
+  background: rgba(39, 46, 61, 0.95);
+  color: #F8FAFC;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(51, 61, 79, 1);
+  border-color: #FACC15;
+  color: #FACC15;
+}
+
+.btn-danger {
+  background: rgba(159, 18, 57, 0.88);
+  color: #FFE4E6;
+  border: 1px solid rgba(251, 113, 133, 0.48);
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #E11D48;
+  color: #FFFFFF;
+  border-color: #FFFFFF;
+}
+
+.btn-primary:active:not(:disabled),
+.btn-oil:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.btn-primary:focus-visible,
+.btn-oil:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+button:focus-visible {
+  outline: 2px solid #FACC15;
+  outline-offset: 2px;
+}
+
+.btn-primary:disabled,
+.btn-oil:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled,
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Searchable Group Dropdown Menu */
+.group-combobox-menu {
+  background: rgba(24, 29, 39, 0.98);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(250, 204, 21, 0.45);
   border-radius: 0.75rem;
-  border: 1px solid rgba(254, 240, 138, 0.45);
-  box-shadow: 0 8px 22px -6px rgba(245, 158, 11, 0.45);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 18px 38px -6px rgba(0, 0, 0, 0.75);
 }
 
-.btn-oil:hover {
-  transform: translateY(-2px);
-  background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
-  box-shadow: 0 14px 28px -6px rgba(245, 158, 11, 0.65);
+/* ==================== DATA TABLES (MOBILE & TABLET OPTIMIZED) ==================== */
+.erp-table {
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* ==================== DATA TABLES ==================== */
 .erp-table th {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #FBBF24;
-  padding: 0.9rem 0.75rem;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
-  background: rgba(5, 6, 9, 0.65);
+  color: #FACC15;
+  padding: 0.85rem 0.75rem;
+  border-bottom: 2px solid rgba(250, 204, 21, 0.32);
+  background: rgba(27, 32, 42, 0.9);
+  white-space: nowrap;
 }
 
 .erp-table td {
-  padding: 0.9rem 0.75rem;
-  color: #F4F4F5;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  transition: background-color 0.18s ease, color 0.18s ease;
+  padding: 0.85rem 0.75rem;
+  color: #F8FAFC;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.16s ease, color 0.16s ease;
+  vertical-align: middle;
+}
+
+.erp-table tbody tr:nth-child(even) td {
+  background-color: rgba(255, 255, 255, 0.025);
 }
 
 .erp-table tbody tr:hover td {
-  background-color: rgba(245, 158, 11, 0.08);
+  background-color: rgba(250, 204, 21, 0.11);
 }
 
-/* ==================== CUSTOM OIL-GOLD SCROLLBAR ==================== */
+/* ==================== TABLET & MOBILE RESPONSIVE UTILITIES ==================== */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (max-width: 1024px) {
+  .glass-panel {
+    border-radius: 1rem;
+  }
+
+  .erp-input {
+    font-size: 16px; /* Prevents iOS/Android auto-zoom on input focus */
+    min-height: 44px; /* Touch-friendly height on tablets and phones */
+  }
+
+  .btn-primary,
+  .btn-oil {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .erp-table th,
+  .erp-table td {
+    padding: 0.65rem 0.55rem;
+    font-size: 0.72rem;
+  }
+}
+
+/* ==================== CUSTOM ATH RED-GOLD SCROLLBAR ==================== */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #040406;
+  background: #1E232D;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #D97706, #991B1B);
+  background: linear-gradient(180deg, #FACC15, #E11D48);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #FBBF24, #E11D48);
+  background: linear-gradient(180deg, #FEF08A, #EF4444);
+}
+
+/* ==================== VYAPAR INVOICE & STATEMENT PRINT ENGINE ==================== */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+
+  body::before,
+  body::after,
+  .oil-droplet,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only-container {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
 }
