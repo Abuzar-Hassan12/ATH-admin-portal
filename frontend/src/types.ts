@@ -518,3 +518,45 @@ export interface Supplier360Profile {
   supplier: Supplier;
   bills: PurchaseRecord[];
 }
+
+export interface AdminUserRecord {
+  id: number;
+  full_name: string;
+  email: string;
+  username: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'SALESMAN' | 'PRODUCTION' | string;
+  approval_status: 'APPROVED' | 'PENDING' | 'NOT_APPROVED' | string;
+  approved_by?: string | null;
+  is_super_admin?: boolean;
+  created_at?: string;
+  last_login_at?: string;
+}
+
+export interface PartnerActivityItem {
+  date: string;
+  timestamp: string;
+  type: string;
+  reference: string;
+  party: string;
+  amount: number;
+}
+
+export interface PartnerTransparencyRow {
+  admin_id: number;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  sales_total: number;
+  sales_collected: number;
+  sales_count: number;
+  purchases_total: number;
+  purchases_paid: number;
+  purchases_count: number;
+  deposits_total: number;
+  withdrawals_total: number;
+  deposits_count: number;
+  expenses_total: number;
+  expenses_count: number;
+  recent_activities: PartnerActivityItem[];
+}

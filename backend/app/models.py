@@ -7,6 +7,21 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String(150), nullable=False)
+    email = Column(String(150), unique=True, index=True, nullable=False)
+    username = Column(String(100), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(40), default="ADMIN")  # SUPER_ADMIN, ADMIN, SALESMAN, PRODUCTION
+    approval_status = Column(String(30), default="PENDING")  # APPROVED, PENDING, NOT_APPROVED
+    approved_by = Column(String(150), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
+
+
 class Brand(Base):
     __tablename__ = "brands"
 
@@ -147,6 +162,8 @@ class Purchase(Base):
     payment_status = Column(String(20), default="UNPAID")
     payment_arrangement = Column(String(40), default="WALLET")
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(150), default="Admin")
     remarks = Column(Text, nullable=True)
 
     supplier = relationship("Supplier", back_populates="purchases")
@@ -193,6 +210,8 @@ class Sale(Base):
     closing_receivable = Column(Float, default=0.0)
     payment_status = Column(String(20), default="UNPAID")
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(150), default="Admin")
     remarks = Column(Text, nullable=True)
 
     customer = relationship("Customer", back_populates="sales")
@@ -260,6 +279,8 @@ class AccountTransaction(Base):
     description = Column(String(255), nullable=True)
     cash_in = Column(Float, default=0.0)
     cash_out = Column(Float, default=0.0)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(150), default="Admin")
 
 
 class LoanAccount(Base):
@@ -290,6 +311,8 @@ class Expense(Base):
     amount = Column(Float, nullable=False)
     paid_to = Column(String(150), nullable=True)
     reference = Column(String(100), nullable=True)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(150), default="Admin")
 
 
 class CustomerPayment(Base):
@@ -308,6 +331,8 @@ class CustomerPayment(Base):
     payment_method = Column(String(40), default="CASH")
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     remarks = Column(Text, nullable=True)
+    admin_id = Column(Integer, nullable=True)
+    admin_name = Column(String(150), default="Admin")
     status = Column(String(30), default="CONFIRMED")  # CONFIRMED or REVERSED
     reversed_at = Column(DateTime, nullable=True)
     reversal_reason = Column(String(255), nullable=True)

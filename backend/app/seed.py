@@ -2,7 +2,7 @@ from sqlalchemy import text, inspect
 from .database import engine, SessionLocal, Base
 import uuid
 from .models import (
-    Brand, StorageLocation, Product, ProductLocationStock,
+    AdminUser, Brand, StorageLocation, Product, ProductLocationStock,
     PartyGroup, Supplier, Customer, FinancialAccount, Expense
 )
 
@@ -38,6 +38,8 @@ def upgrade_database_schema():
             ("freight_amount", "FLOAT DEFAULT 0.0"),
             ("payment_arrangement", "VARCHAR(40) DEFAULT 'WALLET'"),
             ("account_id", "INTEGER"),
+            ("admin_id", "INTEGER"),
+            ("admin_name", "VARCHAR(150) DEFAULT 'Admin'"),
         ],
         "purchase_items": [
             ("location_id", "INTEGER"),
@@ -53,6 +55,8 @@ def upgrade_database_schema():
             ("applied_to_previous", "FLOAT DEFAULT 0.0"),
             ("closing_receivable", "FLOAT DEFAULT 0.0"),
             ("account_id", "INTEGER"),
+            ("admin_id", "INTEGER"),
+            ("admin_name", "VARCHAR(150) DEFAULT 'Admin'"),
         ],
         "sale_items": [
             ("location_id", "INTEGER"),
@@ -61,10 +65,18 @@ def upgrade_database_schema():
         ],
         "account_transactions": [
             ("reference_id", "INTEGER"),
+            ("admin_id", "INTEGER"),
+            ("admin_name", "VARCHAR(150) DEFAULT 'Admin'"),
+        ],
+        "customer_payments": [
+            ("admin_id", "INTEGER"),
+            ("admin_name", "VARCHAR(150) DEFAULT 'Admin'"),
         ],
         "expenses": [
             ("account_id", "INTEGER"),
             ("payment_arrangement", "VARCHAR(40) DEFAULT 'WALLET'"),
+            ("admin_id", "INTEGER"),
+            ("admin_name", "VARCHAR(150) DEFAULT 'Admin'"),
         ],
     }
 
@@ -227,8 +239,23 @@ def seed_database():
             sup.group_id = grp.id
     db.commit()
 
-    db.close()
+    # Seed Master Super Admin (malikabuzar411@gmail.com)
+    super_admin = db.query(AdminUser).filter(
+        AdminUser.email.ilike("malikabuzar411@gmail.com")
+    ).first()
+    if not super_admin:
+        db.add(AdminUser(
+            full_name="Malik Abuzar (Super Admin)",
+            email="malikabuzar411@gmail.com",
+            username="Admin",
+            password_hash="Admin@786",
+            role="SUPER_ADMIN",
+            approval_status="APPROVED",
+            approved_by="SYSTEM_OWNER"
+        ))
+        db.commit()
 
+    db.close()
 
 if __name__ == "__main__":
     seed_database()

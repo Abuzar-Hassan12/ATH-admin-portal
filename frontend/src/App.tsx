@@ -14,7 +14,7 @@ import type {
   FinancialAccount, LoanRecord, AccountHistoryEntry, RecycleBinItem,
   LocationStockItem, SaleDocType, PurchaseDocType, PaymentArrangementType,
   VyaparReportsData, Customer360Profile, Supplier360Profile,
-  CustomerOutstandingLedger
+  CustomerOutstandingLedger, AdminUserRecord, PartnerTransparencyRow
 } from './types';
 
 const API_BASE = import.meta.env.DEV ? "http://127.0.0.1:8000/api" : "/api";
@@ -293,7 +293,7 @@ function SearchableGroupSelect({
 
 type MainSection = 'dashboard' | 'accounts' | 'inventory' | 'directory' | 'reports';
 type AccountsSubTab = 'sales' | 'purchases' | 'partials' | 'expenses' | 'wallets' | 'ledger';
-type InventorySubTab = 'stock_breakdown' | 'products_crud' | 'locations_transfer';
+type InventorySubTab = 'stock_breakdown' | 'locations_transfer';
 type DirectorySubTab = 'parties' | 'recycle';
 type ReportsSubTab = 'bill_pnl' | 'item_profit' | 'daybook' | 'groups_backup';
 
@@ -331,13 +331,11 @@ const pkr = (v: number | string | undefined | null): number => {
 
 function OilDropletsBackdrop() {
   const drops = [
-    { left: '6%', width: '7px', height: '12px', duration: '11s', delay: '0s' },
-    { left: '19%', width: '5px', height: '9px', duration: '14s', delay: '3.5s' },
-    { left: '34%', width: '8px', height: '14px', duration: '9.5s', delay: '1.8s' },
-    { left: '52%', width: '6px', height: '10px', duration: '13s', delay: '5s' },
-    { left: '68%', width: '9px', height: '15px', duration: '10.5s', delay: '2.2s' },
-    { left: '83%', width: '6px', height: '11px', duration: '12.5s', delay: '4.1s' },
-    { left: '94%', width: '7px', height: '13px', duration: '11.8s', delay: '0.9s' },
+    { left: '8%', width: '6px', height: '11px', duration: '12s', delay: '0s' },
+    { left: '24%', width: '5px', height: '9px', duration: '15s', delay: '3s' },
+    { left: '46%', width: '7px', height: '13px', duration: '10.5s', delay: '1.5s' },
+    { left: '68%', width: '6px', height: '10px', duration: '13.5s', delay: '4s' },
+    { left: '88%', width: '7px', height: '12px', duration: '11.5s', delay: '2s' },
   ];
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 no-print" aria-hidden="true">
@@ -358,14 +356,183 @@ function OilDropletsBackdrop() {
   );
 }
 
+function AthFracturedCurrentHero({ onNavigate }: { onNavigate: (partial: Partial<NavState>) => void }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#F7F7F5]/25 bg-gradient-to-br from-[#00262B] via-[#004A54] to-[#005B66] p-5 sm:p-7 shadow-2xl">
+      {/* SVG Fractured Current Signature Pattern (Petrol Teal, Coral Orange & Off-White) */}
+      <svg
+        className="absolute right-0 top-0 h-full w-2/3 opacity-35 pointer-events-none"
+        viewBox="0 0 600 400"
+        fill="none"
+        preserveAspectRatio="none"
+      >
+        <path d="M180 420 C260 280, 390 220, 620 40" stroke="#FF6B3D" strokeWidth="14" strokeLinecap="round" />
+        <path d="M240 420 C320 290, 430 240, 640 95" stroke="#F7F7F5" strokeWidth="6" strokeLinecap="round" strokeDasharray="18 24" />
+        <path d="M110 420 C210 250, 350 170, 590 -10" stroke="#008899" strokeWidth="18" strokeLinecap="round" />
+        <path d="M310 420 C390 310, 480 260, 650 150" stroke="#FF6B3D" strokeWidth="8" strokeLinecap="round" />
+        <circle cx="450" cy="140" r="8" fill="#FF6B3D" />
+        <circle cx="380" cy="210" r="5" fill="#F7F7F5" />
+        <circle cx="510" cy="95" r="6" fill="#FF6B3D" />
+        <circle cx="320" cy="285" r="7" fill="#FF6B3D" />
+      </svg>
+
+      <div className="relative z-10 flex flex-col justify-between gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="bg-[#F7F7F5] px-3.5 py-2 rounded-xl shadow-md border border-white">
+              <img
+                src="/logo.png"
+                alt="ATH Lubricants"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                className="h-10 sm:h-12 w-auto object-contain"
+              />
+            </div>
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-widest text-[#FF6B3D]">
+                Awan Trade Hub • Your Trusted Partner
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#F7F7F5] samsung-heading">
+                ATH LUBRICANTS — <span className="text-[#FF6B3D]">GOLD 4T</span> SERIES
+              </h2>
+              <p className="text-xs text-[#F7F7F5]/85 font-medium">
+                Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life (M2 / M4 SAE 20W-40 API SL)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#00373E] text-[#F7F7F5] border border-[#F7F7F5]/25">
+              ● Petrol Teal #005B66
+            </span>
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#FF6B3D] text-white">
+              ● Coral Orange #FF6B3D
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Brand Pillars + Quick Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#F7F7F5]/15">
+          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
+            <Droplet className="w-5 h-5 text-[#FF6B3D] shrink-0" />
+            <div>
+              <div className="text-xs font-extrabold text-[#F7F7F5]">SMOOTHER RIDE</div>
+              <div className="text-[11px] text-[#F7F7F5]/75">Gold 4T M2/M4 Synthetic & Heavy Duty</div>
+            </div>
+          </div>
+          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-[#FF6B3D] shrink-0" />
+            <div>
+              <div className="text-xs font-extrabold text-[#F7F7F5]">BETTER PROTECTION</div>
+              <div className="text-[11px] text-[#F7F7F5]/75">100% Whole-PKR Audited Khata & Stock</div>
+            </div>
+          </div>
+          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
+            <Layers className="w-5 h-5 text-[#FF6B3D] shrink-0" />
+            <div>
+              <div className="text-xs font-extrabold text-[#F7F7F5]">LONGER ENGINE LIFE</div>
+              <div className="text-[11px] text-[#F7F7F5]/75">Multi-Godown Carton & Bottle Tracking</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <button
+            type="button"
+            onClick={() => onNavigate({ main: 'accounts', accSub: 'sales' })}
+            className="btn-primary py-2.5 px-3 text-xs"
+          >
+            + Customer Sale Invoice
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate({ main: 'accounts', accSub: 'purchases' })}
+            className="btn-oil py-2.5 px-3 text-xs"
+          >
+            + Add Stock / Purchase
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate({ main: 'directory', dirSub: 'parties' })}
+            className="btn-secondary py-2.5 px-3 text-xs"
+          >
+            Customer 360° Khata
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate({ main: 'reports', repSub: 'bill_pnl' })}
+            className="btn-secondary py-2.5 px-3 text-xs"
+          >
+            Profit & Day Book Reports
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes inactivity timeout
+
 export default function App() {
-  // ==================== AUTHENTICATION STATE ====================
+  // ==================== AUTHENTICATION & 15-MINUTE INACTIVITY TIMEOUT ====================
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('ath_admin_auth') === 'true';
+    const isAuth = localStorage.getItem('ath_admin_auth') === 'true';
+    const lastTs = Number(localStorage.getItem('ath_admin_auth_ts') || 0);
+    if (!isAuth || !lastTs || Date.now() - lastTs > INACTIVITY_TIMEOUT_MS) {
+      localStorage.removeItem('ath_admin_auth');
+      localStorage.removeItem('ath_admin_auth_ts');
+      return false;
+    }
+    return true;
   });
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUserRecord | null>(() => {
+    try {
+      const raw = localStorage.getItem('ath_admin_profile');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [authTab, setAuthTab] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
   const [loginUser, setLoginUser] = useState<string>('');
   const [loginPass, setLoginPass] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
+  const [signupFullName, setSignupFullName] = useState<string>('');
+  const [signupEmail, setSignupEmail] = useState<string>('');
+  const [signupUsername, setSignupUsername] = useState<string>('');
+  const [signupPassword, setSignupPassword] = useState<string>('');
+  const [signupSuccessMsg, setSignupSuccessMsg] = useState<string>('');
+  const [authBusy, setAuthBusy] = useState<boolean>(false);
+
+  const [adminsList, setAdminsList] = useState<AdminUserRecord[]>([]);
+  const [partnerTransparency, setPartnerTransparency] = useState<PartnerTransparencyRow[]>([]);
+  const [dashboardPartnerView, setDashboardPartnerView] = useState<'ALL' | 'MINE'>('ALL');
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const updateActivityTimestamp = () => {
+      localStorage.setItem('ath_admin_auth_ts', String(Date.now()));
+    };
+    const checkInactivity = setInterval(() => {
+      const lastTs = Number(localStorage.getItem('ath_admin_auth_ts') || 0);
+      if (!lastTs || Date.now() - lastTs > INACTIVITY_TIMEOUT_MS) {
+        localStorage.removeItem('ath_admin_auth');
+        localStorage.removeItem('ath_admin_auth_ts');
+        setIsAuthenticated(false);
+      }
+    }, 15000);
+
+    window.addEventListener('mousemove', updateActivityTimestamp);
+    window.addEventListener('mousedown', updateActivityTimestamp);
+    window.addEventListener('keydown', updateActivityTimestamp);
+    window.addEventListener('touchstart', updateActivityTimestamp);
+    return () => {
+      clearInterval(checkInactivity);
+      window.removeEventListener('mousemove', updateActivityTimestamp);
+      window.removeEventListener('mousedown', updateActivityTimestamp);
+      window.removeEventListener('keydown', updateActivityTimestamp);
+      window.removeEventListener('touchstart', updateActivityTimestamp);
+    };
+  }, [isAuthenticated]);
 
   // ==================== NAVIGATION & BACK/FORWARD HISTORY ====================
   const [navHistory, setNavHistory] = useState<NavState[]>([
@@ -399,6 +566,7 @@ export default function App() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [period, setPeriod] = useState<TimePeriod>('monthly');
+  const [customDate, setCustomDate] = useState<string>('');
   const [channelFilter, setChannelFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<{ msg: string; isError?: boolean } | null>(null);
@@ -641,7 +809,27 @@ export default function App() {
     setTimeout(() => setToast(null), 5500);
   };
 
-  // ==================== SNAPSHOT & FAST SYNC ENGINE ====================
+  // ==================== SNAPSHOT & PERMANENT DATA PROTECTION ENGINE ====================
+  const getSnapshotActivityCount = (snap: any): number => {
+    if (!snap || typeof snap !== 'object') return 0;
+    const txCount =
+      (Array.isArray(snap.sales) ? snap.sales.length : 0) +
+      (Array.isArray(snap.purchases) ? snap.purchases.length : 0) +
+      (Array.isArray(snap.expenses) ? snap.expenses.length : 0) +
+      (Array.isArray(snap.account_transactions) ? snap.account_transactions.length : 0) +
+      (Array.isArray(snap.customer_payments) ? snap.customer_payments.length : 0);
+    const stockCount = Array.isArray(snap.location_stocks)
+      ? snap.location_stocks.reduce((sum: number, ls: any) => sum + (Number(ls.stock_bottles) || 0), 0)
+      : 0;
+    const cashCount = Array.isArray(snap.accounts)
+      ? snap.accounts.reduce((sum: number, a: any) => sum + Math.abs(Number(a.current_balance) || 0), 0)
+      : 0;
+    const customParties =
+      Math.max(0, (Array.isArray(snap.customers) ? snap.customers.length : 0) - 4) +
+      Math.max(0, (Array.isArray(snap.suppliers) ? snap.suppliers.length : 0) - 2);
+    return txCount + stockCount + cashCount + customParties;
+  };
+
   const getSavedSnapshot = () => {
     try {
       const raw = localStorage.getItem('ath_erp_snapshot');
@@ -651,13 +839,19 @@ export default function App() {
     }
   };
 
-  const saveSnapshot = (snap: any) => {
-    if (snap && typeof snap === 'object' && snap.version) {
-      try {
-        localStorage.setItem('ath_erp_snapshot', JSON.stringify(snap));
-      } catch {
-        // Ignore storage quota limits
+  const saveSnapshot = (snap: any, allowOverwriteIfEmpty = false) => {
+    if (!snap || typeof snap !== 'object' || !snap.version) return;
+    try {
+      const existing = getSavedSnapshot();
+      const existingActivity = getSnapshotActivityCount(existing);
+      const incomingActivity = getSnapshotActivityCount(snap);
+      // Never allow a cold-start empty seed snapshot (0 activity) to overwrite a snapshot that has real data
+      if (!allowOverwriteIfEmpty && existingActivity > 0 && incomingActivity === 0) {
+        return;
       }
+      localStorage.setItem('ath_erp_snapshot', JSON.stringify(snap));
+    } catch {
+      // Ignore storage quota limits
     }
   };
 
@@ -666,8 +860,10 @@ export default function App() {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        admin_id: currentAdmin?.id || 1,
+        admin_name: currentAdmin?.full_name || currentAdmin?.username || 'Admin',
         ...payload,
-        client_snapshot: !initialSyncDone.current ? getSavedSnapshot() : null
+        client_snapshot: getSavedSnapshot()
       })
     });
     const data = await res.json();
@@ -675,7 +871,7 @@ export default function App() {
       throw new Error(data.detail || 'Operation failed');
     }
     if (data.snapshot) {
-      saveSnapshot(data.snapshot);
+      saveSnapshot(data.snapshot, true);
       initialSyncDone.current = true;
     }
     return data;
@@ -685,19 +881,21 @@ export default function App() {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
+      const localSnap = getSavedSnapshot();
       const res = await fetch(`${API_BASE}/bootstrap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           period,
+          custom_date: customDate || null,
           channel: channelFilter,
-          client_snapshot: !initialSyncDone.current ? getSavedSnapshot() : null
+          client_snapshot: getSavedSnapshot()
         })
       });
       if (!res.ok) throw new Error('Bootstrap sync failed');
       const data = await res.json();
       if (data.snapshot) {
-        saveSnapshot(data.snapshot);
+        saveSnapshot(data.snapshot, false);
         initialSyncDone.current = true;
       }
 
@@ -734,7 +932,10 @@ export default function App() {
       setLoans(Array.isArray(data.loans) ? data.loans : []);
       setAccountHistory(Array.isArray(data.account_history) ? data.account_history : []);
       setRecycleBin(Array.isArray(data.recycle_bin) ? data.recycle_bin : []);
+      
       if (data.vyapar_reports) setVyaparReports(data.vyapar_reports);
+      if (Array.isArray(data.admins)) setAdminsList(data.admins);
+      if (Array.isArray(data.partner_transparency)) setPartnerTransparency(data.partner_transparency);
     } catch (err) {
       console.error('Error syncing with backend:', err);
     } finally {
@@ -744,7 +945,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-  }, [isAuthenticated, period, channelFilter]);
+  }, [isAuthenticated, period, customDate, channelFilter]);
 
   // ==================== ENRICHED LOCATIONS ====================
   const enrichedLocations = useMemo(() => {
@@ -1089,28 +1290,95 @@ export default function App() {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
+    setSignupSuccessMsg('');
+    setAuthBusy(true);
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginUser.trim(), password: loginPass })
       });
-      if (!res.ok) throw new Error('Invalid administrator username or password.');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Invalid Gmail / username or password.');
+      }
+      const profile: AdminUserRecord = {
+        id: data.id || 1,
+        full_name: data.full_name || data.username || 'Admin',
+        email: data.email || 'malikabuzar411@gmail.com',
+        username: data.username || 'Admin',
+        role: data.role || 'SUPER_ADMIN',
+        approval_status: data.approval_status || 'APPROVED',
+        is_super_admin: Boolean(data.is_super_admin)
+      };
       localStorage.setItem('ath_admin_auth', 'true');
+      localStorage.setItem('ath_admin_auth_ts', String(Date.now()));
+      localStorage.setItem('ath_admin_profile', JSON.stringify(profile));
+      setCurrentAdmin(profile);
       setIsAuthenticated(true);
     } catch (err: any) {
-      if (loginUser.trim() === 'Admin' && loginPass === 'Admin@786') {
-        localStorage.setItem('ath_admin_auth', 'true');
-        setIsAuthenticated(true);
-      } else {
-        setLoginError(err.message || 'Authentication failed.');
+      setLoginError(err.message || 'Authentication failed.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleAdminSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setSignupSuccessMsg('');
+    setAuthBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: signupFullName.trim(),
+          email: signupEmail.trim().toLowerCase(),
+          username: signupUsername.trim() || signupEmail.trim().split('@')[0],
+          password: signupPassword,
+          role: 'ADMIN'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Registration failed.');
       }
+      if (data.snapshot) saveSnapshot(data.snapshot, true);
+      setSignupSuccessMsg(data.message);
+      setLoginUser(signupEmail.trim().toLowerCase());
+      setSignupFullName('');
+      setSignupEmail('');
+      setSignupUsername('');
+      setSignupPassword('');
+      setAuthTab('LOGIN');
+    } catch (err: any) {
+      setLoginError(err.message || 'Signup failed.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleAdminApprovalDecision = async (targetAdminId: number, decision: 'APPROVED' | 'NOT_APPROVED') => {
+    try {
+      const approverEmail = currentAdmin?.email || 'malikabuzar411@gmail.com';
+      const data = await apiSend(`/auth/admins/${targetAdminId}/decision`, 'POST', {
+        approver_email: approverEmail,
+        decision
+      });
+      notify(data.message || `Admin status updated to ${decision}`);
+      await fetchData();
+    } catch (err: any) {
+      notify(err.message || 'Approval update failed', true);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('ath_admin_auth');
+    localStorage.removeItem('ath_admin_auth_ts');
+    localStorage.removeItem('ath_admin_profile');
     setIsAuthenticated(false);
+    setCurrentAdmin(null);
     setLoginUser('');
     setLoginPass('');
   };
@@ -2302,78 +2570,196 @@ export default function App() {
   const pendingSales = sales.filter(s => s.receivable_amount > 0 && s.doc_type !== 'ESTIMATE');
   const pendingPurchases = purchases.filter(p => p.payable_amount > 0);
 
-  // ==================== LOGIN SCREEN ====================
+  // ==================== LOGIN SCREEN (OFFICIAL AWAN TRADE HUB — PETROL TEAL & CORAL ORANGE) ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative">
         <OilDropletsBackdrop />
-        <div className="max-w-lg w-full glass-panel rounded-2xl overflow-hidden shadow-2xl animate-fade-in relative z-10 border border-yellow-400/40">
-          <div className="bg-slate-900/90 border-b border-yellow-400/30 p-3 flex flex-col items-center gap-2">
-            <img
-              src="/logo.png"
-              alt="ATH Lubricants Logo"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              className="h-20 w-auto object-contain drop-shadow-lg"
-            />
-            <img
-              src="/banner.jpg"
-              alt="ATH Lubricants Banner"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              className="w-full max-h-40 object-contain rounded-xl"
-            />
+        <div className="max-w-lg w-full glass-panel rounded-3xl overflow-hidden shadow-2xl animate-fade-in relative z-10 border border-[#F7F7F5]/30">
+          <div className="bg-gradient-to-br from-[#00262B] via-[#00464F] to-[#005B66] border-b border-[#FF6B3D]/50 p-6 flex flex-col items-center text-center gap-3">
+            <div className="bg-[#F7F7F5] px-6 py-3.5 rounded-2xl shadow-xl border border-white">
+              <img
+                src="/logo.png"
+                alt="ATH Lubricants Logo"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                className="h-16 w-auto object-contain"
+              />
+            </div>
+            <div>
+              <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
+                Awan Trade Hub • Partner & Role-Based Executive Portal
+              </div>
+              <p className="text-xs text-[#F7F7F5]/90 mt-0.5 font-medium">
+                Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life
+              </p>
+            </div>
+
+            {/* Mode Switcher: Sign In vs Admin Gmail Signup */}
+            <div className="grid grid-cols-2 gap-2 w-full mt-2 bg-[#002227]/90 p-1.5 rounded-full border border-[#F7F7F5]/20">
+              <button
+                type="button"
+                onClick={() => { setAuthTab('LOGIN'); setLoginError(''); }}
+                className={`py-2 rounded-full text-xs font-extrabold uppercase transition ${
+                  authTab === 'LOGIN' ? 'bg-[#FF6B3D] text-white shadow' : 'text-[#F7F7F5]/80 hover:text-white'
+                }`}
+              >
+                Partner Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthTab('SIGNUP'); setLoginError(''); setSignupSuccessMsg(''); }}
+                className={`py-2 rounded-full text-xs font-extrabold uppercase transition ${
+                  authTab === 'SIGNUP' ? 'bg-[#F7F7F5] text-[#00373E] shadow' : 'text-[#F7F7F5]/80 hover:text-white'
+                }`}
+              >
+                Admin Gmail Signup
+              </button>
+            </div>
           </div>
-          <form onSubmit={handleAdminLogin} className="p-6 sm:p-8 space-y-5">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h1 className="text-xl font-extrabold text-white tracking-tight samsung-heading">
-                  ATH <span className="oil-gradient-text">LUBRICANTS</span> ERP
-                </h1>
-                <p className="text-xs text-slate-200">Executive Distribution, Billing & Vyapar Suite</p>
-              </div>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase text-yellow-300 bg-rose-950/80 border border-yellow-400/40 px-3 py-1.5 rounded-full">
-                <Lock className="w-3.5 h-3.5 text-yellow-400" /> Protected
-              </span>
-            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-white">Administrator Username</label>
-                <input
-                  type="text"
-                  name="username"
-                  autoComplete="username"
-                  required
-                  placeholder="Enter administrator username"
-                  value={loginUser}
-                  onChange={e => setLoginUser(e.target.value)}
-                  className="mt-1.5 erp-input"
-                />
+          {authTab === 'LOGIN' ? (
+            <form onSubmit={handleAdminLogin} className="p-6 sm:p-8 space-y-5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h1 className="text-xl font-extrabold text-[#F7F7F5] tracking-tight samsung-heading">
+                    SIGN IN TO <span className="oil-gradient-text">ATH PORTAL</span>
+                  </h1>
+                  <p className="text-xs text-[#F7F7F5]/80">
+                    Auto-timeout after 15 mins inactivity • Enter your approved Gmail or Username
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase text-white bg-[#FF6B3D] px-3 py-1.5 rounded-full shadow">
+                  <Lock className="w-3.5 h-3.5 text-white" /> Secure
+                </span>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-white">Administrator Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  autoComplete="current-password"
-                  required
-                  placeholder="Enter administrator password"
-                  value={loginPass}
-                  onChange={e => setLoginPass(e.target.value)}
-                  className="mt-1.5 erp-input"
-                />
-              </div>
-            </div>
 
-            {loginError && (
-              <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
-                {loginError}
-              </div>
-            )}
+              {signupSuccessMsg && (
+                <div className="p-3.5 rounded-xl bg-emerald-950/90 border border-emerald-400 text-xs text-emerald-200 font-semibold">
+                  {signupSuccessMsg}
+                </div>
+              )}
 
-            <button type="submit" className="w-full btn-primary py-3.5 text-xs uppercase tracking-widest">
-              Sign In to Executive Portal
-            </button>
-          </form>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-[#F7F7F5]">Approved Gmail Address or Username</label>
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    required
+                    placeholder="e.g. malikabuzar411@gmail.com or Admin"
+                    value={loginUser}
+                    onChange={e => setLoginUser(e.target.value)}
+                    className="mt-1.5 erp-input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#F7F7F5]">Password</label>
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    placeholder="Enter your password"
+                    value={loginPass}
+                    onChange={e => setLoginPass(e.target.value)}
+                    className="mt-1.5 erp-input"
+                  />
+                </div>
+              </div>
+
+              {loginError && (
+                <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authBusy}
+                className="w-full btn-primary py-3.5 text-xs uppercase tracking-widest"
+              >
+                {authBusy ? 'Signing In...' : 'Sign In to Executive Portal'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleAdminSignup} className="p-6 sm:p-8 space-y-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-[#F7F7F5] samsung-heading">
+                  NEW ADMIN PARTNER REGISTRATION
+                </h2>
+                <p className="text-xs text-[#F7F7F5]/80 mt-0.5">
+                  Register once with your Google / Gmail address and set your password. Requires approval from{' '}
+                  <strong className="text-[#FF6B3D]">malikabuzar411@gmail.com</strong>.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-[#F7F7F5]">Full Name (Partner Name)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Malik Partner 2"
+                    value={signupFullName}
+                    onChange={e => setSignupFullName(e.target.value)}
+                    className="mt-1 erp-input"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-[#FF6B3D]">Google / Gmail Address (@gmail.com)</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="yourname@gmail.com"
+                    value={signupEmail}
+                    onChange={e => setSignupEmail(e.target.value)}
+                    className="mt-1 erp-input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#F7F7F5]">Choose Username</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Admin2"
+                    value={signupUsername}
+                    onChange={e => setSignupUsername(e.target.value)}
+                    className="mt-1 erp-input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#F7F7F5]">Set Login Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Min 6 characters"
+                    value={signupPassword}
+                    onChange={e => setSignupPassword(e.target.value)}
+                    className="mt-1 erp-input"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#00262B]/90 border border-[#F7F7F5]/15 text-[11px] text-[#F7F7F5]/85">
+                <strong>Role Architecture:</strong> Registering as <strong>ADMIN (Business Partner)</strong>. Employee roles (<em>Salesman, Production, Warehouse</em>) are supported for future expansion.
+              </div>
+
+              {loginError && (
+                <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authBusy}
+                className="w-full btn-oil py-3.5 text-xs uppercase tracking-widest"
+              >
+                {authBusy ? 'Submitting Request...' : 'Submit Admin Signup for Approval'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -2381,26 +2767,26 @@ export default function App() {
 
   const mainMenuItems: { id: MainSection; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
-    { id: 'accounts', label: 'Billing & Accounts' },
-    { id: 'inventory', label: 'Inventory & Godowns' },
+    { id: 'accounts', label: 'Sales, Purchases & Accounts' },
+    { id: 'inventory', label: 'Godowns & Stock Transfers' },
     { id: 'directory', label: `Parties & Khata (${customers.length})` },
-    { id: 'reports', label: 'Vyapar Reports & Backup' }
+    { id: 'reports', label: 'Business Reports & Backup' }
   ];
 
   return (
     <div className="min-h-screen flex flex-col pb-24 lg:pb-10 relative">
       <OilDropletsBackdrop />
 
-      {/* ==================== STICKY HEADER WITH ATH LOGO ==================== */}
-      <header className="bg-[#1E232D]/95 backdrop-blur-2xl border-b border-yellow-400/30 sticky top-0 z-40 px-3 sm:px-6 py-2.5 no-print shadow-lg">
+      {/* ==================== STICKY HEADER WITH ATH OFF-WHITE LOGO BADGE ==================== */}
+      <header className="bg-[#002B31]/95 backdrop-blur-2xl border-b border-[#F7F7F5]/20 sticky top-0 z-40 px-3 sm:px-6 py-2.5 no-print shadow-xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-white/15">
+            <div className="flex items-center gap-1 bg-[#003B43] p-1 rounded-full border border-[#F7F7F5]/20">
               <button
                 onClick={handleBack}
                 disabled={!canGoBack}
-                className={`p-1.5 rounded-lg transition ${
-                  canGoBack ? 'text-white hover:bg-yellow-400 hover:text-slate-900' : 'text-slate-500 cursor-not-allowed'
+                className={`p-1.5 rounded-full transition ${
+                  canGoBack ? 'text-white hover:bg-[#FF6B3D]' : 'text-slate-500 cursor-not-allowed'
                 }`}
                 title="Back"
               >
@@ -2409,8 +2795,8 @@ export default function App() {
               <button
                 onClick={handleForward}
                 disabled={!canGoForward}
-                className={`p-1.5 rounded-lg transition ${
-                  canGoForward ? 'text-white hover:bg-yellow-400 hover:text-slate-900' : 'text-slate-500 cursor-not-allowed'
+                className={`p-1.5 rounded-full transition ${
+                  canGoForward ? 'text-white hover:bg-[#FF6B3D]' : 'text-slate-500 cursor-not-allowed'
                 }`}
                 title="Forward"
               >
@@ -2419,33 +2805,35 @@ export default function App() {
             </div>
 
             <div className="relative flex items-center gap-2.5">
-              <img
-                src="/logo.png"
-                alt="ATH Logo"
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                className="h-10 w-10 sm:h-11 sm:w-11 object-contain rounded-xl bg-white/10 p-1 border border-yellow-400/40"
-              />
+              <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-xl border border-white shadow-sm">
+                <img
+                  src="/logo.png"
+                  alt="ATH Logo"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  className="h-8 sm:h-9 w-auto object-contain"
+                />
+              </div>
               <div>
-                <h1 className="text-base sm:text-xl font-black tracking-tight text-white flex items-center gap-1.5 samsung-heading">
+                <h1 className="text-base sm:text-xl font-black tracking-tight text-[#F7F7F5] flex items-center gap-1.5 samsung-heading">
                   ATH <span className="oil-gradient-text">LUBRICANTS</span>
-                  <Droplet className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 oil-badge-drip inline" />
+                  <Droplet className="w-3.5 h-3.5 text-[#FF6B3D] fill-[#FF6B3D] oil-badge-drip inline" />
                 </h1>
-                <p className="text-[11px] text-slate-200 font-medium hidden sm:block">
-                  Precision Motor Oil Distribution, Billing & Vyapar Suite
+                <p className="text-[11px] text-[#F7F7F5]/80 font-medium hidden sm:block">
+                  Awan Trade Hub • Smoother Ride | Longer Life
                 </p>
               </div>
             </div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-1.5 bg-slate-800/90 p-1.5 rounded-xl border border-white/15">
+          <nav className="hidden lg:flex items-center gap-1.5 bg-[#00373E] p-1.5 rounded-full border border-[#F7F7F5]/20">
             {mainMenuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => navigateTo({ main: item.id })}
-                className={`px-3.5 py-2 rounded-lg text-xs font-bold tracking-tight transition-all duration-200 ${
+                className={`px-4 py-2 rounded-full text-xs font-bold tracking-tight transition-all duration-200 ${
                   currentNav.main === item.id
-                    ? 'bg-gradient-to-r from-rose-600 via-red-600 to-amber-500 text-white shadow-md shadow-rose-600/30 border border-yellow-300/40'
-                    : 'text-slate-200 hover:text-white hover:bg-white/10'
+                    ? 'bg-[#FF6B3D] text-white shadow-md shadow-[#FF6B3D]/40'
+                    : 'text-[#F7F7F5]/85 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {item.label}
@@ -2456,27 +2844,27 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadBackupJson}
-              className="hidden sm:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-yellow-400/40 px-3 py-2 rounded-xl text-xs font-bold transition"
+              className="hidden sm:flex items-center gap-1.5 btn-oil px-3.5 py-2 text-xs"
               title="1-Click Save Full Database Backup"
             >
               <Download className="w-3.5 h-3.5" /> Backup DB
             </button>
             <button
               onClick={fetchData}
-              className="p-2 text-yellow-400 hover:text-white bg-slate-800 border border-yellow-400/40 rounded-xl transition"
+              className="p-2 text-[#FF6B3D] hover:text-white bg-[#003B43] border border-[#F7F7F5]/25 rounded-full transition"
               title="Refresh Data"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-yellow-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#FF6B3D]' : ''}`} />
             </button>
             <button
               onClick={handleLogout}
-              className="hidden sm:flex items-center gap-1.5 bg-rose-700/80 hover:bg-rose-600 text-white border border-white/20 px-3 py-2 rounded-xl text-xs font-bold transition"
+              className="hidden sm:flex items-center gap-1.5 btn-danger px-3.5 py-2 text-xs"
             >
               <LogOut className="w-3.5 h-3.5" /> Sign Out
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-white bg-rose-600/80 border border-yellow-400/40 rounded-xl"
+              className="lg:hidden p-2 text-white bg-[#FF6B3D] rounded-full"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -2485,23 +2873,23 @@ export default function App() {
 
         {/* Sub-Navigation Bar (Touch Scrollable on Mobile/Tablet) */}
         {currentNav.main !== 'dashboard' && (
-          <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-white/15 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-[#F7F7F5]/15 flex items-center gap-2 overflow-x-auto no-scrollbar">
             {currentNav.main === 'accounts' &&
               ([
-                { id: 'sales', label: 'Sales & Quotations' },
-                { id: 'purchases', label: 'Purchase Bills' },
-                { id: 'partials', label: `Khata Installments (${pendingSales.length + pendingPurchases.length})` },
+                { id: 'sales', label: 'Customer Sale Invoices' },
+                { id: 'purchases', label: 'Supplier Stock Purchases' },
+                { id: 'partials', label: `Khata Collections & Dues (${pendingSales.length + pendingPurchases.length})` },
                 { id: 'expenses', label: 'Operating Expenses' },
-                { id: 'wallets', label: `Wallets & Loans (${loans.filter(l => l.current_balance > 0).length})` },
+                { id: 'wallets', label: `Cash, Banks & Loans (${loans.filter(l => l.current_balance > 0).length})` },
                 { id: 'ledger', label: 'Cashflow Ledger' }
               ] as { id: AccountsSubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
                   onClick={() => navigateTo({ main: 'accounts', accSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                     currentNav.accSub === sub.id
-                      ? 'bg-yellow-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800/90 text-white border border-white/15 hover:border-yellow-400/50'
+                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
+                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                   }`}
                 >
                   {sub.label}
@@ -2511,16 +2899,15 @@ export default function App() {
             {currentNav.main === 'inventory' &&
               ([
                 { id: 'stock_breakdown', label: 'Godown & Carton Stock Breakdown' },
-                { id: 'products_crud', label: 'Add / Edit Products & Carton Sizes' },
                 { id: 'locations_transfer', label: 'Warehouses & Stock Transfers' }
               ] as { id: InventorySubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
                   onClick={() => navigateTo({ main: 'inventory', invSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                     currentNav.invSub === sub.id
-                      ? 'bg-yellow-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800/90 text-white border border-white/15 hover:border-yellow-400/50'
+                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
+                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                   }`}
                 >
                   {sub.label}
@@ -2529,16 +2916,16 @@ export default function App() {
 
             {currentNav.main === 'directory' &&
               ([
-                { id: 'parties', label: 'Customers, Groups, CNIC & 360° History' },
+                { id: 'parties', label: 'Customers, Groups, CNIC & 360° Khata' },
                 { id: 'recycle', label: `Recycle Bin (${stats?.trash_count ?? recycleBin.length})` }
               ] as { id: DirectorySubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
                   onClick={() => navigateTo({ main: 'directory', dirSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                     currentNav.dirSub === sub.id
-                      ? 'bg-yellow-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800/90 text-white border border-white/15 hover:border-yellow-400/50'
+                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
+                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                   }`}
                 >
                   {sub.label}
@@ -2548,17 +2935,17 @@ export default function App() {
             {currentNav.main === 'reports' &&
               ([
                 { id: 'bill_pnl', label: 'Bill-Wise Profit & Loss' },
-                { id: 'item_profit', label: 'Item-Wise Stock & Profit' },
+                { id: 'item_profit', label: 'Product Stock & Profit Summary' },
                 { id: 'daybook', label: 'Day Book (Roznamcha)' },
-                { id: 'groups_backup', label: 'Group Summary & Cloud Backup' }
+                { id: 'groups_backup', label: 'Route Groups & Backup Vault' }
               ] as { id: ReportsSubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
                   onClick={() => navigateTo({ main: 'reports', repSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                     currentNav.repSub === sub.id
-                      ? 'bg-yellow-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800/90 text-white border border-white/15 hover:border-yellow-400/50'
+                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
+                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                   }`}
                 >
                   {sub.label}
@@ -2568,15 +2955,15 @@ export default function App() {
         )}
 
         {mobileMenuOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t border-white/15 grid grid-cols-2 gap-2">
+          <div className="lg:hidden mt-3 pt-3 border-t border-[#F7F7F5]/20 grid grid-cols-2 gap-2">
             {mainMenuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => navigateTo({ main: item.id })}
                 className={`py-2.5 px-3 rounded-xl text-xs font-bold text-left ${
                   currentNav.main === item.id
-                    ? 'bg-yellow-400 text-slate-950'
-                    : 'bg-slate-800 text-white border border-white/15'
+                    ? 'bg-[#FF6B3D] text-white'
+                    : 'bg-[#003B43] text-white border border-white/15'
                 }`}
               >
                 {item.label}
@@ -2584,7 +2971,7 @@ export default function App() {
             ))}
             <button
               onClick={handleDownloadBackupJson}
-              className="py-2.5 px-3 rounded-xl text-xs font-bold text-left bg-emerald-700 text-white"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-left bg-[#F7F7F5] text-[#00373E]"
             >
               Download DB Backup
             </button>
@@ -2621,46 +3008,123 @@ export default function App() {
            ========================================================================= */}
         {currentNav.main === 'dashboard' && stats && (
           <div className="space-y-6 animate-fade-in">
-            <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Super Admin Approval Requests Bar (Visible to malikabuzar411@gmail.com) */}
+            {(currentAdmin?.email?.toLowerCase() === 'malikabuzar411@gmail.com' || currentAdmin?.is_super_admin || currentAdmin?.username === 'Admin') &&
+              adminsList.some(a => a.approval_status === 'PENDING') && (
+                <div className="glass-panel p-5 rounded-2xl border-2 border-[#FF6B3D] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF6B3D] text-white font-extrabold">
+                        Super Admin Authorization Required (malikabuzar411@gmail.com)
+                      </span>
+                      <h3 className="text-sm font-black text-white mt-1">
+                        PENDING ADMIN REGISTRATION REQUESTS ({adminsList.filter(a => a.approval_status === 'PENDING').length})
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {adminsList
+                      .filter(a => a.approval_status === 'PENDING')
+                      .map(req => (
+                        <div
+                          key={req.id}
+                          className="bg-[#00262B]/90 p-3.5 rounded-xl border border-[#F7F7F5]/20 flex flex-wrap items-center justify-between gap-3 text-xs"
+                        >
+                          <div>
+                            <div className="font-extrabold text-white text-sm">{req.full_name}</div>
+                            <div className="text-[#FF6B3D] font-mono">
+                              Gmail: {req.email} • Username: {req.username} • Role: {req.role}
+                            </div>
+                            <div className="text-[11px] text-slate-300">Requested At: {req.created_at}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleAdminApprovalDecision(req.id, 'APPROVED')}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-full text-xs transition shadow"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAdminApprovalDecision(req.id, 'NOT_APPROVED')}
+                              className="btn-danger px-4 py-2 text-xs"
+                            >
+                              ✕ Not Approved
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Timeframe + Specific Date Picker Bar */}
+            <div className="glass-panel p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-yellow-400/20 border border-yellow-400/50 text-yellow-300">
+                <div className="p-2.5 rounded-xl bg-[#FF6B3D]/20 border border-[#FF6B3D]/50 text-[#FF6B3D]">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
-                    EXECUTIVE REPORTING TIMEFRAME
+                    EXECUTIVE REPORTING TIMEFRAME & SPECIFIC DATE FILTER
                   </h2>
-                  <p className="text-xs text-slate-200 mt-0.5">
-                    100% Whole-PKR Accounting • Sales, Purchases, Profit & Khata Command
+                  <p className="text-xs text-[#F7F7F5]/80 mt-0.5">
+                    Logged in as: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Malik Abuzar (Super Admin)'}</strong> ({currentAdmin?.email || 'malikabuzar411@gmail.com'})
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:flex gap-2">
+
+              <div className="flex flex-wrap items-center gap-2">
                 {([
-                  { id: 'daily', label: 'Daily (Today)' },
-                  { id: 'weekly', label: 'Last Week (7D)' },
+                  { id: 'daily', label: 'Today (Daily)' },
+                  { id: 'weekly', label: 'Last 7 Days' },
                   { id: 'monthly', label: 'Monthly (30D)' },
                   { id: 'all', label: 'All-Time' }
                 ] as const).map(p => (
                   <button
                     key={p.id}
-                    onClick={() => setPeriod(p.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      period === p.id
-                        ? 'bg-gradient-to-r from-rose-600 to-amber-500 text-white shadow-lg'
-                        : 'bg-slate-800/90 text-slate-200 border border-white/15 hover:text-white'
+                    type="button"
+                    onClick={() => {
+                      setCustomDate('');
+                      setPeriod(p.id);
+                    }}
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition ${
+                      !customDate && period === p.id
+                        ? 'bg-[#FF6B3D] text-white shadow-lg'
+                        : 'bg-[#002B31] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                     }`}
                   >
                     {p.label}
                   </button>
                 ))}
+
+                <div className="flex items-center gap-1.5 bg-[#002B31] px-3 py-1 rounded-full border border-[#F7F7F5]/25">
+                  <span className="text-[11px] font-bold text-[#FF6B3D]">Specific Date:</span>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={e => setCustomDate(e.target.value)}
+                    className="bg-transparent text-xs font-mono text-white outline-none"
+                  />
+                  {customDate && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomDate('')}
+                      className="text-xs text-rose-400 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
+            {/* 5 Core Company-Wide KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="kpi-card p-5 rounded-2xl">
                 <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Sales ({period})</span>
+                  <span>Sales ({customDate || period})</span>
                   <span className="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
                     <TrendingUp className="w-4 h-4" />
                   </span>
@@ -2670,18 +3134,18 @@ export default function App() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
                   <span>Collected: PKR {pkr(stats.sales_collected).toLocaleString()}</span>
-                  <span className="text-yellow-300 font-bold">Khata: PKR {pkr(stats.sales_pending).toLocaleString()}</span>
+                  <span className="text-[#FF6B3D] font-bold">Khata: PKR {pkr(stats.sales_pending).toLocaleString()}</span>
                 </div>
               </div>
 
               <div className="kpi-card p-5 rounded-2xl">
                 <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Purchases ({period})</span>
-                  <span className="p-2 rounded-lg bg-yellow-400/20 text-yellow-300 border border-yellow-400/40">
+                  <span>Purchases ({customDate || period})</span>
+                  <span className="p-2 rounded-lg bg-[#FF6B3D]/20 text-[#FF6B3D] border border-[#FF6B3D]/40">
                     <ShoppingCart className="w-4 h-4" />
                   </span>
                 </div>
-                <div className="mt-3 text-2xl font-black text-yellow-300 tabular-nums">
+                <div className="mt-3 text-2xl font-black text-[#FF6B3D] tabular-nums">
                   PKR {pkr(stats.total_purchases_cost).toLocaleString()}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
@@ -2692,7 +3156,7 @@ export default function App() {
 
               <div className="kpi-card p-5 rounded-2xl">
                 <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Net Profit ({period})</span>
+                  <span>Net Profit ({customDate || period})</span>
                   <span className="p-2 rounded-lg bg-white/15 text-white border border-white/25">
                     <BarChart3 className="w-4 h-4" />
                   </span>
@@ -2725,11 +3189,11 @@ export default function App() {
               <div className="kpi-card p-5 rounded-2xl">
                 <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
                   <span>Live Stock Value</span>
-                  <span className="p-2 rounded-lg bg-yellow-400/20 text-yellow-300 border border-yellow-400/40">
+                  <span className="p-2 rounded-lg bg-[#FF6B3D]/20 text-[#FF6B3D] border border-[#FF6B3D]/40">
                     <Package className="w-4 h-4" />
                   </span>
                 </div>
-                <div className="mt-3 text-2xl font-black text-yellow-300 tabular-nums">
+                <div className="mt-3 text-2xl font-black text-[#F7F7F5] tabular-nums">
                   PKR {pkr(stats.total_stock_value).toLocaleString()}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
@@ -2739,49 +3203,140 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 glass-panel rounded-2xl overflow-hidden border border-yellow-400/40 shadow-2xl bg-slate-900/80 p-3 space-y-3">
-                <img
-                  src="/banner.jpg"
-                  alt="ATH Motorcycle Engine Oil Banner"
-                  className="w-full h-auto object-contain mx-auto block rounded-xl"
-                />
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            {/* 100% Transparent Business Partners Activity & Individual Admin Dashboard */}
+            <div className="glass-panel rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F7F7F5]/15 pb-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
+                    100% TRANSPARENT PARTNER DASHBOARDS — INDIVIDUAL & COMBINED ADMIN ACTIVITIES ({customDate || period.toUpperCase()})
+                  </h3>
+                  <p className="text-xs text-[#F7F7F5]/80">
+                    Every Admin partner can view their own individual dashboard as well as full side-by-side Sales, Purchases, Deposits & Expenses of all other Admins.
+                  </p>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
-                    className="btn-primary py-2.5 px-3 text-xs font-bold rounded-xl"
+                    type="button"
+                    onClick={() => setDashboardPartnerView('ALL')}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${
+                      dashboardPartnerView === 'ALL' ? 'bg-[#FF6B3D] text-white' : 'bg-[#002B31] text-[#F7F7F5]'
+                    }`}
                   >
-                    + New Sale Bill
+                    All Partners Side-by-Side ({partnerTransparency.length})
                   </button>
                   <button
-                    onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
-                    className="btn-oil py-2.5 px-3 text-xs font-bold rounded-xl"
+                    type="button"
+                    onClick={() => setDashboardPartnerView('MINE')}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${
+                      dashboardPartnerView === 'MINE' ? 'bg-[#F7F7F5] text-[#00373E]' : 'bg-[#002B31] text-[#F7F7F5]'
+                    }`}
                   >
-                    + Stock Purchase
-                  </button>
-                  <button
-                    onClick={() => navigateTo({ main: 'directory', dirSub: 'parties' })}
-                    className="bg-slate-800 hover:bg-slate-700 text-white border border-white/20 py-2.5 px-3 text-xs font-bold rounded-xl"
-                  >
-                    Customer 360° Khata
-                  </button>
-                  <button
-                    onClick={() => navigateTo({ main: 'reports', repSub: 'bill_pnl' })}
-                    className="bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-yellow-400/40 py-2.5 px-3 text-xs font-bold rounded-xl"
-                  >
-                    Bill-Wise P&L Report
+                    My Individual Dashboard ({currentAdmin?.username || 'Admin'})
                   </button>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {partnerTransparency
+                  .filter(pt =>
+                    dashboardPartnerView === 'ALL'
+                      ? true
+                      : pt.admin_id === (currentAdmin?.id || 1) ||
+                        pt.email.toLowerCase() === (currentAdmin?.email || 'malikabuzar411@gmail.com').toLowerCase()
+                  )
+                  .map((pt, idx) => (
+                    <div
+                      key={pt.admin_id}
+                      className="bg-[#00262B]/85 p-4 rounded-2xl border border-[#F7F7F5]/20 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#F7F7F5]/15 pb-2.5">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF6B3D] text-white font-bold">
+                            Admin Partner #{idx + 1} • {pt.role}
+                          </span>
+                          <h4 className="text-base font-black text-white mt-1">{pt.full_name}</h4>
+                          <div className="text-[11px] text-[#F7F7F5]/75 font-mono">
+                            {pt.email} • Username: {pt.username}
+                          </div>
+                        </div>
+                        {pt.admin_id === (currentAdmin?.id || 1) && (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold">
+                            ● Active Session (You)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
+                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Sales Generated</div>
+                          <div className="text-sm font-extrabold text-emerald-300 mt-0.5">
+                            PKR {pkr(pt.sales_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-300">{pt.sales_count} Bills</div>
+                        </div>
+                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Purchases Made</div>
+                          <div className="text-sm font-extrabold text-[#FF6B3D] mt-0.5">
+                            PKR {pkr(pt.purchases_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-300">{pt.purchases_count} Bills</div>
+                        </div>
+                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Deposits / Inflow</div>
+                          <div className="text-sm font-extrabold text-[#F7F7F5] mt-0.5">
+                            PKR {pkr(pt.deposits_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-300">{pt.deposits_count} Entries</div>
+                        </div>
+                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Expenses Paid</div>
+                          <div className="text-sm font-extrabold text-rose-300 mt-0.5">
+                            PKR {pkr(pt.expenses_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-300">{pt.expenses_count} Vouchers</div>
+                        </div>
+                      </div>
+
+                      {pt.recent_activities.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] font-bold uppercase text-[#FF6B3D]">
+                            Recent Transactions by {pt.full_name}:
+                          </div>
+                          <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                            {pt.recent_activities.slice(0, 5).map((act, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-[11px] bg-[#00373E]/60 px-2.5 py-1 rounded-lg font-mono"
+                              >
+                                <span className="truncate">
+                                  <strong className="text-white">{act.type}</strong> • {act.reference} ({act.party})
+                                </span>
+                                <span className="font-bold text-emerald-300 shrink-0 ml-2">
+                                  PKR {pkr(act.amount).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2">
+                <AthFracturedCurrentHero onNavigate={navigateTo} />
               </div>
 
               <div className="glass-panel rounded-2xl p-5 space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-extrabold text-white uppercase flex items-center gap-2 samsung-heading heading-reveal">
-                    <Landmark className="w-4 h-4 text-yellow-400" /> Financial Accounts
+                    <Landmark className="w-4 h-4 text-[#FF6B3D]" /> Financial Accounts
                   </h3>
                   <button
                     onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
-                    className="text-xs text-yellow-300 hover:underline font-bold"
+                    className="text-xs text-[#FF6B3D] hover:underline font-bold"
                   >
                     Manage / Transfer →
                   </button>
@@ -2790,11 +3345,11 @@ export default function App() {
                   {accounts.map(acc => (
                     <div
                       key={acc.id}
-                      className="bg-slate-800/90 p-3.5 rounded-xl border border-white/15 flex justify-between items-center"
+                      className="bg-[#00262B]/85 p-3.5 rounded-xl border border-white/15 flex justify-between items-center"
                     >
                       <div>
                         <div className="text-sm font-bold text-white">{acc.name}</div>
-                        <div className="text-[11px] text-yellow-300 font-mono">
+                        <div className="text-[11px] text-[#FF6B3D] font-mono">
                           {acc.type} • {acc.account_number || 'Active'}
                         </div>
                       </div>
@@ -2830,45 +3385,14 @@ export default function App() {
                 <div className="glass-panel rounded-2xl p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
-                      <Plus className="w-4 h-4 text-yellow-400" /> CREATE VYAPAR SALE INVOICE / RETURN / ESTIMATE
+                      <Plus className="w-4 h-4 text-[#FF6B3D]" /> CREATE CUSTOMER SALE INVOICE
                     </h3>
-                    <div className="flex gap-1.5">
-                      {([
-                        { id: 'SALE', label: 'Tax / Trade Sale Invoice' },
-                        { id: 'SALE_RETURN', label: 'Sale Return (Credit Note)' },
-                        { id: 'ESTIMATE', label: 'Quotation / Estimate' }
-                      ] as { id: SaleDocType; label: string }[]).map(dt => (
-                        <button
-                          key={dt.id}
-                          type="button"
-                          onClick={() => setSaleDocType(dt.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                            saleDocType === dt.id
-                              ? 'bg-rose-600 text-white border border-yellow-300'
-                              : 'bg-slate-800 text-slate-200 border border-white/15'
-                          }`}
-                        >
-                          {dt.label}
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-xs font-bold text-[#F7F7F5]/80">
+                      Recorded by Admin: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Admin'}</strong>
+                    </span>
                   </div>
 
                   <form onSubmit={handleCreateSale} className="space-y-4">
-                    {saleDocType === 'ESTIMATE' && (
-                      <div className="p-3 rounded-xl bg-amber-950/90 border border-yellow-400 text-xs text-yellow-200 flex flex-wrap items-center justify-between gap-2">
-                        <span>
-                          <strong>Quotation / Estimate Mode Active:</strong> Estimates do not deduct stock or add to Sales Revenue until converted to a confirmed Sale Invoice.
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSaleDocType('SALE')}
-                          className="btn-oil px-3 py-1 text-xs"
-                        >
-                          Switch to Confirmed Tax / Trade Sale Invoice
-                        </button>
-                      </div>
-                    )}
 
                     {/* Customer & Searchable Group ID Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -3520,27 +4044,11 @@ export default function App() {
                 <div className="glass-panel rounded-2xl p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
-                      <ShoppingCart className="w-4 h-4 text-yellow-400" /> RECORD SUPPLIER PURCHASE BILL / RETURN
+                      <ShoppingCart className="w-4 h-4 text-[#FF6B3D]" /> RECORD SUPPLIER STOCK PURCHASE (ADDS NEW OR EXISTING PRODUCTS TO STOCK)
                     </h3>
-                    <div className="flex gap-1.5">
-                      {([
-                        { id: 'PURCHASE', label: 'Stock Purchase Bill' },
-                        { id: 'PURCHASE_RETURN', label: 'Purchase Return (Debit Note)' }
-                      ] as { id: PurchaseDocType; label: string }[]).map(dt => (
-                        <button
-                          key={dt.id}
-                          type="button"
-                          onClick={() => setPurDocType(dt.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                            purDocType === dt.id
-                              ? 'bg-yellow-400 text-slate-950'
-                              : 'bg-slate-800 text-slate-200 border border-white/15'
-                          }`}
-                        >
-                          {dt.label}
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-xs font-bold text-[#F7F7F5]/80">
+                      Recorded by Admin: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Admin'}</strong>
+                    </span>
                   </div>
 
                   <form onSubmit={handleCreatePurchase} className="space-y-4">
@@ -4542,12 +5050,22 @@ export default function App() {
                     <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
                       ALL PRODUCTS STOCK VALUATION, BUY/SALE RATES & CARTON BREAKDOWN
                     </h3>
-                    <button
-                      onClick={() => navigateTo({ main: 'inventory', invSub: 'products_crud' })}
-                      className="btn-primary text-xs px-4 py-2"
-                    >
-                      + Add New Product
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
+                        className="btn-primary text-xs px-4 py-2"
+                      >
+                        + Add New Product via Purchase Bill
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigateTo({ main: 'inventory', invSub: 'locations_transfer' })}
+                        className="btn-oil text-xs px-4 py-2"
+                      >
+                        Transfer Stock Between Godowns
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs erp-table min-w-[860px]">
@@ -4567,9 +5085,9 @@ export default function App() {
                           <tr key={p.id}>
                             <td>
                               <div className="font-bold text-white">{p.name}</div>
-                              <div className="text-[11px] text-yellow-300 font-mono">{p.brand_name} • {p.pack_size} • {p.sku}</div>
+                              <div className="text-[11px] text-[#FF6B3D] font-mono">{p.brand_name} • {p.pack_size} • {p.sku}</div>
                             </td>
-                            <td className="font-mono font-bold text-yellow-300">{p.units_per_carton} Btls / Ctn</td>
+                            <td className="font-mono font-bold text-[#F7F7F5]">{p.units_per_carton} Btls / Ctn</td>
                             <td>
                               {(p.locations || []).length === 0 ? (
                                 <span className="text-slate-400">0 Btls</span>
@@ -4577,7 +5095,7 @@ export default function App() {
                                 <div className="space-y-1">
                                   {(p.locations || []).map(l => (
                                     <div key={l.location_id} className="text-[11px]">
-                                      <strong className="text-yellow-300">{l.location_name}:</strong> {l.cartons} Ctn + {l.loose_bottles} Btl ({l.stock_bottles} Btls)
+                                      <strong className="text-[#FF6B3D]">{l.location_name}:</strong> {l.cartons} Ctn + {l.loose_bottles} Btl ({l.stock_bottles} Btls)
                                     </div>
                                   ))}
                                 </div>
@@ -4588,37 +5106,19 @@ export default function App() {
                               <div className="text-[11px] text-emerald-300 font-bold">{p.cartons} Ctn + {p.loose_bottles} Btl</div>
                             </td>
                             <td className="tabular-nums">
-                              <div className="text-slate-200">Buy: <strong className="text-yellow-300">PKR {pkr(p.carton_purchase_rate).toLocaleString()}/Ctn</strong></div>
+                              <div className="text-slate-200">Buy: <strong className="text-[#FF6B3D]">PKR {pkr(p.carton_purchase_rate).toLocaleString()}/Ctn</strong></div>
                               <div className="text-slate-200">Sale: <strong className="text-emerald-300">PKR {pkr(p.carton_sale_rate).toLocaleString()}/Ctn</strong></div>
                             </td>
-                            <td className="font-extrabold text-yellow-300 tabular-nums">
+                            <td className="font-extrabold text-[#F7F7F5] tabular-nums">
                               PKR {pkr(p.stock_valuation).toLocaleString()}
                             </td>
                             <td className="text-right space-x-2">
                               <button
-                                onClick={() => {
-                                  setEditingProductId(p.id);
-                                  setProdSku(p.sku);
-                                  setProdName(p.name);
-                                  setProdCompanyName(p.brand_name || 'ATH Oils');
-                                  setProdBrandId(p.brand_id || 1);
-                                  setProdViscosity(p.viscosity);
-                                  setProdPackSize(String(p.pack_size_num || 700));
-                                  setProdUnitsPerCarton(String(p.units_per_carton));
-                                  setProdPurchaseRate(String(pkr(p.purchase_rate)));
-                                  setProdSaleRate(String(pkr(p.sale_rate)));
-                                  setProdReorder(String(p.reorder_level));
-                                  navigateTo({ main: 'inventory', invSub: 'products_crud' });
-                                }}
-                                className="text-yellow-300 hover:text-white p-1"
-                              >
-                                <Edit3 className="w-4 h-4 inline" />
-                              </button>
-                              <button
+                                type="button"
                                 onClick={() => triggerReverse('PRODUCT', p.id, p.name)}
-                                className="text-rose-300 hover:text-white p-1"
+                                className="btn-danger px-2.5 py-1 text-[11px]"
                               >
-                                <Trash2 className="w-4 h-4 inline" />
+                                <Trash2 className="w-3.5 h-3.5" /> Remove
                               </button>
                             </td>
                           </tr>
@@ -4627,33 +5127,6 @@ export default function App() {
                     </table>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {currentNav.invSub === 'products_crud' && (
-              <div className="glass-panel rounded-2xl p-5 sm:p-6">
-                <h3 className="text-sm font-extrabold text-white mb-4 flex items-center gap-2 samsung-heading heading-reveal">
-                  <Package className="w-4 h-4 text-yellow-400" /> {editingProductId ? 'EDIT PRODUCT' : 'ADD NEW LUBRICANT PRODUCT'}
-                </h3>
-                <form onSubmit={handleSaveProduct} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <input type="text" required placeholder="SKU Code" value={prodSku} onChange={e => setProdSku(e.target.value)} className="erp-input" />
-                  <input type="text" required placeholder="Product Name" value={prodName} onChange={e => setProdName(e.target.value)} className="erp-input" />
-                  <input type="text" required placeholder="Brand / Company" value={prodCompanyName} onChange={e => setProdCompanyName(e.target.value)} className="erp-input" />
-                  <input type="number" required placeholder="Bottle Size (ML)" value={prodPackSize} onChange={e => setProdPackSize(e.target.value)} className="erp-input" />
-                  <input type="number" required placeholder="Bottles per Carton" value={prodUnitsPerCarton} onChange={e => setProdUnitsPerCarton(e.target.value)} className="erp-input" />
-                  <input type="number" placeholder="Purchase Rate / Bottle" value={prodPurchaseRate} onChange={e => setProdPurchaseRate(e.target.value)} className="erp-input" />
-                  <input type="number" placeholder="Sale Rate / Bottle" value={prodSaleRate} onChange={e => setProdSaleRate(e.target.value)} className="erp-input" />
-                  <label className="flex items-center gap-2 bg-slate-800/90 px-3 py-2.5 rounded-xl border border-white/15 text-xs font-bold text-white cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={prodIsFavorite}
-                      onChange={e => setProdIsFavorite(e.target.checked)}
-                      className="w-4 h-4 accent-yellow-400"
-                    />
-                    Explicitly Mark as Favorite Product
-                  </label>
-                  <button type="submit" className="btn-primary py-2.5 text-xs uppercase">{editingProductId ? 'Update Product' : 'Save Product'}</button>
-                </form>
               </div>
             )}
 
@@ -5018,28 +5491,57 @@ export default function App() {
            ========================================================================= */}
         {currentNav.main === 'reports' && vyaparReports && (
           <div className="space-y-6 animate-fade-in">
-            {/* Period Selector */}
+            {/* Period & Specific Date Selector */}
             <div className="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
-                  VYAPAR BUSINESS REPORTS & ANALYTICS ({period.toUpperCase()})
+                  ATH LUBRICANTS BUSINESS REPORTS & ANALYTICS ({customDate || period.toUpperCase()})
                 </h2>
-                <p className="text-xs text-slate-200">
-                  Bill-Wise Profit, Item-Wise Stock & Profit, Roznamcha Day Book & Group Receivables
+                <p className="text-xs text-[#F7F7F5]/80">
+                  Bill-Wise Profit, Product Stock & Profit, Roznamcha Day Book & Route Group Receivables
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {(['daily', 'weekly', 'monthly', 'all'] as TimePeriod[]).map(p => (
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { id: 'daily', label: 'Today (Daily)' },
+                  { id: 'weekly', label: 'Last 7 Days' },
+                  { id: 'monthly', label: 'Monthly (30D)' },
+                  { id: 'all', label: 'All-Time' }
+                ] as const).map(p => (
                   <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase ${
-                      period === p ? 'bg-yellow-400 text-slate-950' : 'bg-slate-800 text-white'
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setCustomDate('');
+                      setPeriod(p.id);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${
+                      !customDate && period === p.id
+                        ? 'bg-[#FF6B3D] text-white shadow'
+                        : 'bg-[#002B31] text-[#F7F7F5] border border-[#F7F7F5]/20'
                     }`}
                   >
-                    {p}
+                    {p.label}
                   </button>
                 ))}
+                <div className="flex items-center gap-1.5 bg-[#002B31] px-3 py-1 rounded-full border border-[#F7F7F5]/25">
+                  <span className="text-[11px] font-bold text-[#FF6B3D]">Specific Date:</span>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={e => setCustomDate(e.target.value)}
+                    className="bg-transparent text-xs font-mono text-white outline-none"
+                  />
+                  {customDate && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomDate('')}
+                      className="text-xs text-rose-400 font-bold ml-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

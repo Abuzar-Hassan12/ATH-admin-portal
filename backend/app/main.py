@@ -9,19 +9,20 @@ import uuid
 
 from .database import engine, Base, get_db, is_sqlite
 from .models import (
-    Brand, StorageLocation, Product, ProductLocationStock,
+    AdminUser, Brand, StorageLocation, Product, ProductLocationStock,
     PartyGroup, Supplier, Customer, Purchase, PurchaseItem,
     Sale, SaleItem, StockMovement, FinancialAccount,
     AccountTransaction, LoanAccount, Expense,
     CustomerPayment, CustomerPaymentAllocation, RecycleBin
 )
 from .schemas import (
-    BootstrapRequest, LoginRequest, PasswordVerifyRequest, PartialPaymentRequest,
+    BootstrapRequest, LoginRequest, AdminSignupRequest, AdminApprovalDecisionRequest,
+    PasswordVerifyRequest, PartialPaymentRequest,
     LocationCreate, LocationUpdate, StockTransferRequest, DirectLocationStockSet,
     PartyGroupCreate, ProductCreate, ProductUpdate,
     CustomerCreate, CustomerUpdate,
-    SupplierCreate, SupplierUpdate,
     FinancialAccountCreate, FinancialAccountUpdate,
+    SupplierCreate, SupplierUpdate,
     AccountAdjustRequest, AccountTransferRequest, LoanRepayRequest,
     PurchaseCreate, SaleCreate,
     PaymentProposalRequest, BillAllocationItemInput, ConfirmPaymentAllocationRequest,
@@ -452,14 +453,39 @@ def adjust_location_stock(db: Session, product: Product, location_id: int, delta
 
 # ==================== SNAPSHOT & BACKUP ENGINE ====================
 
+def database_has_user_activity(db: Session) -> bool:
+    return (
+        db.query(Sale).count() > 0 or
+        db.query(Purchase).count() > 0 or
+        db.query(Expense).count() > 0 or
+        db.query(AccountTransaction).count() > 0 or
+        any((ls.stock_bottles or 0) > 0 for ls in db.query(ProductLocationStock).all()) or
+        any(abs(a.current_balance or 0) > 0 for a in db.query(FinancialAccount).all()) or
+        db.query(Customer).count() > 4 or
+        db.query(Supplier).count() > 2
+    )
+
+
 def export_full_snapshot(db: Session) -> Dict[str, Any]:
     global SERVER_STATE_VERSION
     if SERVER_STATE_VERSION == 0:
-        SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+        # Cold-start seed DB gets version 1 so it NEVER overrides a client's real snapshot
+        SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000) if database_has_user_activity(db) else 1
 
     return {
         "version": SERVER_STATE_VERSION,
         "exported_at": datetime.utcnow().isoformat(),
+        "admin_users": [
+            {
+                "id": u.id, "full_name": u.full_name, "email": u.email,
+                "username": u.username, "password_hash": u.password_hash,
+                "role": u.role, "approval_status": u.approval_status,
+                "approved_by": u.approved_by,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None
+            }
+            for u in db.query(AdminUser).all()
+        ],
         "brands": [
             {"id": b.id, "code": b.code, "name": b.name, "is_owned_brand": b.is_owned_brand}
             for b in db.query(Brand).all()
@@ -666,9 +692,8 @@ def export_full_snapshot(db: Session) -> Dict[str, Any]:
 def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False):
     """
     Restores a full snapshot into the database.
-    - When running on persistent PostgreSQL, automatic client snapshot overwrite is skipped unless force=True
-      (such as manual admin Backup Restore), protecting multi-user cloud deployments.
-    - When running on Vercel /tmp SQLite, safely hydrates cold starts if the client holds a newer state.
+    - Guarantees that cold-started Vercel /tmp SQLite containers ALWAYS hydrate from the client's snapshot
+      when switching between Daily, Weekly, Monthly, or All-Time filters.
     """
     global SERVER_STATE_VERSION
     if not snap or not isinstance(snap, dict):
@@ -678,15 +703,25 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
         return
 
     client_ver = int(snap.get("version") or 0)
-    if not force and client_ver <= SERVER_STATE_VERSION:
+    server_has_activity = database_has_user_activity(db)
+
+    client_has_activity = (
+        len(snap.get("sales") or []) > 0 or
+        len(snap.get("purchases") or []) > 0 or
+        len(snap.get("expenses") or []) > 0 or
+        len(snap.get("account_transactions") or []) > 0 or
+        any((ls.get("stock_bottles") or 0) > 0 for ls in (snap.get("location_stocks") or [])) or
+        any(abs(a.get("current_balance") or 0) > 0 for a in (snap.get("accounts") or [])) or
+        len(snap.get("customers") or []) > 4 or
+        len(snap.get("suppliers") or []) > 2
+    )
+
+    # Never overwrite an active server DB with an empty client snapshot unless forced
+    if not force and server_has_activity and not client_has_activity:
         return
 
-    has_live_transactions = (
-        db.query(Sale).count() > 0 or
-        db.query(Purchase).count() > 0 or
-        db.query(AccountTransaction).count() > 0
-    )
-    if not force and SERVER_STATE_VERSION > 0 and has_live_transactions and client_ver <= SERVER_STATE_VERSION:
+    # If the server container already has live data and is at or ahead of client_ver, no restore needed
+    if not force and server_has_activity and SERVER_STATE_VERSION >= client_ver and client_ver > 0:
         return
 
     try:
@@ -705,6 +740,26 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
             except Exception:
                 pass
         db.flush()
+
+        if snap.get("admin_users"):
+            try:
+                db.execute(text("DELETE FROM admin_users"))
+                db.flush()
+                for u in snap.get("admin_users", []):
+                    db.add(AdminUser(
+                        id=u["id"],
+                        full_name=u["full_name"],
+                        email=u["email"],
+                        username=u["username"],
+                        password_hash=u["password_hash"],
+                        role=u.get("role", "ADMIN"),
+                        approval_status=u.get("approval_status", "PENDING"),
+                        approved_by=u.get("approved_by"),
+                        created_at=datetime.fromisoformat(u["created_at"]) if u.get("created_at") else datetime.utcnow(),
+                        last_login_at=datetime.fromisoformat(u["last_login_at"]) if u.get("last_login_at") else None
+                    ))
+            except Exception:
+                pass
 
         for b in snap.get("brands", []):
             db.add(Brand(id=b["id"], code=b["code"], name=b["name"], is_owned_brand=b.get("is_owned_brand", False)))
@@ -901,9 +956,31 @@ def sync_from_client_snapshot_if_newer(db: Session, snap: Optional[Dict[str, Any
 
 # ==================== UNIFIED SINGLE-REQUEST BOOTSTRAP & BACKUP ====================
 
+SUPER_ADMIN_EMAIL = "malikabuzar411@gmail.com"
+
+
+def ensure_super_admin_exists(db: Session) -> AdminUser:
+    su = db.query(AdminUser).filter(AdminUser.email.ilike(SUPER_ADMIN_EMAIL)).first()
+    if not su:
+        su = AdminUser(
+            full_name="Malik Abuzar (Super Admin)",
+            email=SUPER_ADMIN_EMAIL,
+            username="Admin",
+            password_hash="Admin@786",
+            role="SUPER_ADMIN",
+            approval_status="APPROVED",
+            approved_by="SYSTEM_OWNER"
+        )
+        db.add(su)
+        db.commit()
+        db.refresh(su)
+    return su
+
+
 @app.post("/api/bootstrap")
 def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    ensure_super_admin_exists(db)
     period = payload.period if payload.period in ("daily", "weekly", "monthly", "all") else "monthly"
     custom_date = (getattr(payload, "custom_date", None) or "").strip() or None
     effective_period = custom_date if custom_date else period
@@ -932,6 +1009,8 @@ def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
         "account_history": get_accounts_history(period=effective_period, channel=channel, db=db),
         "recycle_bin": list_recycle_bin(db=db),
         "vyapar_reports": get_vyapar_reports(period=effective_period, db=db),
+        "admins": list_admin_users(db=db),
+        "partner_transparency": get_partner_transparency_stats(period=effective_period, db=db),
         "snapshot": export_full_snapshot(db)
     }
 
@@ -955,17 +1034,325 @@ def import_backup_file(payload: Dict[str, Any] = Body(...), db: Session = Depend
     }
 
 
-# ==================== AUTHENTICATION ====================
+# ==================== MULTI-ADMIN AUTHENTICATION, GMAIL SIGNUP & APPROVAL ENGINE ====================
+
+@app.post("/api/auth/signup")
+def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
+    ensure_super_admin_exists(db)
+    clean_email = (payload.email or "").strip().lower()
+    clean_name = (payload.full_name or "").strip()
+    clean_user = (payload.username or clean_email.split("@")[0]).strip()
+    clean_pw = (payload.password or "").strip()
+
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Please enter your full name.")
+    if not clean_email or not (clean_email.endswith("@gmail.com") or clean_email.endswith("@googlemail.com")):
+        raise HTTPException(
+            status_code=400,
+            detail="Please register using a valid Google / Gmail address (ending in @gmail.com)."
+        )
+    if len(clean_pw) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+
+    # Block duplicate signup from the same Gmail address
+    existing_by_email = db.query(AdminUser).filter(AdminUser.email.ilike(clean_email)).first()
+    if existing_by_email:
+        if existing_by_email.approval_status == "APPROVED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"The Gmail account '{clean_email}' is already registered and APPROVED! Please switch to Sign In and enter your password."
+            )
+        elif existing_by_email.approval_status == "PENDING":
+            raise HTTPException(
+                status_code=400,
+                detail=f"The Gmail account '{clean_email}' has already signed up and is waiting for approval from {SUPER_ADMIN_EMAIL}. You cannot sign up again—please Sign In once approved."
+            )
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail=f"The registration request for '{clean_email}' was marked as Not Approved by {SUPER_ADMIN_EMAIL}."
+            )
+
+    # Ensure username is unique
+    existing_by_user = db.query(AdminUser).filter(AdminUser.username.ilike(clean_user)).first()
+    if existing_by_user:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Username '{clean_user}' is already taken. Please choose a different username or Sign In if you already registered."
+        )
+
+    is_owner = (clean_email == SUPER_ADMIN_EMAIL)
+    new_admin = AdminUser(
+        full_name=clean_name,
+        email=clean_email,
+        username=clean_user,
+        password_hash=clean_pw,
+        role="SUPER_ADMIN" if is_owner else (payload.role or "ADMIN").upper(),
+        approval_status="APPROVED" if is_owner else "PENDING",
+        approved_by="SYSTEM_OWNER" if is_owner else None
+    )
+    db.add(new_admin)
+    bump_version()
+    db.commit()
+    db.refresh(new_admin)
+
+    return {
+        "status": "approved" if is_owner else "pending_approval",
+        "message": (
+            f"Registration submitted for {clean_name} ({clean_email})! "
+            f"Your request has been sent to Super Admin ({SUPER_ADMIN_EMAIL}) for approval. "
+            f"Once approved, sign in using '{clean_email}' (or username '{clean_user}') and your password."
+        ),
+        "admin": {
+            "id": new_admin.id,
+            "full_name": new_admin.full_name,
+            "email": new_admin.email,
+            "username": new_admin.username,
+            "role": new_admin.role,
+            "approval_status": new_admin.approval_status
+        },
+        "snapshot": export_full_snapshot(db)
+    }
+
 
 @app.post("/api/auth/login")
-def admin_login(payload: LoginRequest):
-    if payload.username.strip() == "Admin" and payload.password == "Admin@786":
-        return {
-            "status": "authenticated",
-            "username": "Admin",
-            "role": "System Administrator"
+def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
+    ensure_super_admin_exists(db)
+    ident = (payload.username or "").strip()
+    pw = payload.password or ""
+
+    user = db.query(AdminUser).filter(
+        (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
+    ).first()
+
+    if not user or user.password_hash != pw:
+        raise HTTPException(status_code=401, detail="Invalid Gmail / username or password.")
+
+    if user.approval_status == "PENDING":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Approval Pending: Your Admin account ({user.email}) is waiting for approval from Super Admin ({SUPER_ADMIN_EMAIL})."
+        )
+
+    if user.approval_status == "NOT_APPROVED":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access Denied: Your registration ({user.email}) was marked as 'Not Approved' by {SUPER_ADMIN_EMAIL}."
+        )
+
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+
+    is_super = (user.email.lower() == SUPER_ADMIN_EMAIL or user.role == "SUPER_ADMIN")
+    return {
+        "status": "authenticated",
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "email": user.email,
+        "role": user.role,
+        "approval_status": user.approval_status,
+        "is_super_admin": is_super
+    }
+
+
+@app.get("/api/auth/admins")
+def list_admin_users(db: Session = Depends(get_db)):
+    ensure_super_admin_exists(db)
+    users = db.query(AdminUser).order_by(AdminUser.id.asc()).all()
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "username": u.username,
+            "role": u.role,
+            "approval_status": u.approval_status,
+            "approved_by": u.approved_by,
+            "is_super_admin": (u.email.lower() == SUPER_ADMIN_EMAIL or u.role == "SUPER_ADMIN"),
+            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "",
+            "last_login_at": u.last_login_at.strftime("%Y-%m-%d %H:%M") if u.last_login_at else "Never"
         }
-    raise HTTPException(status_code=401, detail="Invalid username or password.")
+        for u in users
+    ]
+
+
+@app.post("/api/auth/admins/{admin_id}/decision")
+def decide_admin_approval(
+    admin_id: int,
+    payload: AdminApprovalDecisionRequest,
+    db: Session = Depends(get_db)
+):
+    if (payload.approver_email or "").strip().lower() != SUPER_ADMIN_EMAIL:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Only Super Admin ({SUPER_ADMIN_EMAIL}) is authorized to Approve or Reject Admin registrations."
+        )
+
+    target = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin registration record not found.")
+
+    if target.email.lower() == SUPER_ADMIN_EMAIL:
+        raise HTTPException(status_code=400, detail="Super Admin account is permanently approved.")
+
+    target.approval_status = payload.decision.upper()
+    target.approved_by = SUPER_ADMIN_EMAIL
+    bump_version()
+    db.commit()
+
+    return {
+        "status": "updated",
+        "message": f"Admin '{target.full_name}' ({target.email}) marked as {target.approval_status}!",
+        "admins": list_admin_users(db=db),
+        "snapshot": export_full_snapshot(db)
+    }
+
+
+@app.get("/api/admins/transparency")
+def get_partner_transparency_stats(
+    period: str = Query("monthly"),
+    db: Session = Depends(get_db)
+):
+    """
+    Computes 100% transparent business partner metrics for every Admin:
+    Individual Sales, Purchases, Cash Deposits, Expenses, Customer Collections, and Recent Activity.
+    """
+    ensure_super_admin_exists(db)
+    start_dt, end_dt = get_period_bounds(period)
+
+    sales_q = db.query(Sale).filter(Sale.doc_type != "ESTIMATE")
+    purchases_q = db.query(Purchase)
+    expenses_q = db.query(Expense)
+    tx_q = db.query(AccountTransaction)
+
+    if start_dt:
+        sales_q = sales_q.filter(Sale.invoice_date >= start_dt)
+        purchases_q = purchases_q.filter(Purchase.invoice_date >= start_dt)
+        expenses_q = expenses_q.filter(Expense.expense_date >= start_dt)
+        tx_q = tx_q.filter(AccountTransaction.tx_date >= start_dt)
+    if end_dt:
+        sales_q = sales_q.filter(Sale.invoice_date < end_dt)
+        purchases_q = purchases_q.filter(Purchase.invoice_date < end_dt)
+        expenses_q = expenses_q.filter(Expense.expense_date < end_dt)
+        tx_q = tx_q.filter(AccountTransaction.tx_date < end_dt)
+
+    sales_rows = sales_q.all()
+    pur_rows = purchases_q.all()
+    exp_rows = expenses_q.all()
+    tx_rows = tx_q.all()
+
+    approved_admins = db.query(AdminUser).filter(AdminUser.approval_status == "APPROVED").order_by(AdminUser.id.asc()).all()
+    admin_map: Dict[str, Dict[str, Any]] = {}
+
+    for u in approved_admins:
+        key = f"ID:{u.id}"
+        admin_map[key] = {
+            "admin_id": u.id,
+            "full_name": u.full_name,
+            "username": u.username,
+            "email": u.email,
+            "role": u.role,
+            "sales_total": 0.0,
+            "sales_collected": 0.0,
+            "sales_count": 0,
+            "purchases_total": 0.0,
+            "purchases_paid": 0.0,
+            "purchases_count": 0,
+            "deposits_total": 0.0,
+            "withdrawals_total": 0.0,
+            "deposits_count": 0,
+            "expenses_total": 0.0,
+            "expenses_count": 0,
+            "recent_activities": []
+        }
+
+    def resolve_bucket(adm_id: Optional[int], adm_name: Optional[str]) -> Dict[str, Any]:
+        if adm_id and f"ID:{adm_id}" in admin_map:
+            return admin_map[f"ID:{adm_id}"]
+        clean_n = (adm_name or "Admin").strip().lower()
+        for b in admin_map.values():
+            if b["username"].lower() == clean_n or b["full_name"].lower() == clean_n or b["email"].lower() == clean_n:
+                return b
+        # Default fallback to first Super Admin bucket
+        first_key = next(iter(admin_map.keys()), None)
+        if first_key:
+            return admin_map[first_key]
+        admin_map["DEFAULT"] = {
+            "admin_id": 1, "full_name": "Malik Abuzar (Super Admin)", "username": "Admin",
+            "email": SUPER_ADMIN_EMAIL, "role": "SUPER_ADMIN",
+            "sales_total": 0.0, "sales_collected": 0.0, "sales_count": 0,
+            "purchases_total": 0.0, "purchases_paid": 0.0, "purchases_count": 0,
+            "deposits_total": 0.0, "withdrawals_total": 0.0, "deposits_count": 0,
+            "expenses_total": 0.0, "expenses_count": 0, "recent_activities": []
+        }
+        return admin_map["DEFAULT"]
+
+    for s in sales_rows:
+        b = resolve_bucket(getattr(s, "admin_id", None), getattr(s, "admin_name", None))
+        sign = -1.0 if getattr(s, "doc_type", "SALE") == "SALE_RETURN" else 1.0
+        b["sales_total"] = pkr(b["sales_total"] + sign * pkr(s.total_amount))
+        b["sales_collected"] = pkr(b["sales_collected"] + sign * pkr(s.received_amount))
+        b["sales_count"] += 1
+        b["recent_activities"].append({
+            "date": s.invoice_date.strftime("%Y-%m-%d %H:%M"),
+            "timestamp": s.invoice_date.isoformat(),
+            "type": "SALE",
+            "reference": s.invoice_number,
+            "party": s.customer.name if s.customer else "Customer",
+            "amount": pkr(s.total_amount)
+        })
+
+    for p in pur_rows:
+        b = resolve_bucket(getattr(p, "admin_id", None), getattr(p, "admin_name", None))
+        sign = -1.0 if getattr(p, "doc_type", "PURCHASE") == "PURCHASE_RETURN" else 1.0
+        b["purchases_total"] = pkr(b["purchases_total"] + sign * pkr(p.total_amount))
+        b["purchases_paid"] = pkr(b["purchases_paid"] + sign * pkr(p.paid_amount))
+        b["purchases_count"] += 1
+        b["recent_activities"].append({
+            "date": p.invoice_date.strftime("%Y-%m-%d %H:%M"),
+            "timestamp": p.invoice_date.isoformat(),
+            "type": "PURCHASE",
+            "reference": p.purchase_number,
+            "party": p.supplier.name if p.supplier else "Supplier",
+            "amount": pkr(p.total_amount)
+        })
+
+    for e in exp_rows:
+        b = resolve_bucket(getattr(e, "admin_id", None), getattr(e, "admin_name", None))
+        b["expenses_total"] = pkr(b["expenses_total"] + pkr(e.amount))
+        b["expenses_count"] += 1
+        b["recent_activities"].append({
+            "date": e.expense_date.strftime("%Y-%m-%d %H:%M"),
+            "timestamp": e.expense_date.isoformat(),
+            "type": "EXPENSE",
+            "reference": e.expense_number,
+            "party": e.paid_to or e.category,
+            "amount": pkr(e.amount)
+        })
+
+    for t in tx_rows:
+        if t.tx_type in ("CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER", "CUSTOMER PAYMENT ALLOCATION"):
+            b = resolve_bucket(getattr(t, "admin_id", None), getattr(t, "admin_name", None))
+            if t.cash_in > 0:
+                b["deposits_total"] = pkr(b["deposits_total"] + pkr(t.cash_in))
+                b["deposits_count"] += 1
+            if t.cash_out > 0 and t.tx_type == "CASH WITHDRAWAL":
+                b["withdrawals_total"] = pkr(b["withdrawals_total"] + pkr(t.cash_out))
+            b["recent_activities"].append({
+                "date": t.tx_date.strftime("%Y-%m-%d %H:%M"),
+                "timestamp": t.tx_date.isoformat(),
+                "type": t.tx_type,
+                "reference": t.tx_number,
+                "party": t.party or "Account",
+                "amount": pkr(max(t.cash_in, t.cash_out))
+            })
+
+    for b in admin_map.values():
+        b["recent_activities"].sort(key=lambda x: x["timestamp"], reverse=True)
+        b["recent_activities"] = b["recent_activities"][:25]
+
+    return list(admin_map.values())
 
 
 # ==================== DASHBOARD KPI STATS (100% WHOLE PKR MATH) ====================
@@ -2232,6 +2619,9 @@ def get_supplier_360_profile(supplier_id: int, db: Session = Depends(get_db)):
             "address": s.address or "",
             "opening_payable": pkr(s.opening_payable),
             "current_payable": pkr(s.current_payable),
+            "account_id": getattr(s, "account_id", None),
+            "admin_id": getattr(s, "admin_id", None),
+            "admin_name": getattr(s, "admin_name", "Admin") or "Admin",
         },
         "bills": bills
     }
@@ -2371,7 +2761,9 @@ def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(
             party=acc.name,
             description=payload.remarks or f"Added +PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {acc.current_balance:,.0f})",
             cash_in=amt,
-            cash_out=0.0
+            cash_out=0.0,
+            admin_id=payload.admin_id,
+            admin_name=(payload.admin_name or "Admin").strip()
         ))
         msg = f"Added PKR {amt:,.0f} to {acc.name}! (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {acc.current_balance:,.0f})"
     else:
@@ -2385,7 +2777,9 @@ def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(
             party=acc.name,
             description=payload.remarks or f"Withdrew -PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {acc.current_balance:,.0f})",
             cash_in=0.0,
-            cash_out=amt
+            cash_out=amt,
+            admin_id=payload.admin_id,
+            admin_name=(payload.admin_name or "Admin").strip()
         ))
         msg = f"Withdrew PKR {amt:,.0f} from {acc.name}! (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {acc.current_balance:,.0f})"
 
@@ -2430,7 +2824,9 @@ def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Dep
         party=f"{from_acc.name} -> {to_acc.name}",
         description=payload.remarks or f"Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}",
         cash_in=amt,
-        cash_out=amt
+        cash_out=amt,
+        admin_id=payload.admin_id,
+        admin_name=(payload.admin_name or "Admin").strip()
     ))
     bump_version()
     db.commit()
@@ -2568,6 +2964,8 @@ def serialize_purchase(p: Purchase) -> Dict[str, Any]:
         "payment_method": channel,
         "payment_arrangement": getattr(p, "payment_arrangement", "WALLET") or "WALLET",
         "account_id": getattr(p, "account_id", None),
+        "admin_id": getattr(p, "admin_id", None),
+        "admin_name": getattr(p, "admin_name", "Admin") or "Admin",
         "remarks": clean_rem,
         "location_summary": ", ".join(loc_names) if loc_names else "Main Warehouse",
         "items_summary": ", ".join(item_descriptions),
@@ -2734,6 +3132,8 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
         payment_status=payment_status,
         payment_arrangement=(payload.payment_arrangement or "WALLET").upper(),
         account_id=target_acc.id if target_acc else None,
+        admin_id=payload.admin_id,
+        admin_name=(payload.admin_name or "Admin").strip(),
         remarks=stored_remarks,
         items=purchase_items
     )
@@ -2899,6 +3299,8 @@ def serialize_sale(s: Sale) -> Dict[str, Any]:
         "payment_status": s.payment_status,
         "payment_method": channel,
         "account_id": getattr(s, "account_id", None),
+        "admin_id": getattr(s, "admin_id", None),
+        "admin_name": getattr(s, "admin_name", "Admin") or "Admin",
         "remarks": clean_rem,
         "location_summary": ", ".join(loc_names) if loc_names else "Shop Display",
         "items_summary": ", ".join(item_descriptions),
@@ -3131,6 +3533,8 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         closing_receivable=closing_rec,
         payment_status=payment_status,
         account_id=target_acc.id if target_acc else None,
+        admin_id=payload.admin_id,
+        admin_name=(payload.admin_name or "Admin").strip(),
         remarks=stored_remarks,
         items=sale_items
     )
@@ -3349,7 +3753,9 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)):
         payment_arrangement=(payload.payment_arrangement or "WALLET").upper(),
         amount=amt,
         paid_to=payload.paid_to,
-        reference=payload.reference
+        reference=payload.reference,
+        admin_id=payload.admin_id,
+        admin_name=(payload.admin_name or "Admin").strip()
     )
     db.add(new_expense)
     bump_version()

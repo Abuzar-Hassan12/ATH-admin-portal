@@ -7,12 +7,26 @@ class BootstrapRequest(BaseModel):
     period: str = "monthly"
     custom_date: Optional[str] = None
     channel: str = "ALL"
+    admin_filter_id: Optional[int] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
 class LoginRequest(BaseModel):
-    username: str
+    username: str  # Accepts Gmail address or username
     password: str
+
+
+class AdminSignupRequest(BaseModel):
+    full_name: str
+    email: str  # Must be a valid Google / Gmail address
+    username: Optional[str] = None
+    password: str
+    role: str = "ADMIN"  # Future-ready for SALESMAN, PRODUCTION, etc.
+
+
+class AdminApprovalDecisionRequest(BaseModel):
+    approver_email: str
+    decision: str = Field(..., pattern="^(APPROVED|NOT_APPROVED)$")
 
 
 class PasswordVerifyRequest(BaseModel):
@@ -187,6 +201,8 @@ class AccountAdjustRequest(BaseModel):
     operation: str = Field(..., pattern="^(DEPOSIT|WITHDRAW)$")
     amount: float = Field(..., gt=0)
     remarks: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -195,6 +211,8 @@ class AccountTransferRequest(BaseModel):
     to_account_id: int
     amount: float = Field(..., gt=0)
     remarks: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -239,6 +257,8 @@ class PurchaseCreate(BaseModel):
     payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN, SUPPLIER_CREDIT
     lender_name: Optional[str] = None
     remarks: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -273,6 +293,8 @@ class SaleCreate(BaseModel):
     payment_method: str = "CASH"
     account_id: Optional[int] = None
     remarks: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -294,6 +316,8 @@ class ConfirmPaymentAllocationRequest(BaseModel):
     excess_action: str = "NONE"  # NONE, ADVANCE_CREDIT
     remarks: Optional[str] = None
     idempotency_key: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -307,4 +331,6 @@ class ExpenseCreate(BaseModel):
     amount: float = Field(..., gt=0)
     paid_to: Optional[str] = None
     reference: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None

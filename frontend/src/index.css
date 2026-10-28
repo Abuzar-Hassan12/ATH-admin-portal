@@ -1,23 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* ATH Logo Palette: Slate Gray, Crisp White, Crimson Red & Golden Yellow */
-  --ath-slate-base: #1E232D;
-  --ath-slate-surface: #272D3B;
-  --ath-slate-elevated: #313848;
-  --ath-gray-border: rgba(255, 255, 255, 0.16);
-  --ath-white: #FFFFFF;
-  --ath-offwhite: #F1F5F9;
-  --ath-red: #E11D48;
-  --ath-red-bright: #EF4444;
-  --ath-yellow-light: #FEF08A;
-  --ath-yellow: #FACC15;
-  --ath-amber: #F59E0B;
+  /* Official ATH Lubricants (Awan Trade Hub) Brand Palette */
+  --ath-petrol-deep: #00262B;
+  --ath-petrol-dark: #00373E;
+  --ath-petrol-main: #005B66;
+  --ath-petrol-light: #007684;
+  --ath-coral-orange: #FF6B3D;
+  --ath-coral-hover: #FF8259;
+  --ath-off-white: #F7F7F5;
+  --ath-pure-white: #FFFFFF;
   --ath-emerald: #10B981;
+  --ath-crimson: #E11D48;
 }
 
 @layer base {
@@ -35,50 +33,52 @@
 
   body {
     margin: 0;
-    background-color: var(--ath-slate-base);
-    color: var(--ath-white);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.012em;
+    background-color: var(--ath-petrol-deep);
+    color: var(--ath-off-white);
+    /* Samsung.com/pk inspired clean geometric sans-serif stack */
+    font-family: 'SamsungOne', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.015em;
     overflow-x: hidden;
     position: relative;
     min-height: 100vh;
     min-height: 100dvh;
   }
 
-  /* Global Background Image Layer (/background.jpg) blended with ATH Gray-Slate */
+  /* Pure CSS "Fractured Current" Petrol Teal & Coral Orange Brand Backdrop (No /background.jpg needed) */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: url('/background.jpg');
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-    opacity: 0.28;
+    background:
+      radial-gradient(circle at 14% 18%, rgba(255, 107, 61, 0.16) 0%, transparent 42%),
+      radial-gradient(circle at 86% 22%, rgba(0, 118, 132, 0.45) 0%, transparent 48%),
+      radial-gradient(circle at 75% 84%, rgba(255, 107, 61, 0.12) 0%, transparent 45%),
+      linear-gradient(135deg, #002227 0%, #003B43 48%, #005B66 100%);
     z-index: -2;
     pointer-events: none;
-    transform: scale(1.02);
-    filter: contrast(1.06) saturate(1.1);
   }
 
-  /* Metallic Slate Gray, Red & Golden Yellow Ambient Overlay (No Pitch Black) */
+  /* Subtle Flowing Current Diagonal Pattern Overlay */
   body::after {
     content: '';
     position: fixed;
     inset: 0;
-    background:
-      radial-gradient(circle at 15% 12%, rgba(250, 204, 21, 0.13) 0%, transparent 48%),
-      radial-gradient(circle at 88% 18%, rgba(225, 29, 72, 0.14) 0%, transparent 48%),
-      radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 55%),
-      linear-gradient(180deg, rgba(30, 35, 45, 0.78) 0%, rgba(36, 42, 54, 0.88) 50%, rgba(28, 33, 43, 0.94) 100%);
+    background-image: repeating-linear-gradient(
+      -35deg,
+      rgba(247, 247, 245, 0.02) 0px,
+      rgba(247, 247, 245, 0.02) 2px,
+      transparent 2px,
+      transparent 18px
+    );
     z-index: -1;
     pointer-events: none;
   }
 
   h1, h2, h3, .samsung-heading {
-    font-family: 'Space Grotesk', 'Inter', sans-serif;
-    letter-spacing: -0.025em;
-    color: var(--ath-white);
+    font-family: 'Samsung Sharp Sans', 'Plus Jakarta Sans', 'Inter', sans-serif;
+    letter-spacing: -0.028em;
+    font-weight: 800;
+    color: var(--ath-off-white);
   }
 
   .font-mono,
@@ -101,33 +101,26 @@
   }
 }
 
-/* ==================== ATH RED, YELLOW & WHITE TEXT SHIMMER ==================== */
-@keyframes liquidGoldFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+/* ==================== ATH CORAL ORANGE & OFF-WHITE SHIMMER ==================== */
+@keyframes fracturedCurrentFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .oil-gradient-text {
   background: linear-gradient(
     90deg,
-    #FFFFFF 0%,
-    #FACC15 28%,
-    #EF4444 58%,
-    #FACC15 82%,
-    #FFFFFF 100%
+    #F7F7F5 0%,
+    #FF6B3D 35%,
+    #FFB088 65%,
+    #F7F7F5 100%
   );
   background-size: 220% auto;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: liquidGoldFlow 6s ease infinite;
+  animation: fracturedCurrentFlow 6s ease infinite;
 }
 
 .heading-reveal {
@@ -140,10 +133,10 @@
   position: absolute;
   left: 0;
   bottom: -4px;
-  width: 42px;
+  width: 44px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #E11D48, #FACC15, #FFFFFF);
+  background: linear-gradient(90deg, #FF6B3D 0%, #007684 65%, #F7F7F5 100%);
   transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -151,18 +144,14 @@
   width: 100%;
 }
 
-/* ==================== VISCOUS FALLING GOLDEN OIL DROPLETS ==================== */
+/* ==================== FRACTURED CURRENT DYNAMIC DROPLETS ==================== */
 @keyframes oilDripFall {
   0% {
     transform: translateY(-12vh) scaleX(0.85) scaleY(1.35);
     opacity: 0;
   }
-  15% {
-    opacity: 0.72;
-  }
-  85% {
-    opacity: 0.62;
-  }
+  15% { opacity: 0.65; }
+  85% { opacity: 0.55; }
   100% {
     transform: translateY(108vh) scaleX(0.75) scaleY(1.55);
     opacity: 0;
@@ -172,10 +161,10 @@
 @keyframes oilHeaderDrip {
   0%, 100% {
     transform: translateY(0) scaleY(1);
-    opacity: 0.9;
+    opacity: 0.95;
   }
   50% {
-    transform: translateY(4px) scaleY(1.25);
+    transform: translateY(4px) scaleY(1.22);
     opacity: 1;
   }
 }
@@ -188,14 +177,11 @@
   border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
   background: radial-gradient(
     circle at 35% 30%,
-    #FEF08A 0%,
-    #FACC15 45%,
-    #E11D48 88%,
-    #991B1B 100%
+    #F7F7F5 0%,
+    #FF6B3D 52%,
+    #005B66 95%
   );
-  box-shadow:
-    0 4px 14px rgba(250, 204, 21, 0.42),
-    inset 1px 2px 3px rgba(255, 255, 255, 0.65);
+  box-shadow: 0 4px 14px rgba(255, 107, 61, 0.38);
   animation: oilDripFall linear infinite;
 }
 
@@ -205,48 +191,36 @@
 
 /* ==================== PAGE & MODAL TRANSITIONS ==================== */
 @keyframes pageEnter {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes modalPop {
-  0% {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .animate-fade-in {
-  animation: pageEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-modal {
   animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ==================== METALLIC SLATE-GRAY & WHITE GLASS SURFACES ==================== */
+/* ==================== PETROL TEAL & OFF-WHITE ARCHITECTURAL SURFACES ==================== */
 .glass-panel {
   background: linear-gradient(
     145deg,
-    rgba(43, 50, 64, 0.88) 0%,
-    rgba(33, 39, 51, 0.94) 100%
+    rgba(0, 72, 82, 0.92) 0%,
+    rgba(0, 48, 55, 0.96) 100%
   );
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(247, 247, 245, 0.18);
   box-shadow:
-    0 12px 32px -8px rgba(15, 18, 25, 0.55),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+    0 14px 34px -8px rgba(0, 18, 22, 0.65),
+    inset 0 1px 0 0 rgba(247, 247, 245, 0.22);
   transition:
     transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     border-color 0.25s ease,
@@ -254,27 +228,27 @@
 }
 
 .glass-panel:hover {
-  border-color: rgba(250, 204, 21, 0.48);
+  border-color: rgba(255, 107, 61, 0.55);
   box-shadow:
-    0 18px 38px -10px rgba(15, 18, 25, 0.68),
-    0 0 22px -8px rgba(225, 29, 72, 0.24),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.28);
+    0 18px 38px -10px rgba(0, 18, 22, 0.78),
+    0 0 24px -8px rgba(255, 107, 61, 0.28),
+    inset 0 1px 0 0 rgba(247, 247, 245, 0.3);
 }
 
-/* KPI Metric Cards with ATH Red, Yellow & White Top Specular Ribbon */
+/* KPI Metric Cards with Petrol Teal & Coral Orange Top Ribbon */
 .kpi-card {
   position: relative;
   overflow: hidden;
   background: linear-gradient(
     160deg,
-    rgba(47, 55, 70, 0.92) 0%,
-    rgba(34, 40, 52, 0.96) 100%
+    rgba(0, 82, 92, 0.94) 0%,
+    rgba(0, 46, 53, 0.98) 100%
   );
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(247, 247, 245, 0.2);
   box-shadow:
-    0 10px 26px -8px rgba(12, 15, 22, 0.55),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+    0 10px 26px -8px rgba(0, 18, 22, 0.6),
+    inset 0 1px 0 0 rgba(247, 247, 245, 0.24);
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -284,64 +258,68 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 3.5px;
-  background: linear-gradient(90deg, #E11D48 0%, #FACC15 50%, #FFFFFF 100%);
-  opacity: 0.9;
-  transition: opacity 0.28s ease, height 0.28s ease;
+  height: 4px;
+  background: linear-gradient(90deg, #FF6B3D 0%, #005B66 55%, #F7F7F5 100%);
+  opacity: 0.95;
+  transition: height 0.25s ease;
 }
 
 .kpi-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(250, 204, 21, 0.6);
+  border-color: rgba(255, 107, 61, 0.65);
   box-shadow:
-    0 20px 36px -10px rgba(12, 15, 22, 0.7),
-    0 0 24px -6px rgba(250, 204, 21, 0.25);
+    0 20px 36px -10px rgba(0, 18, 22, 0.75),
+    0 0 24px -6px rgba(255, 107, 61, 0.3);
 }
 
-.kpi-card:hover::before {
-  opacity: 1;
-  height: 4.5px;
-}
-
-/* ==================== RESPONSIVE INPUTS & SELECT CONTROLS ==================== */
+/* ==================== SAMSUNG-STYLE INPUTS & SEARCH CONTROLS ==================== */
 .erp-input {
   width: 100%;
-  background: rgba(27, 32, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 36, 42, 0.92);
+  border: 1px solid rgba(247, 247, 245, 0.24);
   border-radius: 0.75rem;
-  padding: 0.68rem 0.9rem;
+  padding: 0.68rem 0.95rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #FFFFFF;
+  color: #F7F7F5;
   outline: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28);
 }
 
+/* Prevents search icon from overlapping input text */
+.erp-input.pl-10 {
+  padding-left: 2.65rem !important;
+}
+
+.erp-input.pl-8 {
+  padding-left: 2.25rem !important;
+}
+
 .erp-input::placeholder {
-  color: #94A3B8;
+  color: #94B8BF;
   font-weight: 400;
 }
 
 .erp-input:hover {
-  border-color: rgba(250, 204, 21, 0.55);
-  background: rgba(32, 38, 50, 0.96);
+  border-color: rgba(255, 107, 61, 0.6);
+  background: rgba(0, 44, 51, 0.96);
 }
 
 .erp-input:focus {
-  border-color: #FACC15;
-  background: rgba(35, 42, 55, 1);
+  border-color: #FF6B3D;
+  background: rgba(0, 48, 56, 1);
   box-shadow:
-    0 0 0 3px rgba(250, 204, 21, 0.22),
+    0 0 0 3px rgba(255, 107, 61, 0.25),
     inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .erp-input option {
-  background-color: #1E232D;
-  color: #FFFFFF;
+  background-color: #002E35;
+  color: #F7F7F5;
 }
 
-/* ==================== ATH BRAND BUTTONS (PRIMARY, SECONDARY, OIL & DESTRUCTIVE) ==================== */
+/* ==================== ATH BRAND BUTTONS (CORAL ORANGE, PETROL TEAL & OFF-WHITE) ==================== */
 .btn-primary,
 .btn-oil,
 .btn-secondary,
@@ -349,10 +327,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  border-radius: 0.75rem;
+  gap: 0.45rem;
+  border-radius: 9999px; /* Samsung pill-style buttons */
   font-weight: 700;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   user-select: none;
@@ -361,54 +339,53 @@
 .btn-primary {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #E11D48 0%, #DC2626 55%, #EA580C 100%);
-  background-size: 160% 160%;
+  background: linear-gradient(135deg, #FF6B3D 0%, #E85325 100%);
   color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  box-shadow: 0 8px 20px -6px rgba(225, 29, 72, 0.55);
+  border: 1px solid rgba(247, 247, 245, 0.35);
+  box-shadow: 0 8px 20px -6px rgba(255, 107, 61, 0.6);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1.5px);
-  background-position: 100% 50%;
-  border-color: rgba(250, 204, 21, 0.8);
-  box-shadow:
-    0 14px 26px -6px rgba(225, 29, 72, 0.65),
-    0 0 18px -4px rgba(250, 204, 21, 0.45);
+  background: linear-gradient(135deg, #FF8259 0%, #FF6B3D 100%);
+  border-color: #F7F7F5;
+  box-shadow: 0 14px 26px -6px rgba(255, 107, 61, 0.75);
 }
 
 .btn-oil {
-  background: linear-gradient(135deg, #FACC15 0%, #F59E0B 100%);
-  color: #0F172A;
+  background: #F7F7F5;
+  color: #00373E;
   font-weight: 800;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 8px 20px -6px rgba(250, 204, 21, 0.45);
+  border: 1px solid #FFFFFF;
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.35);
 }
 
 .btn-oil:hover:not(:disabled) {
   transform: translateY(-1.5px);
-  background: linear-gradient(135deg, #FEF08A 0%, #FACC15 100%);
-  box-shadow: 0 14px 26px -6px rgba(250, 204, 21, 0.65);
+  background: #FF6B3D;
+  color: #FFFFFF;
+  border-color: #FF6B3D;
+  box-shadow: 0 12px 24px -6px rgba(255, 107, 61, 0.55);
 }
 
 .btn-secondary {
-  background: rgba(39, 46, 61, 0.95);
-  color: #F8FAFC;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(0, 55, 62, 0.95);
+  color: #F7F7F5;
+  border: 1px solid rgba(247, 247, 245, 0.26);
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
 }
 
 .btn-secondary:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: rgba(51, 61, 79, 1);
-  border-color: #FACC15;
-  color: #FACC15;
+  background: #005B66;
+  border-color: #FF6B3D;
+  color: #FFFFFF;
 }
 
 .btn-danger {
-  background: rgba(159, 18, 57, 0.88);
+  background: rgba(159, 18, 57, 0.9);
   color: #FFE4E6;
-  border: 1px solid rgba(251, 113, 133, 0.48);
+  border: 1px solid rgba(251, 113, 133, 0.5);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -430,7 +407,7 @@
 .btn-secondary:focus-visible,
 .btn-danger:focus-visible,
 button:focus-visible {
-  outline: 2px solid #FACC15;
+  outline: 2px solid #FF6B3D;
   outline-offset: 2px;
 }
 
@@ -447,46 +424,46 @@ button:disabled {
 
 /* Searchable Group Dropdown Menu */
 .group-combobox-menu {
-  background: rgba(24, 29, 39, 0.98);
+  background: rgba(0, 38, 44, 0.98);
   backdrop-filter: blur(18px);
-  border: 1px solid rgba(250, 204, 21, 0.45);
-  border-radius: 0.75rem;
-  box-shadow: 0 18px 38px -6px rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 107, 61, 0.55);
+  border-radius: 0.85rem;
+  box-shadow: 0 18px 38px -6px rgba(0, 0, 0, 0.78);
 }
 
-/* ==================== DATA TABLES (MOBILE & TABLET OPTIMIZED) ==================== */
+/* ==================== DATA TABLES (DESKTOP, TABLET & MOBILE OPTIMIZED) ==================== */
 .erp-table {
   border-collapse: separate;
   border-spacing: 0;
 }
 
 .erp-table th {
-  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #FACC15;
+  color: #FF6B3D;
   padding: 0.85rem 0.75rem;
-  border-bottom: 2px solid rgba(250, 204, 21, 0.32);
-  background: rgba(27, 32, 42, 0.9);
+  border-bottom: 2px solid rgba(255, 107, 61, 0.4);
+  background: rgba(0, 36, 42, 0.92);
   white-space: nowrap;
 }
 
 .erp-table td {
   padding: 0.85rem 0.75rem;
-  color: #F8FAFC;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #F7F7F5;
+  border-bottom: 1px solid rgba(247, 247, 245, 0.12);
   transition: background-color 0.16s ease, color 0.16s ease;
   vertical-align: middle;
 }
 
 .erp-table tbody tr:nth-child(even) td {
-  background-color: rgba(255, 255, 255, 0.025);
+  background-color: rgba(247, 247, 245, 0.03);
 }
 
 .erp-table tbody tr:hover td {
-  background-color: rgba(250, 204, 21, 0.11);
+  background-color: rgba(255, 107, 61, 0.14);
 }
 
 /* ==================== TABLET & MOBILE RESPONSIVE UTILITIES ==================== */
@@ -505,13 +482,15 @@ button:disabled {
   }
 
   .erp-input {
-    font-size: 16px; /* Prevents iOS/Android auto-zoom on input focus */
-    min-height: 44px; /* Touch-friendly height on tablets and phones */
+    font-size: 16px;
+    min-height: 44px;
   }
 
   .btn-primary,
-  .btn-oil {
-    min-height: 44px;
+  .btn-oil,
+  .btn-secondary,
+  .btn-danger {
+    min-height: 42px;
   }
 }
 
@@ -523,26 +502,26 @@ button:disabled {
   }
 }
 
-/* ==================== CUSTOM ATH RED-GOLD SCROLLBAR ==================== */
+/* ==================== CUSTOM PETROL TEAL & CORAL ORANGE SCROLLBAR ==================== */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1E232D;
+  background: #00262B;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #FACC15, #E11D48);
+  background: linear-gradient(180deg, #FF6B3D, #005B66);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #FEF08A, #EF4444);
+  background: linear-gradient(180deg, #FF8259, #007684);
 }
 
-/* ==================== VYAPAR INVOICE & STATEMENT PRINT ENGINE ==================== */
+/* ==================== INVOICE & STATEMENT PRINT ENGINE ==================== */
 @media print {
   body {
     background: #FFFFFF !important;
