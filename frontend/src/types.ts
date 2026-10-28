@@ -232,6 +232,8 @@ export interface SaleRecord {
   payment_status: string;
   payment_method: string;
   account_id?: number | null;
+  admin_id?: number | null;
+  admin_name?: string;
   remarks: string;
   location_summary: string;
   items_summary: string;
@@ -278,6 +280,8 @@ export interface PurchaseRecord {
   payment_method: string;
   payment_arrangement?: PaymentArrangementType;
   account_id?: number | null;
+  admin_id?: number | null;
+  admin_name?: string;
   remarks: string;
   location_summary: string;
   items_summary: string;
@@ -296,6 +300,8 @@ export interface Expense {
   amount: number;
   paid_to: string;
   reference?: string;
+  admin_id?: number | null;
+  admin_name?: string;
 }
 
 export interface FinancialAccount {
@@ -332,6 +338,8 @@ export interface AccountHistoryEntry {
   total_bill: number;
   cash_in: number;
   cash_out: number;
+  admin_id?: number | null;
+  admin_name?: string;
 }
 
 export interface RecycleBinItem {

@@ -14,6 +14,7 @@ class BootstrapRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str  # Accepts Gmail address or username
     password: str
+    client_snapshot: Optional[Dict[str, Any]] = None
 
 
 class AdminSignupRequest(BaseModel):
@@ -22,6 +23,7 @@ class AdminSignupRequest(BaseModel):
     username: Optional[str] = None
     password: str
     role: str = "ADMIN"  # Future-ready for SALESMAN, PRODUCTION, etc.
+    client_snapshot: Optional[Dict[str, Any]] = None
 
 
 class AdminApprovalDecisionRequest(BaseModel):
@@ -42,6 +44,8 @@ class PartialPaymentRequest(BaseModel):
     payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN
     lender_name: Optional[str] = None
     remarks: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 

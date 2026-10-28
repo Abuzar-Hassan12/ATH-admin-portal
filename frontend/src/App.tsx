@@ -565,7 +565,8 @@ export default function App() {
   const handleForward = () => { if (canGoForward) setNavIndex(navIndex + 1); };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [period, setPeriod] = useState<TimePeriod>('monthly');
+  // Default to daily ('daily') so every Admin immediately sees Today's Activities upon login
+  const [period, setPeriod] = useState<TimePeriod>('daily');
   const [customDate, setCustomDate] = useState<string>('');
   const [channelFilter, setChannelFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(false);
@@ -839,14 +840,26 @@ export default function App() {
     }
   };
 
+  const getSnapshotTxCount = (snap: any): number => {
+    if (!snap || typeof snap !== 'object') return 0;
+    return (
+      (Array.isArray(snap.sales) ? snap.sales.length : 0) +
+      (Array.isArray(snap.purchases) ? snap.purchases.length : 0) +
+      (Array.isArray(snap.expenses) ? snap.expenses.length : 0) +
+      (Array.isArray(snap.account_transactions) ? snap.account_transactions.length : 0) +
+      (Array.isArray(snap.customer_payments) ? snap.customer_payments.length : 0)
+    );
+  };
+
   const saveSnapshot = (snap: any, allowOverwriteIfEmpty = false) => {
     if (!snap || typeof snap !== 'object' || !snap.version) return;
     try {
       const existing = getSavedSnapshot();
-      const existingActivity = getSnapshotActivityCount(existing);
-      const incomingActivity = getSnapshotActivityCount(snap);
-      // Never allow a cold-start empty seed snapshot (0 activity) to overwrite a snapshot that has real data
-      if (!allowOverwriteIfEmpty && existingActivity > 0 && incomingActivity === 0) {
+      const existingTxs = getSnapshotTxCount(existing);
+      const incomingTxs = getSnapshotTxCount(snap);
+      // Strict guard: Never allow an empty transaction snapshot (from cold start or bootstrap)
+      // to wipe out existing recorded sales, purchases, or expenses in local storage!
+      if (!allowOverwriteIfEmpty && existingTxs > 0 && incomingTxs === 0) {
         return;
       }
       localStorage.setItem('ath_erp_snapshot', JSON.stringify(snap));
@@ -1135,9 +1148,9 @@ export default function App() {
       const unpaidRet = Math.max(0, computedSaleTotal - computedSaleReceived);
       return pkr(Math.max(0, customerPreviousDues - unpaidRet));
     }
-    const newBillUnpaid = Math.max(0, computedSaleTotal - Math.min(computedSaleTotal, computedSaleReceived));
-    return pkr(Math.max(0, customerPreviousDues + newBillUnpaid - computedAppliedToPrev));
-  }, [saleDocType, customerPreviousDues, computedSaleTotal, computedSaleReceived, computedAppliedToPrev]);
+    const totalDues = computedSaleTotal + customerPreviousDues;
+    return pkr(Math.max(0, totalDues - computedSaleReceived));
+  }, [saleDocType, customerPreviousDues, computedSaleTotal, computedSaleReceived]);
 
   const purUpc = Math.max(1, Math.round(Number(purCartonSize) || 12));
   const purQtyNum = Number(purQuantity) || 0;
@@ -1178,6 +1191,10 @@ export default function App() {
     [locations, saleLocationId]
   );
 
+  const totalStockAcrossAllLocs = useMemo(() => {
+    return selectedSaleProduct ? (selectedSaleProduct.current_stock_bottles || 0) : 0;
+  }, [selectedSaleProduct]);
+
   const saleLocAvailableBottles = useMemo(() => {
     if (!selectedSaleProduct) return 0;
     const match = (selectedSaleProduct.locations || []).find(l => l.location_id === Number(saleLocationId));
@@ -1194,9 +1211,22 @@ export default function App() {
   const isSaleStockInsufficient =
     saleDocType === 'SALE' &&
     saleCart.length === 0 &&
-    (!selectedSaleProduct ||
+    Boolean(
+      !selectedSaleProduct ||
+      totalStockAcrossAllLocs <= 0 ||
       saleLocAvailableBottles <= 0 ||
-      (saleDraftBottles > 0 && saleDraftBottles > saleLocAvailableBottles));
+      (saleDraftBottles > 0 && saleDraftBottles > saleLocAvailableBottles)
+    );
+
+  const activePurSupplier = useMemo(() => {
+    if (purSupplierId) return suppliers.find(s => s.id === Number(purSupplierId)) || null;
+    if (purSupplierName.trim()) {
+      return suppliers.find(s => s.name.toLowerCase() === purSupplierName.trim().toLowerCase()) || null;
+    }
+    return null;
+  }, [suppliers, purSupplierId, purSupplierName]);
+
+  const supplierPreviousDues = pkr(activePurSupplier?.current_payable || 0);
 
   const selectedPurchaseProduct = useMemo(() => {
     if (purProductId) return products.find(p => p.id === Number(purProductId)) || null;
@@ -1221,9 +1251,15 @@ export default function App() {
       notify('Please enter valid Quantity and Rate.', true);
       return;
     }
-    if (saleDocType === 'SALE' && selectedSaleProduct && saleDraftBottles > saleLocAvailableBottles) {
-      notify(`Not enough stock in ${selectedSaleLocName} (Available: ${saleLocAvailableBottles} Btls).`, true);
-      return;
+    if (saleDocType === 'SALE' && selectedSaleProduct) {
+      if (totalStockAcrossAllLocs <= 0) {
+        notify(`Zero Stock Available! '${selectedSaleProduct.name}' is completely out of stock in all locations. Add stock via Purchase Bill first.`, true);
+        return;
+      }
+      if (saleDraftBottles > saleLocAvailableBottles) {
+        notify(`Not enough stock in ${selectedSaleLocName} (Available: ${saleLocAvailableBottles} Btls, Requested: ${saleDraftBottles} Btls). Please adjust quantity or switch godown.`, true);
+        return;
+      }
     }
     const locObj = locations.find(l => l.id === Number(saleLocationId));
     const newItem: CartLineItem = {
@@ -1296,11 +1332,18 @@ export default function App() {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: loginUser.trim(), password: loginPass })
+        body: JSON.stringify({
+          username: loginUser.trim(),
+          password: loginPass,
+          client_snapshot: getSavedSnapshot()
+        })
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.detail || 'Invalid Gmail / username or password.');
+      }
+      if (data.snapshot) {
+        saveSnapshot(data.snapshot, false);
       }
       const profile: AdminUserRecord = {
         id: data.id || 1,
@@ -1337,7 +1380,8 @@ export default function App() {
           email: signupEmail.trim().toLowerCase(),
           username: signupUsername.trim() || signupEmail.trim().split('@')[0],
           password: signupPassword,
-          role: 'ADMIN'
+          role: 'ADMIN',
+          client_snapshot: getSavedSnapshot()
         })
       });
       const data = await res.json();
@@ -1431,15 +1475,15 @@ export default function App() {
       return;
     }
 
-    // Cap direct invoice collection at the current invoice total; multi-bill settlements use the dedicated Allocation Modal
+    // Allow customer to pay the current bill and clear previous khata dues simultaneously
     const directBillReceived =
       saleDocType === 'ESTIMATE'
         ? 0
         : salePaymentMode === 'UNPAID'
         ? 0
         : salePaymentMode === 'PAID'
-        ? computedSaleTotal
-        : Math.min(computedSaleTotal, pkr(saleReceived));
+        ? (saleIncludePrevDues ? computedSaleGrandPayable : computedSaleTotal)
+        : pkr(saleReceived);
 
     const selAcc = accounts.find(a => a.id === Number(saleAccountId));
     try {
@@ -2780,55 +2824,37 @@ export default function App() {
       {/* ==================== STICKY HEADER WITH ATH OFF-WHITE LOGO BADGE ==================== */}
       <header className="bg-[#002B31]/95 backdrop-blur-2xl border-b border-[#F7F7F5]/20 sticky top-0 z-40 px-3 sm:px-6 py-2.5 no-print shadow-xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 bg-[#003B43] p-1 rounded-full border border-[#F7F7F5]/20">
-              <button
-                onClick={handleBack}
-                disabled={!canGoBack}
-                className={`p-1.5 rounded-full transition ${
-                  canGoBack ? 'text-white hover:bg-[#FF6B3D]' : 'text-slate-500 cursor-not-allowed'
-                }`}
-                title="Back"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleForward}
-                disabled={!canGoForward}
-                className={`p-1.5 rounded-full transition ${
-                  canGoForward ? 'text-white hover:bg-[#FF6B3D]' : 'text-slate-500 cursor-not-allowed'
-                }`}
-                title="Forward"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+          {/* Brand Logo & Title (Clicking returns to Dashboard) */}
+          <button
+            type="button"
+            onClick={() => navigateTo({ main: 'dashboard' })}
+            className="relative flex items-center gap-2.5 text-left group focus:outline-none"
+          >
+            <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-xl border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
+              <img
+                src="/logo.png"
+                alt="ATH Logo"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                className="h-7 sm:h-9 w-auto object-contain"
+              />
             </div>
-
-            <div className="relative flex items-center gap-2.5">
-              <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-xl border border-white shadow-sm">
-                <img
-                  src="/logo.png"
-                  alt="ATH Logo"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  className="h-8 sm:h-9 w-auto object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-base sm:text-xl font-black tracking-tight text-[#F7F7F5] flex items-center gap-1.5 samsung-heading">
-                  ATH <span className="oil-gradient-text">LUBRICANTS</span>
-                  <Droplet className="w-3.5 h-3.5 text-[#FF6B3D] fill-[#FF6B3D] oil-badge-drip inline" />
-                </h1>
-                <p className="text-[11px] text-[#F7F7F5]/80 font-medium hidden sm:block">
-                  Awan Trade Hub • Smoother Ride | Longer Life
-                </p>
-              </div>
+            <div>
+              <h1 className="text-sm sm:text-xl font-black tracking-tight text-[#F7F7F5] flex items-center gap-1.5 samsung-heading">
+                ATH <span className="oil-gradient-text">LUBRICANTS</span>
+                <Droplet className="w-3.5 h-3.5 text-[#FF6B3D] fill-[#FF6B3D] oil-badge-drip inline shrink-0" />
+              </h1>
+              <p className="text-[10px] sm:text-[11px] text-[#F7F7F5]/80 font-medium truncate max-w-[170px] sm:max-w-none">
+                Awan Trade Hub • Executive ERP
+              </p>
             </div>
-          </div>
+          </button>
 
+          {/* Desktop Primary Navigation */}
           <nav className="hidden lg:flex items-center gap-1.5 bg-[#00373E] p-1.5 rounded-full border border-[#F7F7F5]/20">
             {mainMenuItems.map(item => (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => navigateTo({ main: item.id })}
                 className={`px-4 py-2 rounded-full text-xs font-bold tracking-tight transition-all duration-200 ${
                   currentNav.main === item.id
@@ -2841,52 +2867,71 @@ export default function App() {
             ))}
           </nav>
 
+          {/* Right Action Cluster: Backup DB + Executive Admin Capsule & Sign Out + Mobile Menu Trigger */}
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleDownloadBackupJson}
-              className="hidden sm:flex items-center gap-1.5 btn-oil px-3.5 py-2 text-xs"
+              className="hidden md:inline-flex items-center gap-1.5 btn-oil px-3.5 py-2 text-xs"
               title="1-Click Save Full Database Backup"
             >
               <Download className="w-3.5 h-3.5" /> Backup DB
             </button>
+
+            {/* Executive Admin Session Badge + Sleek Sign Out Button (Desktop/Tablet) */}
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#002227]/90 pl-2.5 pr-1.5 py-1 rounded-full border border-[#F7F7F5]/20 shadow-inner">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF6B3D] to-[#005B66] text-white font-black text-[11px] flex items-center justify-center shadow-sm shrink-0">
+                {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden xl:block pr-1 text-left">
+                <div className="text-[11px] font-extrabold text-white leading-tight truncate max-w-[115px]">
+                  {currentAdmin?.username || 'Admin'}
+                </div>
+                <div className="text-[9px] font-mono uppercase text-[#FF6B3D] leading-tight">
+                  {currentAdmin?.role || 'PARTNER'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="btn-signout px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+                title="End Executive Session"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+
+            {/* Mobile Quick Sign Out + Full Menu Drawer Button */}
             <button
-              onClick={fetchData}
-              className="p-2 text-[#FF6B3D] hover:text-white bg-[#003B43] border border-[#F7F7F5]/25 rounded-full transition"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#FF6B3D]' : ''}`} />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="hidden sm:flex items-center gap-1.5 btn-danger px-3.5 py-2 text-xs"
-            >
-              <LogOut className="w-3.5 h-3.5" /> Sign Out
-            </button>
-            <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-white bg-[#FF6B3D] rounded-full"
+              className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-[#FF6B3D] to-[#E85325] rounded-full shadow-md border border-white/25"
+              aria-label="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              <span>Menu</span>
             </button>
           </div>
         </div>
 
         {/* Sub-Navigation Bar (Touch Scrollable on Mobile/Tablet) */}
         {currentNav.main !== 'dashboard' && (
-          <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-[#F7F7F5]/15 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-[#F7F7F5]/15 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
             {currentNav.main === 'accounts' &&
               ([
-                { id: 'sales', label: 'Customer Sale Invoices' },
-                { id: 'purchases', label: 'Supplier Stock Purchases' },
-                { id: 'partials', label: `Khata Collections & Dues (${pendingSales.length + pendingPurchases.length})` },
-                { id: 'expenses', label: 'Operating Expenses' },
-                { id: 'wallets', label: `Cash, Banks & Loans (${loans.filter(l => l.current_balance > 0).length})` },
+                { id: 'sales', label: 'Customer Sales' },
+                { id: 'purchases', label: 'Supplier Purchases' },
+                { id: 'partials', label: `Khata Dues (${pendingSales.length + pendingPurchases.length})` },
+                { id: 'expenses', label: 'Expenses' },
+                { id: 'wallets', label: `Cash & Wallets (${loans.filter(l => l.current_balance > 0).length})` },
                 { id: 'ledger', label: 'Cashflow Ledger' }
               ] as { id: AccountsSubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: sub.id })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     currentNav.accSub === sub.id
                       ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
                       : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
@@ -2898,13 +2943,14 @@ export default function App() {
 
             {currentNav.main === 'inventory' &&
               ([
-                { id: 'stock_breakdown', label: 'Godown & Carton Stock Breakdown' },
-                { id: 'locations_transfer', label: 'Warehouses & Stock Transfers' }
+                { id: 'stock_breakdown', label: 'Godown & Carton Breakdown' },
+                { id: 'locations_transfer', label: 'Warehouses & Transfers' }
               ] as { id: InventorySubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => navigateTo({ main: 'inventory', invSub: sub.id })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     currentNav.invSub === sub.id
                       ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
                       : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
@@ -2916,13 +2962,14 @@ export default function App() {
 
             {currentNav.main === 'directory' &&
               ([
-                { id: 'parties', label: 'Customers, Groups, CNIC & 360° Khata' },
+                { id: 'parties', label: 'Customers, Suppliers & 360° Khata' },
                 { id: 'recycle', label: `Recycle Bin (${stats?.trash_count ?? recycleBin.length})` }
               ] as { id: DirectorySubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => navigateTo({ main: 'directory', dirSub: sub.id })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     currentNav.dirSub === sub.id
                       ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
                       : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
@@ -2935,14 +2982,15 @@ export default function App() {
             {currentNav.main === 'reports' &&
               ([
                 { id: 'bill_pnl', label: 'Bill-Wise Profit & Loss' },
-                { id: 'item_profit', label: 'Product Stock & Profit Summary' },
+                { id: 'item_profit', label: 'Product Stock & Profit' },
                 { id: 'daybook', label: 'Day Book (Roznamcha)' },
-                { id: 'groups_backup', label: 'Route Groups & Backup Vault' }
+                { id: 'groups_backup', label: 'Route Groups & Backup' }
               ] as { id: ReportsSubTab; label: string }[]).map(sub => (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => navigateTo({ main: 'reports', repSub: sub.id })}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
                     currentNav.repSub === sub.id
                       ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
                       : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
@@ -2954,33 +3002,138 @@ export default function App() {
           </div>
         )}
 
+        {/* Comprehensive Mobile & Tablet Executive Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t border-[#F7F7F5]/20 grid grid-cols-2 gap-2">
-            {mainMenuItems.map(item => (
+          <div className="lg:hidden mt-3 pt-3 border-t border-[#F7F7F5]/20 space-y-3 animate-fade-in max-h-[80vh] overflow-y-auto pb-2">
+            {/* Active Admin Profile Card */}
+            <div className="bg-[#002227]/95 p-3 rounded-2xl border border-[#F7F7F5]/15 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF6B3D] to-[#005B66] text-white font-black text-sm flex items-center justify-center shrink-0 shadow">
+                  {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-white truncate">
+                    {currentAdmin?.full_name || 'Malik Abuzar'}
+                  </div>
+                  <div className="text-[10px] font-mono text-[#FF6B3D] truncate">
+                    {currentAdmin?.email || 'malikabuzar411@gmail.com'}
+                  </div>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold shrink-0">
+                {currentAdmin?.role || 'ADMIN'}
+              </span>
+            </div>
+
+            {/* Primary Sections */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#FF6B3D] px-1">
+                Main Modules
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {mainMenuItems.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => navigateTo({ main: item.id })}
+                    className={`py-2.5 px-3.5 rounded-xl text-xs font-bold text-left flex items-center justify-between transition ${
+                      currentNav.main === item.id
+                        ? 'bg-[#FF6B3D] text-white shadow-md'
+                        : 'bg-[#003B43]/90 text-[#F7F7F5] border border-white/10'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <ChevronRight className="w-4 h-4 opacity-80" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Sub-Module Shortcuts for 1-Tap Mobile Access */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#FF6B3D] px-1">
+                Quick Operations & Sub-Menus
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                >
+                  + Sale Invoice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                >
+                  + Stock Purchase
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'partials' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-yellow-300 border border-white/10"
+                >
+                  Khata Collections ({pendingSales.length + pendingPurchases.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-emerald-300 border border-white/10"
+                >
+                  Cash & Bank Wallets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'expenses' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                >
+                  Operating Expenses
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'accounts', accSub: 'ledger' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                >
+                  Cashflow Ledger
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'inventory', invSub: 'locations_transfer' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                >
+                  Stock Transfers
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo({ main: 'directory', dirSub: 'recycle' })}
+                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-rose-300 border border-white/10"
+                >
+                  Recycle Bin ({stats?.trash_count ?? recycleBin.length})
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Utility Row: Backup & Executive Sign Out */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F7F7F5]/15">
               <button
-                key={item.id}
-                onClick={() => navigateTo({ main: item.id })}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold text-left ${
-                  currentNav.main === item.id
-                    ? 'bg-[#FF6B3D] text-white'
-                    : 'bg-[#003B43] text-white border border-white/15'
-                }`}
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleDownloadBackupJson();
+                }}
+                className="py-2.5 px-3 rounded-xl text-xs font-extrabold bg-[#F7F7F5] text-[#00373E] flex items-center justify-center gap-1.5 shadow"
               >
-                {item.label}
+                <Download className="w-3.5 h-3.5" /> Backup DB
               </button>
-            ))}
-            <button
-              onClick={handleDownloadBackupJson}
-              className="py-2.5 px-3 rounded-xl text-xs font-bold text-left bg-[#F7F7F5] text-[#00373E]"
-            >
-              Download DB Backup
-            </button>
-            <button
-              onClick={handleLogout}
-              className="py-2.5 px-3 rounded-xl text-xs font-bold text-left bg-rose-700 text-white"
-            >
-              Sign Out
-            </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="btn-signout py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" /> Sign Out
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -3736,31 +3889,75 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Stock Availability Alert */}
+                    {/* Live Stock Breakdown & Purchase Cost Intelligence */}
                     {selectedSaleProduct && saleDocType === 'SALE' && (
-                      <div className="rounded-xl p-3 bg-slate-900/90 border border-white/15 space-y-2 text-xs">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <span>Stock in </span>
-                            <strong className="text-yellow-300">{selectedSaleLocName}</strong>:{' '}
-                            <strong className={saleLocAvailableBottles > 0 ? 'text-emerald-300' : 'text-rose-400'}>
-                              {Math.floor(saleLocAvailableBottles / saleUpc)} Cartons & {saleLocAvailableBottles % saleUpc} Bottles ({saleLocAvailableBottles} Total Btls)
-                            </strong>
+                      <div className="rounded-2xl p-4 bg-[#00262B]/95 border border-[#F7F7F5]/20 space-y-3 text-xs animate-fade-in">
+                        {/* Out-Of-Stock Everywhere Warning */}
+                        {totalStockAcrossAllLocs <= 0 ? (
+                          <div className="p-3 rounded-xl bg-rose-950/90 border-2 border-rose-500 text-rose-200 font-bold flex items-center justify-between">
+                            <span>
+                              Zero Stock Available! <strong>{selectedSaleProduct.name}</strong> is completely out of stock across all godowns.
+                            </span>
+                            <span className="text-[11px] bg-rose-600 text-white px-2.5 py-1 rounded-full font-mono uppercase">
+                              0 Bottles in System
+                            </span>
                           </div>
-                          <div>
-                            Default Catalog Rate: <strong className="text-emerald-300">PKR {pkr(selectedSaleProduct.carton_sale_rate).toLocaleString()}/Ctn</strong>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Selected Godown Stock */}
+                            <div className="bg-[#00373E] p-3 rounded-xl border border-white/10 space-y-1">
+                              <span className="text-[10px] text-slate-300 uppercase block font-semibold">
+                                Dispatching From: <strong className="text-white">{selectedSaleLocName}</strong>
+                              </span>
+                              <div className={`text-base font-black tabular-nums ${saleLocAvailableBottles > 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
+                                {Math.floor(saleLocAvailableBottles / saleUpc)} Ctn + {saleLocAvailableBottles % saleUpc} Btl
+                              </div>
+                              <div className="text-[11px] text-slate-300">
+                                ({saleLocAvailableBottles} Available Bottles)
+                              </div>
+                            </div>
+
+                            {/* Total Stock in All Godowns */}
+                            <div className="bg-[#00373E] p-3 rounded-xl border border-white/10 space-y-1">
+                              <span className="text-[10px] text-slate-300 uppercase block font-semibold">
+                                Total All Warehouses:
+                              </span>
+                              <div className="text-base font-black text-yellow-300 tabular-nums">
+                                {Math.floor(totalStockAcrossAllLocs / saleUpc)} Ctn + {totalStockAcrossAllLocs % saleUpc} Btl
+                              </div>
+                              <div className="text-[11px] text-slate-300 font-mono">
+                                {totalStockAcrossAllLocs} Total Bottles in Godowns
+                              </div>
+                            </div>
+
+                            {/* Purchase Cost & Profit Reference */}
+                            <div className="bg-[#00373E] p-3 rounded-xl border border-white/10 space-y-1">
+                              <span className="text-[10px] text-[#FF6B3D] uppercase block font-bold">
+                                Purchase Price (Your Cost):
+                              </span>
+                              <div className="text-base font-black text-rose-300 tabular-nums">
+                                PKR {pkr(selectedSaleProduct.carton_purchase_rate).toLocaleString()} <span className="text-[11px] text-slate-300 font-normal">/Ctn</span>
+                              </div>
+                              <div className="text-[11px] text-slate-300 font-mono">
+                                (PKR {pkr(selectedSaleProduct.purchase_rate).toLocaleString()} per bottle)
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        {isSaleStockInsufficient && saleAlternativeLocations.length > 0 && (
-                          <div className="p-2.5 rounded-lg bg-amber-950/90 border border-yellow-400 flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-yellow-200 font-bold">Stock available in another location! Click to switch dispatch location:</span>
-                            <div className="flex gap-2">
+                        )}
+
+                        {/* Location Switcher if another godown has stock */}
+                        {saleLocAvailableBottles <= 0 && saleAlternativeLocations.length > 0 && (
+                          <div className="p-3 rounded-xl bg-amber-950/90 border border-yellow-400 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-yellow-200 font-bold">
+                              Stock is 0 in {selectedSaleLocName}, but available in other godowns. Click to switch:
+                            </span>
+                            <div className="flex flex-wrap gap-2">
                               {saleAlternativeLocations.map(alt => (
                                 <button
                                   key={alt.location_id}
                                   type="button"
                                   onClick={() => setSaleLocationId(alt.location_id)}
-                                  className="btn-oil px-3 py-1 text-xs"
+                                  className="btn-oil px-3 py-1.5 text-xs font-bold"
                                 >
                                   Switch to {alt.location_name} ({alt.stock_bottles} Btls)
                                 </button>
@@ -3811,11 +4008,11 @@ export default function App() {
                       </div>
                       {salePaymentMode === 'PARTIAL' && (
                         <div>
-                          <label className="text-xs text-yellow-300 font-semibold">Received for This Bill (PKR)</label>
+                          <label className="text-xs text-yellow-300 font-semibold">Received Amount (PKR)</label>
                           <input
                             type="number"
                             required
-                            placeholder={`Max PKR ${computedSaleTotal}`}
+                            placeholder={`Total Due: PKR ${computedSaleGrandPayable.toLocaleString()}`}
                             value={saleReceived}
                             onChange={e => setSaleReceived(e.target.value)}
                             className="mt-1 erp-input font-bold text-emerald-300"
@@ -3844,8 +4041,16 @@ export default function App() {
                         <div className="flex flex-wrap gap-4 text-white">
                           <span>Current Bill Total: <strong className="text-yellow-300">PKR {computedSaleTotal.toLocaleString()}</strong></span>
                           <span>Previous Khata: <strong className="text-rose-300">PKR {customerPreviousDues.toLocaleString()}</strong></span>
-                          <span>Received on This Bill: <strong className="text-emerald-300">PKR {Math.min(computedSaleTotal, computedSaleReceived).toLocaleString()}</strong></span>
-                          <span>Projected Total Khata: <strong className="text-rose-400">PKR {pkr(customerPreviousDues + Math.max(0, computedSaleTotal - Math.min(computedSaleTotal, computedSaleReceived))).toLocaleString()}</strong></span>
+                          <span>Total Due (New + Old): <strong className="text-white">PKR {pkr(computedSaleTotal + customerPreviousDues).toLocaleString()}</strong></span>
+                          <span>
+                            Total Received Today: <strong className="text-emerald-300">PKR {computedSaleReceived.toLocaleString()}</strong>
+                            {computedAppliedToPrev > 0 && (
+                              <span className="ml-1.5 text-[11px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-0.5 rounded-full">
+                                Auto-settles PKR {computedAppliedToPrev.toLocaleString()} of Old Khata
+                              </span>
+                            )}
+                          </span>
+                          <span>Projected Closing Khata: <strong className="text-rose-400">PKR {computedClosingKhata.toLocaleString()}</strong></span>
                         </div>
                       </div>
                       <button
@@ -3930,6 +4135,7 @@ export default function App() {
                         <tr>
                           <th>Invoice #</th>
                           <th>Date & Time</th>
+                          <th>Recorded By (Admin)</th>
                           <th>Customer & Group</th>
                           <th>Location</th>
                           <th>Items, Qty & Rate Breakdown</th>
@@ -3942,7 +4148,7 @@ export default function App() {
                       <tbody>
                         {filteredSalesRegister.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="text-center py-8 text-slate-300">
+                            <td colSpan={10} className="text-center py-8 text-slate-300">
                               No sales match the current filter ({period.toUpperCase()}).{' '}
                               {period !== 'all' && (
                                 <button
@@ -3973,6 +4179,15 @@ export default function App() {
                                 </span>
                               </td>
                               <td className="text-slate-200 font-mono">{s.invoice_date}</td>
+                              <td>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  s.admin_name === currentAdmin?.full_name || s.admin_name === currentAdmin?.username
+                                    ? 'bg-[#FF6B3D] text-white'
+                                    : 'bg-[#00373E] text-[#F7F7F5] border border-white/20'
+                                }`}>
+                                  {s.admin_name || 'Admin'}
+                                </span>
+                              </td>
                               <td>
                                 <button
                                   type="button"
@@ -4137,6 +4352,29 @@ export default function App() {
                         </select>
                       </div>
                     </div>
+
+                    {/* Supplier Outstanding Ledger & Previous Khata Banner */}
+                    {activePurSupplier && (
+                      <div className="p-3.5 rounded-xl bg-slate-900/95 border border-[#FF6B3D]/50 flex flex-wrap items-center justify-between gap-3 text-xs animate-fade-in">
+                        <div className="space-y-0.5">
+                          <div className="font-bold text-white">
+                            Selected Supplier: <span className="text-[#FF6B3D]">{activePurSupplier.name}</span> ({activePurSupplier.city})
+                          </div>
+                          <div className="text-slate-200">
+                            Previous Supplier Payable Balance (Old Dues):{' '}
+                            <strong className={supplierPreviousDues > 0 ? 'text-rose-400 text-sm' : 'text-emerald-400'}>
+                              PKR {supplierPreviousDues.toLocaleString()}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="text-right tabular-nums">
+                          <span className="text-[11px] text-slate-300 block">Projected Total Payable to Supplier (Old + New):</span>
+                          <span className="text-sm font-black text-rose-300">
+                            PKR {pkr(supplierPreviousDues + Math.max(0, computedPurTotal - computedPurPaid)).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Product Entry Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 pt-2 border-t border-white/15">
@@ -4370,9 +4608,11 @@ export default function App() {
 
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/15">
                       <div className="flex flex-wrap gap-4 text-xs text-white tabular-nums">
-                        <span>Total Bill: <strong className="text-yellow-300">PKR {computedPurTotal.toLocaleString()}</strong></span>
+                        <span>Current Bill: <strong className="text-yellow-300">PKR {computedPurTotal.toLocaleString()}</strong></span>
+                        <span>Previous Supplier Payable: <strong className="text-rose-300">PKR {supplierPreviousDues.toLocaleString()}</strong></span>
                         <span>Paid Today: <strong className="text-emerald-300">PKR {computedPurPaid.toLocaleString()}</strong></span>
-                        <span>Remaining Payable: <strong className="text-rose-300">PKR {Math.max(0, computedPurTotal - computedPurPaid).toLocaleString()}</strong></span>
+                        <span>This Bill Remaining: <strong className="text-rose-300">PKR {Math.max(0, computedPurTotal - computedPurPaid).toLocaleString()}</strong></span>
+                        <span>Total Closing Supplier Payable: <strong className="text-rose-400">PKR {pkr(supplierPreviousDues + Math.max(0, computedPurTotal - computedPurPaid)).toLocaleString()}</strong></span>
                       </div>
                       <button
                         type="submit"
@@ -6834,46 +7074,66 @@ export default function App() {
       )}
 
       {/* ==================== MOBILE / TABLET FIXED BOTTOM BAR ==================== */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/15 grid grid-cols-5 py-2 px-1 text-[10px] font-bold no-print">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#002227]/95 backdrop-blur-2xl border-t border-[#F7F7F5]/20 grid grid-cols-5 py-1.5 px-1.5 text-[10px] font-bold no-print shadow-2xl mobile-bottom-nav">
         <button
+          type="button"
           onClick={() => navigateTo({ main: 'dashboard' })}
-          className={`flex flex-col items-center gap-1 ${
-            currentNav.main === 'dashboard' ? 'text-yellow-300' : 'text-slate-300'
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition ${
+            currentNav.main === 'dashboard'
+              ? 'bg-[#FF6B3D] text-white font-extrabold shadow'
+              : 'text-[#F7F7F5]/75 hover:text-white'
           }`}
         >
-          <BarChart3 className="w-4 h-4" /> Dashboard
+          <BarChart3 className="w-4 h-4" />
+          <span>Dashboard</span>
         </button>
         <button
+          type="button"
           onClick={() => navigateTo({ main: 'accounts' })}
-          className={`flex flex-col items-center gap-1 ${
-            currentNav.main === 'accounts' ? 'text-yellow-300' : 'text-slate-300'
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition ${
+            currentNav.main === 'accounts'
+              ? 'bg-[#FF6B3D] text-white font-extrabold shadow'
+              : 'text-[#F7F7F5]/75 hover:text-white'
           }`}
         >
-          <Wallet className="w-4 h-4" /> Trade
+          <Wallet className="w-4 h-4" />
+          <span>Billing</span>
         </button>
         <button
+          type="button"
           onClick={() => navigateTo({ main: 'inventory' })}
-          className={`flex flex-col items-center gap-1 ${
-            currentNav.main === 'inventory' ? 'text-yellow-300' : 'text-slate-300'
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition ${
+            currentNav.main === 'inventory'
+              ? 'bg-[#FF6B3D] text-white font-extrabold shadow'
+              : 'text-[#F7F7F5]/75 hover:text-white'
           }`}
         >
-          <Package className="w-4 h-4" /> Stock
+          <Package className="w-4 h-4" />
+          <span>Godowns</span>
         </button>
         <button
-          onClick={() => navigateTo({ main: 'reports' })}
-          className={`flex flex-col items-center gap-1 ${
-            currentNav.main === 'reports' ? 'text-yellow-300' : 'text-slate-300'
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Reports
-        </button>
-        <button
+          type="button"
           onClick={() => navigateTo({ main: 'directory' })}
-          className={`flex flex-col items-center gap-1 ${
-            currentNav.main === 'directory' ? 'text-yellow-300' : 'text-slate-300'
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition ${
+            currentNav.main === 'directory'
+              ? 'bg-[#FF6B3D] text-white font-extrabold shadow'
+              : 'text-[#F7F7F5]/75 hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" /> Parties
+          <Users className="w-4 h-4" />
+          <span>Parties</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateTo({ main: 'reports' })}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 rounded-xl transition ${
+            currentNav.main === 'reports'
+              ? 'bg-[#FF6B3D] text-white font-extrabold shadow'
+              : 'text-[#F7F7F5]/75 hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Reports</span>
         </button>
       </div>
     </div>
