@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,16 +6,27 @@
 
 :root {
   /* Official ATH Lubricants (Awan Trade Hub) Brand Palette */
-  --ath-petrol-deep: #00262B;
+  --ath-petrol-deep: #001B1F;
+  --ath-petrol-navy: #00262B;
   --ath-petrol-dark: #00373E;
   --ath-petrol-main: #005B66;
   --ath-petrol-light: #007684;
   --ath-coral-orange: #FF6B3D;
-  --ath-coral-hover: #FF8259;
+  --ath-coral-hover: #E85A2C;
   --ath-off-white: #F7F7F5;
   --ath-pure-white: #FFFFFF;
   --ath-emerald: #10B981;
   --ath-crimson: #E11D48;
+
+  /* Enterprise Architectural Surface & Border Tokens */
+  --erp-surface-canvas: #001D21;
+  --erp-surface-sidebar: #001619;
+  --erp-surface-card: #00282E;
+  --erp-surface-elevated: #003138;
+  --erp-surface-input: #00191D;
+  --erp-border-subtle: rgba(247, 247, 245, 0.14);
+  --erp-border-strong: rgba(247, 247, 245, 0.24);
+  --erp-border-accent: rgba(255, 107, 61, 0.65);
 }
 
 @layer base {
@@ -33,50 +44,50 @@
 
   body {
     margin: 0;
-    background-color: var(--ath-petrol-deep);
+    background-color: var(--erp-surface-canvas);
     color: var(--ath-off-white);
     /* Samsung.com/pk inspired clean geometric sans-serif stack */
     font-family: 'SamsungOne', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.012em;
     overflow-x: hidden;
     position: relative;
     min-height: 100vh;
     min-height: 100dvh;
   }
 
-  /* Pure CSS "Fractured Current" Petrol Teal & Coral Orange Brand Backdrop (No /background.jpg needed) */
+  /* Matte Architectural Petrol Navy Backdrop (No blurry AI neon blobs) */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background:
-      radial-gradient(circle at 14% 18%, rgba(255, 107, 61, 0.16) 0%, transparent 42%),
-      radial-gradient(circle at 86% 22%, rgba(0, 118, 132, 0.45) 0%, transparent 48%),
-      radial-gradient(circle at 75% 84%, rgba(255, 107, 61, 0.12) 0%, transparent 45%),
-      linear-gradient(135deg, #002227 0%, #003B43 48%, #005B66 100%);
+    background: linear-gradient(180deg, #001A1E 0%, #002227 55%, #002930 100%);
     z-index: -2;
     pointer-events: none;
   }
 
-  /* Subtle Flowing Current Diagonal Pattern Overlay */
+  /* Subtle Precision Engineering Grid Overlay */
   body::after {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: repeating-linear-gradient(
-      -35deg,
-      rgba(247, 247, 245, 0.02) 0px,
-      rgba(247, 247, 245, 0.02) 2px,
-      transparent 2px,
-      transparent 18px
+    background-image: linear-gradient(
+      to right,
+      rgba(247, 247, 245, 0.018) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(247, 247, 245, 0.018) 1px,
+      transparent 1px
     );
+    background-size: 36px 36px;
     z-index: -1;
     pointer-events: none;
   }
 
-  h1, h2, h3, .samsung-heading {
+  h1, h2, h3, h4, .samsung-heading {
     font-family: 'Samsung Sharp Sans', 'Plus Jakarta Sans', 'Inter', sans-serif;
-    letter-spacing: -0.028em;
+    letter-spacing: -0.022em;
     font-weight: 800;
     color: var(--ath-off-white);
   }
@@ -101,26 +112,10 @@
   }
 }
 
-/* ==================== ATH CORAL ORANGE & OFF-WHITE SHIMMER ==================== */
-@keyframes fracturedCurrentFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
+/* ==================== SOLID BRAND ACCENT TYPOGRAPHY (NO AI SHIMMER) ==================== */
 .oil-gradient-text {
-  background: linear-gradient(
-    90deg,
-    #F7F7F5 0%,
-    #FF6B3D 35%,
-    #FFB088 65%,
-    #F7F7F5 100%
-  );
-  background-size: 220% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: fracturedCurrentFlow 6s ease infinite;
+  color: var(--ath-coral-orange);
+  font-weight: 900;
 }
 
 .heading-reveal {
@@ -133,193 +128,140 @@
   position: absolute;
   left: 0;
   bottom: -4px;
-  width: 44px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #FF6B3D 0%, #007684 65%, #F7F7F5 100%);
-  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 36px;
+  height: 2px;
+  background-color: var(--ath-coral-orange);
+  transition: width 0.2s ease;
 }
 
 .glass-panel:hover .heading-reveal::after {
-  width: 100%;
+  width: 64px;
 }
 
-/* ==================== FRACTURED CURRENT DYNAMIC DROPLETS ==================== */
-@keyframes oilDripFall {
-  0% {
-    transform: translateY(-12vh) scaleX(0.85) scaleY(1.35);
-    opacity: 0;
-  }
-  15% { opacity: 0.65; }
-  85% { opacity: 0.55; }
-  100% {
-    transform: translateY(108vh) scaleX(0.75) scaleY(1.55);
-    opacity: 0;
-  }
-}
-
-@keyframes oilHeaderDrip {
-  0%, 100% {
-    transform: translateY(0) scaleY(1);
-    opacity: 0.95;
-  }
-  50% {
-    transform: translateY(4px) scaleY(1.22);
-    opacity: 1;
-  }
-}
-
+/* Safe fallback classes if referenced by legacy elements */
 .oil-droplet {
-  position: fixed;
-  top: -40px;
-  pointer-events: none;
-  z-index: 0;
-  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
-  background: radial-gradient(
-    circle at 35% 30%,
-    #F7F7F5 0%,
-    #FF6B3D 52%,
-    #005B66 95%
-  );
-  box-shadow: 0 4px 14px rgba(255, 107, 61, 0.38);
-  animation: oilDripFall linear infinite;
+  display: none !important;
 }
 
 .oil-badge-drip {
-  animation: oilHeaderDrip 2.8s ease-in-out infinite;
+  opacity: 1;
 }
 
-/* ==================== PAGE & MODAL TRANSITIONS ==================== */
+/* ==================== SUBTLE COMMERCIAL PAGE & MODAL TRANSITIONS ==================== */
 @keyframes pageEnter {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes modalPop {
-  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.985) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .animate-fade-in {
-  animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageEnter 0.16s ease-out forwards;
 }
 
 .animate-modal {
-  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPop 0.16s ease-out forwards;
 }
 
-/* ==================== PETROL TEAL & OFF-WHITE ARCHITECTURAL SURFACES ==================== */
+/* ==================== ENTERPRISE PETROL TEAL & NAVY ARCHITECTURAL PANELS ==================== */
 .glass-panel {
-  background: linear-gradient(
-    145deg,
-    rgba(0, 72, 82, 0.92) 0%,
-    rgba(0, 48, 55, 0.96) 100%
-  );
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(247, 247, 245, 0.18);
+  background-color: var(--erp-surface-card);
+  border: 1px solid var(--erp-border-subtle);
+  border-radius: 0.75rem;
   box-shadow:
-    0 14px 34px -8px rgba(0, 18, 22, 0.65),
-    inset 0 1px 0 0 rgba(247, 247, 245, 0.22);
-  transition:
-    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
+    0 4px 14px -2px rgba(0, 10, 12, 0.48),
+    inset 0 1px 0 0 rgba(247, 247, 245, 0.08);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .glass-panel:hover {
-  border-color: rgba(255, 107, 61, 0.55);
-  box-shadow:
-    0 18px 38px -10px rgba(0, 18, 22, 0.78),
-    0 0 24px -8px rgba(255, 107, 61, 0.28),
-    inset 0 1px 0 0 rgba(247, 247, 245, 0.3);
+  border-color: rgba(247, 247, 245, 0.24);
 }
 
-/* KPI Metric Cards with Petrol Teal & Coral Orange Top Ribbon */
+/* Executive KPI Metric Cards with Crisp Brand Top Bar */
 .kpi-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(
-    160deg,
-    rgba(0, 82, 92, 0.94) 0%,
-    rgba(0, 46, 53, 0.98) 100%
-  );
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(247, 247, 245, 0.2);
-  box-shadow:
-    0 10px 26px -8px rgba(0, 18, 22, 0.6),
-    inset 0 1px 0 0 rgba(247, 247, 245, 0.24);
-  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  background-color: var(--erp-surface-card);
+  border: 1px solid var(--erp-border-subtle);
+  border-top: 3px solid var(--ath-petrol-main);
+  border-radius: 0.75rem;
+  box-shadow: 0 3px 10px -2px rgba(0, 10, 12, 0.42);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #FF6B3D 0%, #005B66 55%, #F7F7F5 100%);
-  opacity: 0.95;
-  transition: height 0.25s ease;
+  display: none;
 }
 
 .kpi-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(255, 107, 61, 0.65);
-  box-shadow:
-    0 20px 36px -10px rgba(0, 18, 22, 0.75),
-    0 0 24px -6px rgba(255, 107, 61, 0.3);
+  background-color: var(--erp-surface-elevated);
+  border-color: rgba(255, 107, 61, 0.5);
+  border-top-color: var(--ath-coral-orange);
+  box-shadow: 0 6px 16px -4px rgba(0, 10, 12, 0.55);
 }
 
-/* ==================== SAMSUNG-STYLE INPUTS & SEARCH CONTROLS ==================== */
+/* ==================== SAMSUNG-GRADE FORM INPUTS & SEARCH CONTROLS ==================== */
 .erp-input {
   width: 100%;
-  background: rgba(0, 36, 42, 0.92);
-  border: 1px solid rgba(247, 247, 245, 0.24);
-  border-radius: 0.75rem;
-  padding: 0.68rem 0.95rem;
+  background-color: var(--erp-surface-input);
+  border: 1px solid var(--erp-border-strong);
+  border-radius: 0.5rem;
+  padding: 0.58rem 0.85rem;
   font-size: 0.8125rem;
+  line-height: 1.25rem;
   font-weight: 500;
-  color: #F7F7F5;
+  color: var(--ath-off-white);
   outline: none;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Prevents search icon from overlapping input text */
 .erp-input.pl-10 {
-  padding-left: 2.65rem !important;
+  padding-left: 2.55rem !important;
 }
 
 .erp-input.pl-8 {
-  padding-left: 2.25rem !important;
+  padding-left: 2.2rem !important;
 }
 
 .erp-input::placeholder {
-  color: #94B8BF;
+  color: rgba(247, 247, 245, 0.45);
   font-weight: 400;
 }
 
 .erp-input:hover {
-  border-color: rgba(255, 107, 61, 0.6);
-  background: rgba(0, 44, 51, 0.96);
+  border-color: rgba(247, 247, 245, 0.38);
+  background-color: #002025;
 }
 
 .erp-input:focus {
-  border-color: #FF6B3D;
-  background: rgba(0, 48, 56, 1);
-  box-shadow:
-    0 0 0 3px rgba(255, 107, 61, 0.25),
-    inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border-color: var(--ath-coral-orange);
+  background-color: #002329;
+  box-shadow: 0 0 0 2px rgba(255, 107, 61, 0.22);
 }
 
 .erp-input option {
-  background-color: #002E35;
+  background-color: #00262B;
   color: #F7F7F5;
 }
 
-/* ==================== ATH BRAND BUTTONS (CORAL ORANGE, PETROL TEAL & OFF-WHITE) ==================== */
+/* ==================== ENTERPRISE COMMERCIAL BUTTONS (NO CARTOON PILLS) ==================== */
 .btn-primary,
 .btn-oil,
 .btn-secondary,
@@ -327,87 +269,100 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  border-radius: 9999px; /* Samsung pill-style buttons */
+  gap: 0.42rem;
+  border-radius: 0.5rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.015em;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
   user-select: none;
 }
 
+/* Primary Coral Orange CTA */
 .btn-primary {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(135deg, #FF6B3D 0%, #E85325 100%);
+  background-color: var(--ath-coral-orange);
   color: #FFFFFF;
-  border: 1px solid rgba(247, 247, 245, 0.35);
-  box-shadow: 0 8px 20px -6px rgba(255, 107, 61, 0.6);
+  border: 1px solid var(--ath-coral-orange);
+  box-shadow: 0 2px 6px rgba(255, 107, 61, 0.28);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1.5px);
-  background: linear-gradient(135deg, #FF8259 0%, #FF6B3D 100%);
-  border-color: #F7F7F5;
-  box-shadow: 0 14px 26px -6px rgba(255, 107, 61, 0.75);
+  background-color: var(--ath-coral-hover);
+  border-color: #FFFFFF;
 }
 
+/* High-Contrast Off-White / Petrol Action Button */
 .btn-oil {
-  background: #F7F7F5;
-  color: #00373E;
+  background-color: var(--ath-off-white);
+  color: var(--ath-petrol-navy);
   font-weight: 800;
   border: 1px solid #FFFFFF;
-  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
 
 .btn-oil:hover:not(:disabled) {
-  transform: translateY(-1.5px);
-  background: #FF6B3D;
+  background-color: var(--ath-coral-orange);
   color: #FFFFFF;
-  border-color: #FF6B3D;
-  box-shadow: 0 12px 24px -6px rgba(255, 107, 61, 0.55);
+  border-color: var(--ath-coral-orange);
 }
 
+/* Secondary Petrol Teal / Navy Button */
 .btn-secondary {
-  background: rgba(0, 55, 62, 0.95);
-  color: #F7F7F5;
-  border: 1px solid rgba(247, 247, 245, 0.26);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  background-color: #003138;
+  color: var(--ath-off-white);
+  border: 1px solid var(--erp-border-strong);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #005B66;
-  border-color: #FF6B3D;
+  background-color: var(--ath-petrol-main);
+  border-color: var(--ath-coral-orange);
   color: #FFFFFF;
 }
 
+/* Danger / Reversal Action Button */
 .btn-danger {
-  background: rgba(159, 18, 57, 0.9);
-  color: #FFE4E6;
-  border: 1px solid rgba(251, 113, 133, 0.5);
+  background-color: rgba(225, 29, 72, 0.18);
+  color: #FECDD3;
+  border: 1px solid rgba(244, 63, 94, 0.45);
 }
 
 .btn-danger:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #E11D48;
+  background-color: var(--ath-crimson);
   color: #FFFFFF;
   border-color: #FFFFFF;
+}
+
+/* Executive Sign-Out Button */
+.btn-signout {
+  background-color: #001B1F;
+  color: var(--ath-off-white);
+  border: 1px solid rgba(255, 107, 61, 0.4);
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-signout:hover:not(:disabled) {
+  background-color: rgba(225, 29, 72, 0.85);
+  border-color: #FFFFFF;
+  color: #FFFFFF;
 }
 
 .btn-primary:active:not(:disabled),
 .btn-oil:active:not(:disabled),
 .btn-secondary:active:not(:disabled),
-.btn-danger:active:not(:disabled) {
-  transform: translateY(0) scale(0.99);
+.btn-danger:active:not(:disabled),
+.btn-signout:active:not(:disabled) {
+  transform: translateY(0.5px);
 }
 
 .btn-primary:focus-visible,
 .btn-oil:focus-visible,
 .btn-secondary:focus-visible,
 .btn-danger:focus-visible,
+.btn-signout:focus-visible,
 button:focus-visible {
-  outline: 2px solid #FF6B3D;
+  outline: 2px solid var(--ath-coral-orange);
   outline-offset: 2px;
 }
 
@@ -415,79 +370,63 @@ button:focus-visible {
 .btn-oil:disabled,
 .btn-secondary:disabled,
 .btn-danger:disabled,
+.btn-signout:disabled,
 button:disabled {
-  opacity: 0.48;
+  opacity: 0.45;
   cursor: not-allowed !important;
   transform: none !important;
   box-shadow: none !important;
 }
 
-/* Searchable Group Dropdown Menu */
+/* ==================== SEARCHABLE GROUP COMBOBOX DROPDOWN ==================== */
 .group-combobox-menu {
-  background: rgba(0, 38, 44, 0.98);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 107, 61, 0.55);
-  border-radius: 0.85rem;
-  box-shadow: 0 18px 38px -6px rgba(0, 0, 0, 0.78);
+  background-color: #001D21;
+  border: 1px solid var(--ath-coral-orange);
+  border-radius: 0.65rem;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.72);
 }
 
-/* ==================== DATA TABLES (DESKTOP, TABLET & MOBILE OPTIMIZED) ==================== */
+/* ==================== HIGH-DENSITY ENTERPRISE DATA TABLES ==================== */
 .erp-table {
   border-collapse: separate;
   border-spacing: 0;
+  width: 100%;
 }
 
 .erp-table th {
   font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.69rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #FF6B3D;
-  padding: 0.85rem 0.75rem;
-  border-bottom: 2px solid rgba(255, 107, 61, 0.4);
-  background: rgba(0, 36, 42, 0.92);
+  color: var(--ath-off-white);
+  padding: 0.72rem 0.75rem;
+  border-bottom: 2px solid var(--ath-petrol-main);
+  background-color: #001A1E;
   white-space: nowrap;
 }
 
 .erp-table td {
-  padding: 0.85rem 0.75rem;
-  color: #F7F7F5;
-  border-bottom: 1px solid rgba(247, 247, 245, 0.12);
-  transition: background-color 0.16s ease, color 0.16s ease;
+  padding: 0.72rem 0.75rem;
+  color: var(--ath-off-white);
+  border-bottom: 1px solid rgba(247, 247, 245, 0.09);
+  transition: background-color 0.12s ease;
   vertical-align: middle;
 }
 
 .erp-table tbody tr:nth-child(even) td {
-  background-color: rgba(247, 247, 245, 0.03);
+  background-color: rgba(247, 247, 245, 0.02);
 }
 
 .erp-table tbody tr:hover td {
-  background-color: rgba(255, 107, 61, 0.14);
+  background-color: rgba(0, 91, 102, 0.32);
 }
 
-/* Executive Sign-Out Button (Sleek Dark Petrol Slate with Coral Accent Hover) */
-.btn-signout {
-  background: linear-gradient(135deg, rgba(0, 43, 49, 0.95) 0%, rgba(0, 28, 33, 0.98) 100%);
-  color: #F7F7F5;
-  border: 1px solid rgba(247, 247, 245, 0.22);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-}
-
-.btn-signout:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(159, 18, 57, 0.85) 0%, rgba(136, 19, 55, 0.95) 100%);
-  border-color: #FF6B3D;
-  color: #FFFFFF;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px -4px rgba(225, 29, 72, 0.45);
-}
-
-/* ==================== TABLET & MOBILE RESPONSIVE UTILITIES ==================== */
+/* ==================== TABLET & MOBILE RESPONSIVE ARCHITECTURE ==================== */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -499,34 +438,47 @@ button:disabled {
 
 @media (max-width: 1024px) {
   .glass-panel {
-    border-radius: 1rem;
+    border-radius: 0.75rem;
   }
+
   .erp-input {
     font-size: 16px; /* Prevents iOS/Android auto-zoom on input focus */
-    min-height: 44px;
+    min-height: 42px;
   }
+
   .btn-primary,
   .btn-oil,
   .btn-secondary,
   .btn-danger,
   .btn-signout {
-    min-height: 42px;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .erp-table th,
+  .erp-table td {
+    padding: 0.62rem 0.55rem;
+    font-size: 0.74rem;
   }
 }
 
 @media (max-width: 640px) {
   .glass-panel {
+    padding: 0.85rem !important;
+  }
+
+  .kpi-card {
     padding: 0.9rem !important;
   }
-  .kpi-card {
-    padding: 0.95rem !important;
-  }
+
   .erp-table th,
   .erp-table td {
-    padding: 0.6rem 0.5rem;
-    font-size: 0.72rem;
+    padding: 0.55rem 0.45rem;
+    font-size: 0.71rem;
   }
 }
+
 /* ==================== CUSTOM PETROL TEAL & CORAL ORANGE SCROLLBAR ==================== */
 ::-webkit-scrollbar {
   width: 7px;
@@ -534,16 +486,16 @@ button:disabled {
 }
 
 ::-webkit-scrollbar-track {
-  background: #00262B;
+  background: #00191D;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #FF6B3D, #005B66);
-  border-radius: 9999px;
+  background: #005B66;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #FF8259, #007684);
+  background: #FF6B3D;
 }
 
 /* ==================== INVOICE & STATEMENT PRINT ENGINE ==================== */
@@ -571,4 +523,34 @@ button:disabled {
     background: #FFFFFF !important;
     color: #000000 !important;
   }
+}
+
+/* ==================== ENTERPRISE DESIGN SYSTEM NORMALIZATION ==================== */
+/* Harmonizes inner slate cards/containers across Sales, Purchases, Khata, Parties & Modals */
+main .bg-slate-900\/90,
+main .bg-slate-900\/95,
+main .bg-slate-950\/50 {
+  background-color: #001A1E !important;
+  border-color: rgba(247, 247, 245, 0.14) !important;
+}
+
+main .bg-slate-800,
+main .bg-slate-800\/90,
+main .bg-slate-800\/95 {
+  background-color: #002227 !important;
+  border-color: rgba(247, 247, 245, 0.14) !important;
+}
+
+/* Standardizes card radii across all ERP modules so nothing looks overly bubbly */
+main .rounded-2xl,
+main .rounded-3xl {
+  border-radius: 0.75rem !important;
+}
+
+/* Keeps action buttons crisp and rectangular-rounded even if utility classes specify rounded-full */
+main button.btn-primary,
+main button.btn-oil,
+main button.btn-secondary,
+main button.btn-danger {
+  border-radius: 0.5rem !important;
 }

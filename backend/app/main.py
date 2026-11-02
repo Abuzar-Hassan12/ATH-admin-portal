@@ -1,13 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 import json
 import uuid
 
-from .database import engine, Base, get_db, is_sqlite
+from .database import engine, Base, get_db, is_sqlite, IS_PERSISTENT_POSTGRES
 from .models import (
     AdminUser, Brand, StorageLocation, Product, ProductLocationStock,
     PartyGroup, Supplier, Customer, Purchase, PurchaseItem,
@@ -26,11 +26,16 @@ from .schemas import (
     AccountAdjustRequest, AccountTransferRequest, LoanRepayRequest,
     PurchaseCreate, SaleCreate,
     PaymentProposalRequest, BillAllocationItemInput, ConfirmPaymentAllocationRequest,
+    SupplierBillAllocationItemInput, ConfirmSupplierPaymentAllocationRequest,
     ExpenseCreate
 )
+import re
 from .seed import seed_database, upgrade_database_schema
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as _init_exc:
+    print("Database initial connection warning (will retry on request):", _init_exc)
 
 app = FastAPI(title="ATH Lubricants - Enterprise ERP & Vyapar Suite API")
 
@@ -52,71 +57,108 @@ def pkr(val: Optional[float]) -> float:
     return float(int(round(float(val))))
 
 
+BOOTSTRAP_CACHE: Dict[str, Any] = {}
+
+
 @app.on_event("startup")
 def on_startup():
     try:
         seed_database()
-        upgrade_database_schema()
-        # Automatically convert any accidental 'ESTIMATE' records into real 'SALE' invoices
-        db = next(get_db())
-        est_sales = db.query(Sale).filter(Sale.doc_type == "ESTIMATE").all()
-        if est_sales:
-            default_loc = db.query(StorageLocation).first()
-            default_loc_id = default_loc.id if default_loc else 1
-            for s in est_sales:
-                s.doc_type = "SALE"
-                if s.invoice_number.startswith("EST-"):
-                    s.invoice_number = s.invoice_number.replace("EST-", "INV-", 1)
-                if s.received_amount <= 0:
-                    s.receivable_amount = pkr(s.total_amount)
-                    s.payment_status = "UNPAID"
-                for item in s.items:
-                    if item.product:
-                        loc_stock = db.query(ProductLocationStock).filter(
-                            ProductLocationStock.product_id == item.product_id,
-                            ProductLocationStock.location_id == (item.location_id or default_loc_id)
-                        ).first()
-                        if loc_stock and loc_stock.stock_bottles >= item.base_quantity:
-                            loc_stock.stock_bottles -= item.base_quantity
-                            all_ls = db.query(ProductLocationStock).filter(
-                                ProductLocationStock.product_id == item.product_id
-                            ).all()
-                            item.product.current_stock = sum(x.stock_bottles for x in all_ls)
-                if s.customer:
-                    db.flush()
-                    recompute_customer_authoritative_receivable(db, s.customer)
-                    s.closing_receivable = s.customer.current_receivable
-            db.commit()
-        db.close()
     except Exception as exc:
         print("Startup schema check warning:", exc)
+
+
+@app.get("/api/health")
+def health_check(db: Session = Depends(get_db)):
+    """Diagnostic endpoint to verify permanent PostgreSQL connection without exposing secrets."""
+    try:
+        db.execute(text("SELECT 1"))
+        db_connected = True
+    except Exception:
+        db_connected = False
+    return {
+        "status": "ok" if db_connected else "error",
+        "database_engine": "postgresql" if IS_PERSISTENT_POSTGRES else "sqlite_ephemeral",
+        "persistent_storage": IS_PERSISTENT_POSTGRES,
+        "sales_count": db.query(Sale).count() if db_connected else 0,
+        "purchases_count": db.query(Purchase).count() if db_connected else 0,
+        "admins_count": db.query(AdminUser).count() if db_connected else 0,
+    }
 
 
 def bump_version() -> int:
     global SERVER_STATE_VERSION
     now_ms = int(datetime.utcnow().timestamp() * 1000)
     SERVER_STATE_VERSION = max(SERVER_STATE_VERSION + 1, now_ms)
+    BOOTSTRAP_CACHE.clear()
     return SERVER_STATE_VERSION
 
 
-def verify_admin_password(pw: str):
-    if not pw or pw.strip() != "Admin@786":
-        raise HTTPException(status_code=403, detail="Incorrect Admin Password. Authorization denied.")
+def verify_admin_password(
+    pw: str,
+    db: Optional[Session] = None,
+    admin_id: Optional[int] = None,
+    admin_name: Optional[str] = None
+):
+    clean_pw = (pw or "").strip()
+    if not clean_pw:
+        raise HTTPException(status_code=403, detail="Administrator password is required.")
+
+    # Check against registered & approved AdminUser accounts in database
+    if db is not None:
+        try:
+            if admin_id:
+                adm = db.query(AdminUser).filter(
+                    AdminUser.id == admin_id,
+                    AdminUser.approval_status == "APPROVED"
+                ).first()
+                if adm and adm.password_hash == clean_pw:
+                    return
+            if admin_name:
+                clean_ident = admin_name.strip()
+                adm_by_name = db.query(AdminUser).filter(
+                    (AdminUser.username.ilike(clean_ident)) | (AdminUser.full_name.ilike(clean_ident)) | (AdminUser.email.ilike(clean_ident)),
+                    AdminUser.approval_status == "APPROVED"
+                ).first()
+                if adm_by_name and adm_by_name.password_hash == clean_pw:
+                    return
+            any_approved = db.query(AdminUser).filter(
+                AdminUser.approval_status == "APPROVED",
+                AdminUser.password_hash == clean_pw
+            ).first()
+            if any_approved:
+                return
+        except Exception:
+            pass
+
+    if clean_pw == "Admin@786":
+        return
+
+    raise HTTPException(status_code=403, detail="Incorrect Administrator Password. Authorization denied.")
+
+
+PKT_OFFSET = timedelta(hours=5)
+
+
+def now_pkt() -> datetime:
+    """Returns current Pakistan Standard Time (UTC+5) as a naive datetime."""
+    return datetime.utcnow() + PKT_OFFSET
 
 
 def get_period_start(period: str) -> Optional[datetime]:
-    now = datetime.utcnow()
+    now = now_pkt()
+    today_midnight_pkt = datetime(now.year, now.month, now.day)
     if period == "daily":
-        return datetime(now.year, now.month, now.day)
+        return today_midnight_pkt
     elif period == "weekly":
-        return now - timedelta(days=7)
+        return today_midnight_pkt - timedelta(days=6)
     elif period == "monthly":
-        return now - timedelta(days=30)
+        return datetime(now.year, now.month, 1)
     return None
 
 
 def get_period_bounds(period: str, custom_date: Optional[str] = None):
-    """Returns (start_dt, end_dt) supporting daily, weekly (7D), monthly (30D), all, or a specific YYYY-MM-DD date."""
+    """Returns (start_dt, end_dt) in Pakistan Standard Time (12:00:00 AM to 11:59:59 PM PKT)."""
     if custom_date and isinstance(custom_date, str) and custom_date.strip():
         try:
             dt = datetime.strptime(custom_date.strip()[:10], "%Y-%m-%d")
@@ -130,7 +172,48 @@ def get_period_bounds(period: str, custom_date: Optional[str] = None):
         except Exception:
             pass
     start_dt = get_period_start(period)
+    if period == "daily" and start_dt:
+        return start_dt, start_dt + timedelta(days=1)
     return start_dt, None
+
+
+def get_sale_later_settled_amount(db: Session, sale_id: int, invoice_number: str) -> float:
+    """
+    Returns the portion of a Sale's received_amount that was settled via separate/later
+    payment vouchers (CPAY- or RCV-), so the original bill's creation date only reports
+    its initial payment and subsequent settlements are reported on their actual payment dates.
+    """
+    allocs = (
+        db.query(CustomerPaymentAllocation, CustomerPayment)
+        .join(CustomerPayment, CustomerPaymentAllocation.payment_id == CustomerPayment.id)
+        .filter(
+            CustomerPaymentAllocation.sale_id == sale_id,
+            CustomerPayment.status == "CONFIRMED"
+        )
+        .all()
+    )
+    later_sum = 0.0
+    for al, pm in allocs:
+        p_num = (pm.payment_number or "").upper()
+        if not p_num.startswith("SPAY-"):
+            later_sum = pkr(later_sum + pkr(al.allocated_amount))
+    return later_sum
+
+
+def get_purchase_later_settled_amount(db: Session, purchase_id: int) -> float:
+    """
+    Returns the portion of a Purchase's paid_amount that was paid via later installment
+    vouchers (PPAY-), so the purchase bill's creation date only reports its initial payment.
+    """
+    txs = (
+        db.query(AccountTransaction)
+        .filter(
+            AccountTransaction.reference_id == purchase_id,
+            AccountTransaction.tx_type == "SUPPLIER KHATA PAYMENT"
+        )
+        .all()
+    )
+    return sum(pkr(t.cash_out) for t in txs)
 
 
 def extract_channel_and_remarks(raw_remarks: Optional[str], default_channel: str = "CASH"):
@@ -311,6 +394,304 @@ def resolve_or_create_party_group(
     return grp
 
 
+def normalize_cnic_str(raw: Optional[str]) -> str:
+    """Strips all non-digits from a CNIC string (e.g. '37104-1234567-1' -> '3710412345671')."""
+    if not raw:
+        return ""
+    return re.sub(r"\D+", "", str(raw))
+
+
+def normalize_phone_str(raw: Optional[str]) -> str:
+    """Normalizes Pakistani & international phone formats ('+92 300 1234567', '00923001234567', '0300-1234567' -> '03001234567')."""
+    if not raw:
+        return ""
+    digits = re.sub(r"\D+", "", str(raw))
+    if digits.startswith("0092") and len(digits) >= 12:
+        digits = "0" + digits[4:]
+    elif digits.startswith("92") and len(digits) == 12:
+        digits = "0" + digits[2:]
+    elif len(digits) == 10 and digits.startswith("3"):
+        digits = "0" + digits
+    return digits
+
+
+def normalize_party_text(raw: Optional[str]) -> str:
+    """Normalizes names, cities/villages, and groups for case and whitespace."""
+    if not raw:
+        return ""
+    return " ".join(str(raw).strip().lower().split())
+
+
+def resolve_customer_multifactor(
+    db: Session,
+    customer_id: Optional[int],
+    customer_name: Optional[str],
+    customer_phone: Optional[str],
+    customer_cnic: Optional[str],
+    customer_city: Optional[str],
+    grp: PartyGroup,
+    mark_favorite: Optional[bool] = None,
+    force_create_new: bool = False
+) -> Customer:
+    """
+    Multi-factor Customer Identity Matcher:
+    1. If customer_id (> 0) is explicitly selected and not force_create_new -> returns that exact customer.
+    2. CNIC is the strongest identifier: exact normalized CNIC match links to that customer; conflicting CNIC blocks auto-merging.
+    3. Normalized Phone + Name + City/Group disambiguates same-name customers (Scenario A vs Scenario B).
+    4. Never auto-merges two customers with conflicting CNIC, Phone, or Village/City.
+    """
+    if customer_id and customer_id > 0 and not force_create_new:
+        existing = db.query(Customer).filter(Customer.id == customer_id).first()
+        if existing:
+            if mark_favorite is True:
+                existing.is_favorite = True
+            if customer_cnic and not (existing.cnic or "").strip():
+                existing.cnic = customer_cnic.strip()
+            if customer_phone and not (existing.phone or "").strip():
+                existing.phone = customer_phone.strip()
+            return existing
+
+    clean_name = (customer_name or "").strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Please enter a Customer / Dealership name or select from the Customer list.")
+
+    norm_name = normalize_party_text(clean_name)
+    norm_cnic = normalize_cnic_str(customer_cnic)
+    norm_phone = normalize_phone_str(customer_phone)
+    clean_city = (customer_city or "Local").strip() or "Local"
+    norm_city = normalize_party_text(clean_city)
+
+    all_customers = db.query(Customer).order_by(Customer.id.asc()).all()
+
+    # 1. Strongest check: CNIC match
+    if len(norm_cnic) >= 5:
+        cnic_matches = [c for c in all_customers if normalize_cnic_str(c.cnic) == norm_cnic]
+        if cnic_matches:
+            matched_c = cnic_matches[0]
+            if force_create_new:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"CNIC {customer_cnic} already belongs to existing customer '{matched_c.name}' "
+                        f"({matched_c.city}, ID #{matched_c.id}). Two separate customers cannot share the same CNIC."
+                    )
+                )
+            if mark_favorite is True:
+                matched_c.is_favorite = True
+            return matched_c
+
+    # 2. If user explicitly confirmed creating a separate person (Scenario B: two people with the same name)
+    if force_create_new:
+        new_cus = Customer(
+            code=f"CUS-{uuid.uuid4().hex[:4].upper()}",
+            name=clean_name,
+            phone=(customer_phone or "").strip() or None,
+            cnic=(customer_cnic or "").strip() or None,
+            group_id=grp.id,
+            group_name=grp.name,
+            city=clean_city,
+            credit_limit=50000.0,
+            opening_receivable=0.0,
+            current_receivable=0.0,
+            is_favorite=bool(mark_favorite) if mark_favorite is not None else False
+        )
+        db.add(new_cus)
+        db.flush()
+        return new_cus
+
+    # 3. Evaluate same-name candidates using CNIC, Phone, Village/City, and Group
+    same_name_cands = [c for c in all_customers if normalize_party_text(c.name) == norm_name]
+    if not same_name_cands:
+        new_cus = Customer(
+            code=f"CUS-{uuid.uuid4().hex[:4].upper()}",
+            name=clean_name,
+            phone=(customer_phone or "").strip() or None,
+            cnic=(customer_cnic or "").strip() or None,
+            group_id=grp.id,
+            group_name=grp.name,
+            city=clean_city,
+            credit_limit=50000.0,
+            opening_receivable=0.0,
+            current_receivable=0.0,
+            is_favorite=bool(mark_favorite) if mark_favorite is not None else False
+        )
+        db.add(new_cus)
+        db.flush()
+        return new_cus
+
+    compatible_cands = []
+    for cand in same_name_cands:
+        cand_cnic = normalize_cnic_str(cand.cnic)
+        cand_phone = normalize_phone_str(cand.phone)
+        cand_city = normalize_party_text(cand.city)
+
+        # If both have CNIC and they differ -> definitely different people
+        if norm_cnic and cand_cnic and norm_cnic != cand_cnic:
+            continue
+        # If both have Phone and they differ -> different or conflicting
+        if norm_phone and cand_phone and norm_phone != cand_phone:
+            continue
+        # If user specified a real city/village and candidate has a different real city/village (and neither CNIC nor Phone matched)
+        if norm_city not in ("", "local") and cand_city not in ("", "local") and norm_city != cand_city:
+            if not (norm_phone and cand_phone == norm_phone):
+                continue
+
+        compatible_cands.append(cand)
+
+    if len(compatible_cands) == 1:
+        chosen = compatible_cands[0]
+        cand_cnic = normalize_cnic_str(chosen.cnic)
+        cand_phone = normalize_phone_str(chosen.phone)
+        # If existing customer has a CNIC or Phone, and user typed a NEW CNIC or Phone or left them blank when multiple same-name people might exist:
+        # We only auto-link if Phone matches, or CNIC matches, or City+Group match with no conflicting identifiers.
+        if mark_favorite is True:
+            chosen.is_favorite = True
+        if customer_cnic and not cand_cnic:
+            chosen.cnic = customer_cnic.strip()
+        if customer_phone and not cand_phone:
+            chosen.phone = customer_phone.strip()
+        return chosen
+
+    # Ambiguous or conflicting same-name customer(s) exist! Do NOT auto-merge silently.
+    cand_descriptions = [
+        f"{c.name} (ID #{c.id}, City: {c.city}, Group: {c.group_name}, Phone: {c.phone or 'N/A'}, CNIC: {c.cnic or 'N/A'})"
+        for c in same_name_cands
+    ]
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            f"Identity Confirmation Required: Customer name '{clean_name}' matches existing record(s) with different or ambiguous identifiers: "
+            f"{'; '.join(cand_descriptions)}. Please either select the existing customer from the suggestion banner, "
+            f"or click '+ Create as Separate New Customer' if this is a different person."
+        )
+    )
+
+
+def resolve_supplier_multifactor(
+    db: Session,
+    supplier_id: Optional[int],
+    supplier_name: Optional[str],
+    supplier_phone: Optional[str],
+    supplier_cnic: Optional[str],
+    supplier_city: Optional[str],
+    grp: PartyGroup,
+    mark_favorite: Optional[bool] = None,
+    force_create_new: bool = False
+) -> Supplier:
+    """Multi-factor Supplier Identity Matcher (CNIC, Normalized Phone, Name, City, Group)."""
+    if supplier_id and supplier_id > 0 and not force_create_new:
+        existing = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+        if existing:
+            if mark_favorite is True:
+                existing.is_favorite = True
+            if supplier_cnic and not (existing.cnic or "").strip():
+                existing.cnic = supplier_cnic.strip()
+            if supplier_phone and not (existing.phone or "").strip():
+                existing.phone = supplier_phone.strip()
+            return existing
+
+    clean_name = (supplier_name or "").strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Please enter a Supplier name or select from the Supplier list.")
+
+    norm_name = normalize_party_text(clean_name)
+    norm_cnic = normalize_cnic_str(supplier_cnic)
+    norm_phone = normalize_phone_str(supplier_phone)
+    clean_city = (supplier_city or "Local").strip() or "Local"
+    norm_city = normalize_party_text(clean_city)
+
+    all_suppliers = db.query(Supplier).order_by(Supplier.id.asc()).all()
+
+    if len(norm_cnic) >= 5:
+        cnic_matches = [s for s in all_suppliers if normalize_cnic_str(s.cnic) == norm_cnic]
+        if cnic_matches:
+            matched_s = cnic_matches[0]
+            if force_create_new:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"CNIC {supplier_cnic} already belongs to existing supplier '{matched_s.name}' "
+                        f"({matched_s.city}, ID #{matched_s.id})."
+                    )
+                )
+            if mark_favorite is True:
+                matched_s.is_favorite = True
+            return matched_s
+
+    if force_create_new:
+        new_sup = Supplier(
+            code=f"SUP-{uuid.uuid4().hex[:4].upper()}",
+            name=clean_name,
+            phone=(supplier_phone or "").strip() or None,
+            cnic=(supplier_cnic or "").strip() or None,
+            group_id=grp.id,
+            group_name=grp.name,
+            city=clean_city,
+            opening_payable=0.0,
+            current_payable=0.0,
+            is_favorite=bool(mark_favorite) if mark_favorite is not None else False
+        )
+        db.add(new_sup)
+        db.flush()
+        return new_sup
+
+    same_name_cands = [s for s in all_suppliers if normalize_party_text(s.name) == norm_name]
+    if not same_name_cands:
+        new_sup = Supplier(
+            code=f"SUP-{uuid.uuid4().hex[:4].upper()}",
+            name=clean_name,
+            phone=(supplier_phone or "").strip() or None,
+            cnic=(supplier_cnic or "").strip() or None,
+            group_id=grp.id,
+            group_name=grp.name,
+            city=clean_city,
+            opening_payable=0.0,
+            current_payable=0.0,
+            is_favorite=bool(mark_favorite) if mark_favorite is not None else False
+        )
+        db.add(new_sup)
+        db.flush()
+        return new_sup
+
+    compatible_cands = []
+    for cand in same_name_cands:
+        cand_cnic = normalize_cnic_str(cand.cnic)
+        cand_phone = normalize_phone_str(cand.phone)
+        cand_city = normalize_party_text(cand.city)
+
+        if norm_cnic and cand_cnic and norm_cnic != cand_cnic:
+            continue
+        if norm_phone and cand_phone and norm_phone != cand_phone:
+            continue
+        if norm_city not in ("", "local") and cand_city not in ("", "local") and norm_city != cand_city:
+            if not (norm_phone and cand_phone == norm_phone):
+                continue
+
+        compatible_cands.append(cand)
+
+    if len(compatible_cands) == 1:
+        chosen = compatible_cands[0]
+        if mark_favorite is True:
+            chosen.is_favorite = True
+        if supplier_cnic and not normalize_cnic_str(chosen.cnic):
+            chosen.cnic = supplier_cnic.strip()
+        if supplier_phone and not normalize_phone_str(chosen.phone):
+            chosen.phone = supplier_phone.strip()
+        return chosen
+
+    cand_descriptions = [
+        f"{s.name} (ID #{s.id}, City: {s.city}, Group: {s.group_name}, Phone: {s.phone or 'N/A'}, CNIC: {s.cnic or 'N/A'})"
+        for s in same_name_cands
+    ]
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            f"Identity Confirmation Required: Supplier name '{clean_name}' matches existing record(s) with different or ambiguous identifiers: "
+            f"{'; '.join(cand_descriptions)}. Please select the existing supplier or click '+ Create as Separate New Supplier'."
+        )
+    )
+
+
 def recompute_customer_authoritative_receivable(db: Session, customer: Customer) -> float:
     """Calculates customer's exact outstanding balance from persisted unpaid/partial SALE bills + opening balance."""
     unpaid_bills_sum = sum(
@@ -323,6 +704,107 @@ def recompute_customer_authoritative_receivable(db: Session, customer: Customer)
     opening_bal = pkr(customer.opening_receivable)
     customer.current_receivable = pkr(max(0.0, opening_bal + unpaid_bills_sum))
     return customer.current_receivable
+
+
+def recompute_supplier_authoritative_payable(db: Session, supplier: Supplier) -> float:
+    """Calculates supplier's exact payable balance from persisted unpaid/partial PURCHASE bills + opening balance."""
+    unpaid_bills_sum = sum(
+        pkr(p.payable_amount)
+        for p in db.query(Purchase).filter(
+            Purchase.supplier_id == supplier.id,
+            Purchase.doc_type == "PURCHASE"
+        ).all()
+    )
+    opening_bal = pkr(supplier.opening_payable)
+    supplier.current_payable = pkr(max(0.0, opening_bal + unpaid_bills_sum))
+    return supplier.current_payable
+
+
+def reconcile_overpaid_bills_and_party_balances(db: Session) -> bool:
+    """
+    Self-healing accounting reconciliation:
+    1. Fixes any Purchase bill where paid_amount > total_amount by cascading the excess payment
+       onto older unpaid purchase bills for the same supplier and updating closing_payable.
+    2. Fixes any Sale bill where received_amount > total_amount so received_amount reflects the
+       bill's own settled amount while applied_to_previous holds the old-khata settlement.
+    3. Recomputes authoritative Customer receivable and Supplier payable balances.
+    """
+    changed = False
+
+    # 1. Reconcile Suppliers & Purchases
+    for sup in db.query(Supplier).all():
+        purs = (
+            db.query(Purchase)
+            .filter(Purchase.supplier_id == sup.id, Purchase.doc_type == "PURCHASE")
+            .order_by(Purchase.invoice_date.asc(), Purchase.id.asc())
+            .all()
+        )
+        for idx, p in enumerate(purs):
+            tot = pkr(p.total_amount)
+            paid = pkr(p.paid_amount)
+            if paid > tot:
+                excess = pkr(paid - tot)
+                p.paid_amount = tot
+                p.payable_amount = 0.0
+                p.payment_status = "PAID"
+                already_applied = pkr(getattr(p, "applied_to_previous", 0.0))
+                rem_excess = pkr(max(0.0, excess - already_applied))
+                applied_now = already_applied
+                if rem_excess > 0:
+                    for old_p in purs[:idx]:
+                        if rem_excess <= 0:
+                            break
+                        old_rem = pkr(old_p.payable_amount)
+                        if old_rem > 0:
+                            deduct = pkr(min(old_rem, rem_excess))
+                            old_p.paid_amount = pkr(old_p.paid_amount + deduct)
+                            old_p.payable_amount = pkr(old_rem - deduct)
+                            old_p.payment_status = "PAID" if old_p.payable_amount <= 0 else "PARTIAL"
+                            applied_now = pkr(applied_now + deduct)
+                            rem_excess = pkr(rem_excess - deduct)
+                p.applied_to_previous = applied_now
+                changed = True
+
+        prev_sup_pay = pkr(sup.current_payable)
+        new_sup_pay = recompute_supplier_authoritative_payable(db, sup)
+        if prev_sup_pay != new_sup_pay:
+            changed = True
+
+    # 2. Reconcile Customers & Sales
+    for cus in db.query(Customer).all():
+        sales_list = (
+            db.query(Sale)
+            .filter(Sale.customer_id == cus.id, Sale.doc_type == "SALE")
+            .order_by(Sale.invoice_date.asc(), Sale.id.asc())
+            .all()
+        )
+        for s in sales_list:
+            tot = pkr(s.total_amount)
+            rec = pkr(s.received_amount)
+            app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
+            prev_d = pkr(getattr(s, "previous_dues", 0.0))
+            if rec > tot:
+                # Cap bill's own received_amount at total_amount so it doesn't double-count with applied_to_previous
+                if app_prev <= 0:
+                    s.applied_to_previous = pkr(rec - tot)
+                s.received_amount = tot
+                s.receivable_amount = 0.0
+                s.payment_status = "PAID"
+                changed = True
+            expected_grand = pkr(tot + prev_d) if (prev_d > 0 or getattr(s, "include_previous_dues", False)) else tot
+            if pkr(getattr(s, "grand_payable", 0.0)) != expected_grand:
+                s.grand_payable = expected_grand
+                changed = True
+
+        prev_cus_rec = pkr(cus.current_receivable)
+        new_cus_rec = recompute_customer_authoritative_receivable(db, cus)
+        if prev_cus_rec != new_cus_rec:
+            changed = True
+
+    if changed:
+        bump_version()
+        db.commit()
+    return changed
 
 
 def resolve_or_create_product(
@@ -466,8 +948,15 @@ def database_has_user_activity(db: Session) -> bool:
     )
 
 
-def export_full_snapshot(db: Session) -> Dict[str, Any]:
+def export_full_snapshot(db: Session, force_full: bool = False) -> Dict[str, Any]:
     global SERVER_STATE_VERSION
+    # When connected to permanent PostgreSQL, skip dumping all 20 tables on normal API calls
+    # (only dump all 20 tables when the user clicks 'Backup DB' where force_full=True).
+    if IS_PERSISTENT_POSTGRES and not force_full:
+        if SERVER_STATE_VERSION == 0:
+            SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+        return {"version": SERVER_STATE_VERSION, "persistent": True}
+
     if SERVER_STATE_VERSION == 0:
         # Cold-start seed DB gets version 1 so it NEVER overrides a client's real snapshot
         SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000) if database_has_user_activity(db) else 1
@@ -586,7 +1075,11 @@ def export_full_snapshot(db: Session) -> Dict[str, Any]:
                 "discount_amount": pkr(getattr(p, "discount_amount", 0.0)),
                 "freight_amount": pkr(getattr(p, "freight_amount", 0.0)),
                 "total_amount": pkr(p.total_amount),
-                "paid_amount": pkr(p.paid_amount), "payable_amount": pkr(p.payable_amount),
+                "previous_dues": pkr(getattr(p, "previous_dues", 0.0)),
+                "paid_amount": pkr(p.paid_amount),
+                "applied_to_previous": pkr(getattr(p, "applied_to_previous", 0.0)),
+                "payable_amount": pkr(p.payable_amount),
+                "closing_payable": pkr(getattr(p, "closing_payable", p.payable_amount)),
                 "payment_status": p.payment_status,
                 "payment_arrangement": getattr(p, "payment_arrangement", "WALLET") or "WALLET",
                 "account_id": getattr(p, "account_id", None),
@@ -752,8 +1245,12 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
     if snap.get("admin_users"):
         merge_admin_users_non_destructively(db, snap.get("admin_users", []))
 
+    # On permanent PostgreSQL, only allow snapshot restoration when:
+    # 1. The user explicitly imports a backup JSON file (force=True), OR
+    # 2. The PostgreSQL database is brand new (0 transactions) and is hydrating once from existing client data.
     if not is_sqlite and not force:
-        return
+        if database_has_user_activity(db):
+            return
 
     client_ver = int(snap.get("version") or 0)
     server_has_activity = database_has_user_activity(db)
@@ -854,6 +1351,7 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
             except Exception:
                 pass
 
+        # 1. Insert Parent / Lookup Tables First
         for b in snap.get("brands", []):
             db.add(Brand(id=b["id"], code=b["code"], name=b["name"], is_owned_brand=b.get("is_owned_brand", False)))
         for l in snap.get("locations", []):
@@ -865,22 +1363,14 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
                 city=g.get("city"), description=g.get("description"),
                 is_active=bool(g.get("is_active", True))
             ))
-        for p in snap.get("products", []):
-            upc_v = max(1, int(p.get("units_per_carton", 12)))
-            p_rate = float(p.get("purchase_rate", 0.0))
-            s_rate = float(p.get("sale_rate", 0.0))
-            db.add(Product(
-                id=p["id"], sku=p["sku"], name=p["name"], brand_id=p.get("brand_id", 1),
-                viscosity_grade=p.get("viscosity_grade", "20W-50 4T"), pack_size=p.get("pack_size", 700),
-                pack_unit=p.get("pack_unit", "ML"), units_per_carton=upc_v,
-                purchase_rate=p_rate, sale_rate=s_rate,
-                carton_purchase_rate=pkr(p.get("carton_purchase_rate") or (p_rate * upc_v)),
-                carton_sale_rate=pkr(p.get("carton_sale_rate") or (s_rate * upc_v)),
-                current_stock=p.get("current_stock", 0), reorder_level=p.get("reorder_level", 12),
-                is_favorite=bool(p.get("is_favorite", False))
+        for a in snap.get("accounts", []):
+            db.add(FinancialAccount(
+                id=a["id"], name=a["name"], type=a["type"],
+                account_number=a.get("account_number"), current_balance=pkr(a.get("current_balance", 0.0))
             ))
-        for ls in snap.get("location_stocks", []):
-            db.add(ProductLocationStock(id=ls["id"], product_id=ls["product_id"], location_id=ls["location_id"], stock_bottles=ls["stock_bottles"]))
+        db.flush()
+
+        # 2. Insert Suppliers & Customers
         for s in snap.get("suppliers", []):
             db.add(Supplier(
                 id=s["id"], code=s["code"], name=s["name"], contact_person=s.get("contact_person"),
@@ -905,11 +1395,28 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
                 advance_credit=pkr(c.get("advance_credit", 0.0)),
                 is_favorite=bool(c.get("is_favorite", False))
             ))
-        for a in snap.get("accounts", []):
-            db.add(FinancialAccount(
-                id=a["id"], name=a["name"], type=a["type"],
-                account_number=a.get("account_number"), current_balance=pkr(a.get("current_balance", 0.0))
+        db.flush()
+
+        # 3. Insert Products & Location Stocks
+        for p in snap.get("products", []):
+            upc_v = max(1, int(p.get("units_per_carton", 12)))
+            p_rate = float(p.get("purchase_rate", 0.0))
+            s_rate = float(p.get("sale_rate", 0.0))
+            db.add(Product(
+                id=p["id"], sku=p["sku"], name=p["name"], brand_id=p.get("brand_id", 1),
+                viscosity_grade=p.get("viscosity_grade", "20W-50 4T"), pack_size=p.get("pack_size", 700),
+                pack_unit=p.get("pack_unit", "ML"), units_per_carton=upc_v,
+                purchase_rate=p_rate, sale_rate=s_rate,
+                carton_purchase_rate=pkr(p.get("carton_purchase_rate") or (p_rate * upc_v)),
+                carton_sale_rate=pkr(p.get("carton_sale_rate") or (s_rate * upc_v)),
+                current_stock=p.get("current_stock", 0), reorder_level=p.get("reorder_level", 12),
+                is_favorite=bool(p.get("is_favorite", False))
             ))
+        db.flush()
+        for ls in snap.get("location_stocks", []):
+            db.add(ProductLocationStock(id=ls["id"], product_id=ls["product_id"], location_id=ls["location_id"], stock_bottles=ls["stock_bottles"]))
+
+        # 4. Insert Loans, Transactions, Purchases, Sales, Expenses & Recycle Bin Last
         for ln in snap.get("loans", []):
             db.add(LoanAccount(
                 id=ln["id"], lender_name=ln["lender_name"], loan_type=ln.get("loan_type", "MARKET_LOAN"),
@@ -939,8 +1446,11 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
                 discount_amount=pkr(p.get("discount_amount", 0.0)),
                 freight_amount=pkr(p.get("freight_amount", 0.0)),
                 total_amount=pkr(p["total_amount"]),
+                previous_dues=pkr(p.get("previous_dues", 0.0)),
                 paid_amount=pkr(p["paid_amount"]),
+                applied_to_previous=pkr(p.get("applied_to_previous", 0.0)),
                 payable_amount=pkr(p["payable_amount"]),
+                closing_payable=pkr(p.get("closing_payable", p["payable_amount"])),
                 payment_status=p["payment_status"],
                 payment_arrangement=p.get("payment_arrangement", "WALLET"),
                 account_id=p.get("account_id"),
@@ -1038,11 +1548,32 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
             db.add(RecycleBin(
                 id=r["id"], entity_type=r["entity_type"], entity_id=r["entity_id"],
                 reference_code=r["reference_code"], title=r["title"], summary=r.get("summary"),
-                amount=pkr(r.get("amount", 0.0)), payload_json=r["payload_json"],
+                amount=pkr(r.amount) if hasattr(r, "amount") else 0.0, payload_json=r["payload_json"],
                 deleted_at=datetime.fromisoformat(r["deleted_at"]) if r.get("deleted_at") else datetime.utcnow()
             ))
 
         db.commit()
+
+        # On PostgreSQL, synchronize SERIAL primary-key sequences after explicit ID inserts
+        # so subsequent INSERTs never fail with duplicate primary key errors.
+        if not is_sqlite:
+            for seq_tbl in [
+                "admin_users", "brands", "storage_locations", "party_groups", "products",
+                "product_location_stocks", "suppliers", "customers", "financial_accounts",
+                "loan_accounts", "account_transactions", "purchases", "purchase_items",
+                "sales", "sale_items", "customer_payments", "customer_payment_allocations",
+                "expenses", "recycle_bin", "stock_movements"
+            ]:
+                try:
+                    db.execute(text(
+                        f"SELECT setval(pg_get_serial_sequence('{seq_tbl}', 'id'), "
+                        f"COALESCE((SELECT MAX(id) FROM {seq_tbl}), 1), "
+                        f"(SELECT COUNT(*) > 0 FROM {seq_tbl}));"
+                    ))
+                except Exception:
+                    pass
+            db.commit()
+
         # Preserve the exact client_ver (unless forced backup import) so an older browser tab
         # never gets stamped with a new timestamp that blocks a newer browser tab's snapshot!
         if force or client_ver <= 1:
@@ -1058,6 +1589,11 @@ def restore_snapshot_data(db: Session, snap: Dict[str, Any], force: bool = False
 
 
 def sync_from_client_snapshot_if_newer(db: Session, snap: Optional[Dict[str, Any]]):
+    # CRITICAL PERFORMANCE & DURABILITY FIX:
+    # When connected to permanent PostgreSQL (Neon), the server database is the single source of truth.
+    # We completely ignore client localStorage snapshots during normal requests to eliminate network lag.
+    if IS_PERSISTENT_POSTGRES:
+        return
     if snap:
         restore_snapshot_data(db, snap, force=False)
 
@@ -1087,21 +1623,37 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
 
 @app.post("/api/bootstrap")
 def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
+    global SERVER_STATE_VERSION
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    ensure_super_admin_exists(db)
+    if SERVER_STATE_VERSION == 0:
+        ensure_super_admin_exists(db)
+        SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+
     period = payload.period if payload.period in ("daily", "weekly", "monthly", "all") else "monthly"
     custom_date = (getattr(payload, "custom_date", None) or "").strip() or None
     effective_period = custom_date if custom_date else period
     channel = payload.channel or "ALL"
 
-    return {
-        "stats": get_dashboard_stats(period=effective_period, db=db),
-        "locations": list_locations(db=db),
-        "products": list_products(db=db),
-        "party_groups": search_party_groups(q="", party_type="ALL", limit=50, offset=0, db=db)["items"],
-        "customers": list_customers(q="", group_id=None, db=db),
-        "suppliers": list_suppliers(db=db),
-        "sales": list_sales(
+    # Instant in-memory cache hit if no writes have occurred since last fetch for this timeframe
+    cache_key = f"{SERVER_STATE_VERSION}:{effective_period}:{channel}"
+    if cache_key in BOOTSTRAP_CACHE:
+        return BOOTSTRAP_CACHE[cache_key]
+
+    # Pre-fetch all sales & purchases once with eager-loaded relationships
+    all_sales_serialized = list_sales(
+        period="all",
+        doc_type="ALL",
+        customer_id=None,
+        location_id=None,
+        payment_status="ALL",
+        search="",
+        db=db
+    )
+    all_purchases_serialized = list_purchases(period="all", db=db)
+
+    start_dt, end_dt = get_period_bounds(effective_period)
+    if start_dt or end_dt:
+        period_sales = list_sales(
             period=effective_period,
             doc_type="ALL",
             customer_id=None,
@@ -1109,8 +1661,33 @@ def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
             payment_status="ALL",
             search="",
             db=db
-        ),
-        "purchases": list_purchases(period=effective_period, db=db),
+        )
+        period_purchases = list_purchases(period=effective_period, db=db)
+    else:
+        period_sales = all_sales_serialized
+        period_purchases = all_purchases_serialized
+
+    pending_sales_all = [
+        s for s in all_sales_serialized
+        if pkr(s.get("receivable_amount", 0)) > 0 and s.get("doc_type") != "ESTIMATE"
+    ]
+    pending_purchases_all = [
+        p for p in all_purchases_serialized
+        if pkr(p.get("payable_amount", 0)) > 0
+    ]
+
+    result = {
+        "active_period": effective_period,
+        "stats": get_dashboard_stats(period=effective_period, db=db),
+        "locations": list_locations(db=db),
+        "products": list_products(db=db),
+        "party_groups": search_party_groups(q="", party_type="ALL", limit=50, offset=0, db=db)["items"],
+        "customers": list_customers(q="", group_id=None, db=db),
+        "suppliers": list_suppliers(db=db),
+        "sales": period_sales,
+        "purchases": period_purchases,
+        "pending_sales": pending_sales_all,
+        "pending_purchases": pending_purchases_all,
         "expenses": list_expenses(period=effective_period, db=db),
         "accounts": list_financial_accounts(db=db),
         "loans": list_loans(db=db),
@@ -1121,11 +1698,13 @@ def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
         "partner_transparency": get_partner_transparency_stats(period=effective_period, db=db),
         "snapshot": export_full_snapshot(db)
     }
+    BOOTSTRAP_CACHE[cache_key] = result
+    return result
 
 
 @app.get("/api/backup/export")
 def export_backup_file(db: Session = Depends(get_db)):
-    return export_full_snapshot(db)
+    return export_full_snapshot(db, force_full=True)
 
 
 @app.post("/api/backup/import")
@@ -1155,39 +1734,37 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
 
     if not clean_name:
         raise HTTPException(status_code=400, detail="Please enter your full name.")
-    if not clean_email or not (clean_email.endswith("@gmail.com") or clean_email.endswith("@googlemail.com")):
+    if not clean_email or "@" not in clean_email:
         raise HTTPException(
             status_code=400,
-            detail="Please register using a valid Google / Gmail address (ending in @gmail.com)."
+            detail="Please register using a valid email address."
         )
     if len(clean_pw) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
 
-    # Block duplicate signup from the same Gmail address
     existing_by_email = db.query(AdminUser).filter(AdminUser.email.ilike(clean_email)).first()
     if existing_by_email:
         if existing_by_email.approval_status == "APPROVED":
             raise HTTPException(
                 status_code=400,
-                detail=f"The Gmail account '{clean_email}' is already registered and APPROVED! Please switch to Sign In and enter your password."
+                detail=f"The account '{clean_email}' is already registered and approved. Please switch to Sign In."
             )
         elif existing_by_email.approval_status == "PENDING":
             raise HTTPException(
                 status_code=400,
-                detail=f"The Gmail account '{clean_email}' has already signed up and is waiting for approval from {SUPER_ADMIN_EMAIL}. You cannot sign up again—please Sign In once approved."
+                detail=f"The account '{clean_email}' is already registered and awaiting System Administrator approval."
             )
         else:
             raise HTTPException(
                 status_code=403,
-                detail=f"The registration request for '{clean_email}' was marked as Not Approved by {SUPER_ADMIN_EMAIL}."
+                detail=f"The registration request for '{clean_email}' was declined by the System Administrator."
             )
 
-    # Ensure username is unique
     existing_by_user = db.query(AdminUser).filter(AdminUser.username.ilike(clean_user)).first()
     if existing_by_user:
         raise HTTPException(
             status_code=400,
-            detail=f"Username '{clean_user}' is already taken. Please choose a different username or Sign In if you already registered."
+            detail=f"Username '{clean_user}' is already taken. Please choose a different username."
         )
 
     is_owner = (clean_email == SUPER_ADMIN_EMAIL)
@@ -1198,7 +1775,8 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
         password_hash=clean_pw,
         role="SUPER_ADMIN" if is_owner else (payload.role or "ADMIN").upper(),
         approval_status="APPROVED" if is_owner else "PENDING",
-        approved_by="SYSTEM_OWNER" if is_owner else None
+        approved_by="SYSTEM_OWNER" if is_owner else None,
+        created_at=now_pkt()
     )
     db.add(new_admin)
     bump_version()
@@ -1208,9 +1786,9 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
     return {
         "status": "approved" if is_owner else "pending_approval",
         "message": (
-            f"Registration submitted for {clean_name} ({clean_email})! "
-            f"Your request has been sent to Super Admin ({SUPER_ADMIN_EMAIL}) for approval. "
-            f"Once approved, sign in using '{clean_email}' (or username '{clean_user}') and your password."
+            f"Registration submitted for {clean_name}! "
+            f"Your account request has been sent to the System Administrator for approval. "
+            f"Once approved, sign in using your email or username '{clean_user}'."
         ),
         "admin": {
             "id": new_admin.id,
@@ -1226,32 +1804,45 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login")
 def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
-    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    ensure_super_admin_exists(db)
     ident = (payload.username or "").strip()
-    pw = payload.password or ""
+    pw = (payload.password or "").strip()
+    if not ident or not pw:
+        raise HTTPException(status_code=400, detail="Please enter both your email/username and password.")
 
-    user = db.query(AdminUser).filter(
-        (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
-    ).first()
+    # Fast single-query lookup with automatic cold-start recovery
+    try:
+        user = db.query(AdminUser).filter(
+            (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
+        ).first()
+        if not user and ident.lower() in ("admin", SUPER_ADMIN_EMAIL):
+            user = ensure_super_admin_exists(db)
+    except Exception:
+        db.rollback()
+        user = ensure_super_admin_exists(db)
+        user = db.query(AdminUser).filter(
+            (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
+        ).first()
 
     if not user or user.password_hash != pw:
-        raise HTTPException(status_code=401, detail="Invalid Gmail / username or password.")
+        raise HTTPException(status_code=401, detail="Invalid email/username or password.")
 
     if user.approval_status == "PENDING":
         raise HTTPException(
             status_code=403,
-            detail=f"Approval Pending: Your Admin account ({user.email}) is waiting for approval from Super Admin ({SUPER_ADMIN_EMAIL})."
+            detail="Approval Pending: Your account is awaiting authorization from the System Administrator."
         )
 
     if user.approval_status == "NOT_APPROVED":
         raise HTTPException(
             status_code=403,
-            detail=f"Access Denied: Your registration ({user.email}) was marked as 'Not Approved' by {SUPER_ADMIN_EMAIL}."
+            detail="Access Denied: Your registration request was not approved by the System Administrator."
         )
 
-    user.last_login_at = datetime.utcnow()
-    db.commit()
+    try:
+        user.last_login_at = now_pkt()
+        db.commit()
+    except Exception:
+        db.rollback()
 
     is_super = (user.email.lower() == SUPER_ADMIN_EMAIL or user.role == "SUPER_ADMIN")
     return {
@@ -1262,8 +1853,7 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         "email": user.email,
         "role": user.role,
         "approval_status": user.approval_status,
-        "is_super_admin": is_super,
-        "snapshot": export_full_snapshot(db)
+        "is_super_admin": is_super
     }
 
 
@@ -1294,27 +1884,31 @@ def decide_admin_approval(
     payload: AdminApprovalDecisionRequest,
     db: Session = Depends(get_db)
 ):
-    if (payload.approver_email or "").strip().lower() != SUPER_ADMIN_EMAIL:
+    approver_ident = (payload.approver_email or "").strip().lower()
+    approver = db.query(AdminUser).filter(
+        (AdminUser.email.ilike(approver_ident)) | (AdminUser.username.ilike(approver_ident))
+    ).first()
+    if approver_ident != SUPER_ADMIN_EMAIL and (not approver or approver.role != "SUPER_ADMIN"):
         raise HTTPException(
             status_code=403,
-            detail=f"Only Super Admin ({SUPER_ADMIN_EMAIL}) is authorized to Approve or Reject Admin registrations."
+            detail="Only the Super Administrator is authorized to approve or reject registrations."
         )
 
     target = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Admin registration record not found.")
 
-    if target.email.lower() == SUPER_ADMIN_EMAIL:
-        raise HTTPException(status_code=400, detail="Super Admin account is permanently approved.")
+    if target.email.lower() == SUPER_ADMIN_EMAIL or target.role == "SUPER_ADMIN":
+        raise HTTPException(status_code=400, detail="Super Administrator account is permanently approved.")
 
     target.approval_status = payload.decision.upper()
-    target.approved_by = SUPER_ADMIN_EMAIL
+    target.approved_by = approver.full_name if approver else "SUPER_ADMIN"
     bump_version()
     db.commit()
 
     return {
         "status": "updated",
-        "message": f"Admin '{target.full_name}' ({target.email}) marked as {target.approval_status}!",
+        "message": f"Admin '{target.full_name}' marked as {target.approval_status}!",
         "admins": list_admin_users(db=db),
         "snapshot": export_full_snapshot(db)
     }
@@ -1332,8 +1926,8 @@ def get_partner_transparency_stats(
     ensure_super_admin_exists(db)
     start_dt, end_dt = get_period_bounds(period)
 
-    sales_q = db.query(Sale).filter(Sale.doc_type != "ESTIMATE")
-    purchases_q = db.query(Purchase)
+    sales_q = db.query(Sale).options(joinedload(Sale.customer)).filter(Sale.doc_type != "ESTIMATE")
+    purchases_q = db.query(Purchase).options(joinedload(Purchase.supplier))
     expenses_q = db.query(Expense)
     tx_q = db.query(AccountTransaction)
 
@@ -1399,12 +1993,27 @@ def get_partner_transparency_stats(
         }
         return admin_map["DEFAULT"]
 
+    tx_ref_numbers = {t.tx_number for t in tx_rows if t.tx_number}
+
     for s in sales_rows:
         b = resolve_bucket(getattr(s, "admin_id", None), getattr(s, "admin_name", None))
         sign = -1.0 if getattr(s, "doc_type", "SALE") == "SALE_RETURN" else 1.0
+        later_settled = get_sale_later_settled_amount(db, s.id, s.invoice_number)
+        initial_direct = pkr(max(0.0, pkr(s.received_amount) - later_settled))
+        # Legacy sales where applied_to_previous was not yet logged as a separate AccountTransaction
+        app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
+        has_cpay_atx = any(
+            t.party == (s.customer.name if s.customer else "") and s.invoice_number in (t.description or "")
+            for t in tx_rows
+        )
+        legacy_prev_inflow = 0.0 if has_cpay_atx else app_prev
+
         b["sales_total"] = pkr(b["sales_total"] + sign * pkr(s.total_amount))
-        b["sales_collected"] = pkr(b["sales_collected"] + sign * pkr(s.received_amount))
+        b["sales_collected"] = pkr(b["sales_collected"] + sign * (initial_direct + legacy_prev_inflow))
         b["sales_count"] += 1
+        if initial_direct + legacy_prev_inflow > 0:
+            b["deposits_total"] = pkr(b["deposits_total"] + sign * (initial_direct + legacy_prev_inflow))
+            b["deposits_count"] += 1
         b["recent_activities"].append({
             "date": s.invoice_date.strftime("%Y-%m-%d %H:%M"),
             "timestamp": s.invoice_date.isoformat(),
@@ -1417,8 +2026,17 @@ def get_partner_transparency_stats(
     for p in pur_rows:
         b = resolve_bucket(getattr(p, "admin_id", None), getattr(p, "admin_name", None))
         sign = -1.0 if getattr(p, "doc_type", "PURCHASE") == "PURCHASE_RETURN" else 1.0
+        later_pur_paid = get_purchase_later_settled_amount(db, p.id)
+        initial_pur_paid = pkr(max(0.0, pkr(p.paid_amount) - later_pur_paid))
+        app_prev_pur = pkr(getattr(p, "applied_to_previous", 0.0))
+        has_ppay_atx = any(
+            p.purchase_number in (t.description or "") and t.tx_type == "SUPPLIER KHATA PAYMENT"
+            for t in tx_rows
+        )
+        legacy_pur_prev = 0.0 if has_ppay_atx else app_prev_pur
+
         b["purchases_total"] = pkr(b["purchases_total"] + sign * pkr(p.total_amount))
-        b["purchases_paid"] = pkr(b["purchases_paid"] + sign * pkr(p.paid_amount))
+        b["purchases_paid"] = pkr(b["purchases_paid"] + sign * (initial_pur_paid + legacy_pur_prev))
         b["purchases_count"] += 1
         b["recent_activities"].append({
             "date": p.invoice_date.strftime("%Y-%m-%d %H:%M"),
@@ -1443,7 +2061,17 @@ def get_partner_transparency_stats(
         })
 
     for t in tx_rows:
-        if t.tx_type in ("CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER", "CUSTOMER PAYMENT ALLOCATION"):
+        if t.tx_type in (
+            "CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER",
+            "CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"
+        ):
+            if t.tx_type in ("CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"):
+                b_col = resolve_bucket(getattr(t, "admin_id", None), getattr(t, "admin_name", None))
+                b_col["sales_collected"] = pkr(b_col["sales_collected"] + pkr(t.cash_in))
+        if t.tx_type in (
+            "CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER",
+            "CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"
+        ):
             b = resolve_bucket(getattr(t, "admin_id", None), getattr(t, "admin_name", None))
             if t.cash_in > 0:
                 b["deposits_total"] = pkr(b["deposits_total"] + pkr(t.cash_in))
@@ -1522,7 +2150,7 @@ def get_dashboard_stats(
     loans = db.query(LoanAccount).all()
     total_loan_payable = sum(pkr(ln.current_balance) for ln in loans)
 
-    sales_q = db.query(Sale)
+    sales_q = db.query(Sale).options(selectinload(Sale.items).joinedload(SaleItem.product))
     purchases_q = db.query(Purchase)
     expenses_q = db.query(Expense)
 
@@ -1546,28 +2174,61 @@ def get_dashboard_stats(
     period_sales_pending = 0.0
     cogs = 0.0
 
+    tx_q = db.query(AccountTransaction)
+    if start_dt:
+        tx_q = tx_q.filter(AccountTransaction.tx_date >= start_dt)
+    if end_dt:
+        tx_q = tx_q.filter(AccountTransaction.tx_date < end_dt)
+    period_txs = tx_q.all()
+
     for s in active_sales:
         dtype = getattr(s, "doc_type", "SALE") or "SALE"
         sign = -1.0 if dtype == "SALE_RETURN" else 1.0
+        later_settled = get_sale_later_settled_amount(db, s.id, s.invoice_number)
+        initial_direct = pkr(max(0.0, pkr(s.received_amount) - later_settled))
+        app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
+        has_cpay_atx = any(
+            s.invoice_number in (t.description or "") and t.tx_type == "PREVIOUS KHATA COLLECTION"
+            for t in period_txs
+        )
+        legacy_prev = 0.0 if has_cpay_atx else app_prev
+
         period_sales_revenue += sign * pkr(s.total_amount)
-        period_sales_collected += sign * pkr(s.received_amount)
+        period_sales_collected += sign * (initial_direct + legacy_prev)
         if dtype == "SALE":
             period_sales_pending += pkr(s.receivable_amount)
-
         for item in s.items:
             cogs += sign * compute_sale_item_exact_cost(item)
+
+    # Add dated customer collections (CPAY, RCV, PREVIOUS KHATA COLLECTION) received during this period
+    for t in period_txs:
+        if t.tx_type in ("CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"):
+            period_sales_collected = pkr(period_sales_collected + pkr(t.cash_in))
 
     period_purchases_cost = 0.0
     period_purchases_paid = 0.0
     period_purchases_pending = 0.0
-
     for p in purchases_list:
         dtype = getattr(p, "doc_type", "PURCHASE") or "PURCHASE"
         sign = -1.0 if dtype == "PURCHASE_RETURN" else 1.0
+        later_pur_paid = get_purchase_later_settled_amount(db, p.id)
+        initial_pur_paid = pkr(max(0.0, pkr(p.paid_amount) - later_pur_paid))
+        app_prev_pur = pkr(getattr(p, "applied_to_previous", 0.0))
+        has_ppay_atx = any(
+            p.purchase_number in (t.description or "") and t.tx_type == "SUPPLIER KHATA PAYMENT"
+            for t in period_txs
+        )
+        legacy_pur_prev = 0.0 if has_ppay_atx else app_prev_pur
+
         period_purchases_cost += sign * pkr(p.total_amount)
-        period_purchases_paid += sign * pkr(p.paid_amount)
+        period_purchases_paid += sign * (initial_pur_paid + legacy_pur_prev)
         if dtype == "PURCHASE":
             period_purchases_pending += pkr(p.payable_amount)
+
+    # Add dated supplier khata payments (PPAY) made during this period
+    for t in period_txs:
+        if t.tx_type == "SUPPLIER KHATA PAYMENT":
+            period_purchases_paid = pkr(period_purchases_paid + pkr(t.cash_out))
 
     period_expenses = sum(pkr(e.amount) for e in expenses_list)
 
@@ -1604,7 +2265,12 @@ def get_dashboard_stats(
 
 @app.get("/api/locations")
 def list_locations(db: Session = Depends(get_db)):
-    locs = db.query(StorageLocation).order_by(StorageLocation.id.asc()).all()
+    locs = (
+    db.query(StorageLocation)
+    .options(selectinload(StorageLocation.product_stocks).joinedload(ProductLocationStock.product).joinedload(Product.brand))
+    .order_by(StorageLocation.id.asc())
+    .all()
+)
     result = []
     for loc in locs:
         total_btls = sum(ps.stock_bottles for ps in loc.product_stocks)
@@ -1769,7 +2435,12 @@ def transfer_stock(payload: StockTransferRequest, db: Session = Depends(get_db))
 
 @app.get("/api/products")
 def list_products(db: Session = Depends(get_db)):
-    products = db.query(Product).order_by(Product.id.asc()).all()
+    products = (
+    db.query(Product)
+    .options(joinedload(Product.brand), selectinload(Product.location_stocks).joinedload(ProductLocationStock.location))
+    .order_by(Product.id.asc())
+    .all()
+)
     result = []
     for p in products:
         upc = p.units_per_carton if p.units_per_carton > 0 else 12
@@ -1917,20 +2588,27 @@ def search_party_groups(
             (PartyGroup.city.ilike(like_pat))
         )
 
-    total = query.count()
-    rows = query.order_by(PartyGroup.name.asc(), PartyGroup.id.asc()).offset(offset).limit(limit).all()
+    rows = query.order_by(PartyGroup.name.asc(), PartyGroup.id.asc()).all()
+    total = len(rows)
+    paged_rows = rows[offset : offset + limit]
+
+    all_customers = db.query(Customer).all() if ptype in ("CUSTOMER", "ALL") else []
+    all_suppliers = db.query(Supplier).all() if ptype in ("SUPPLIER", "ALL") else []
 
     items = []
-    for g in rows:
+    for g in paged_rows:
+        g_name_lower = (g.name or "").strip().lower()
         if g.party_type == "SUPPLIER":
-            members = db.query(Supplier).filter(
-                (Supplier.group_id == g.id) | (Supplier.group_name.ilike(g.name))
-            ).all()
+            members = [
+                s for s in all_suppliers
+                if s.group_id == g.id or (s.group_name or "").strip().lower() == g_name_lower
+            ]
             bal = sum(pkr(m.current_payable) for m in members)
         else:
-            members = db.query(Customer).filter(
-                (Customer.group_id == g.id) | (Customer.group_name.ilike(g.name))
-            ).all()
+            members = [
+                c for c in all_customers
+                if c.group_id == g.id or (c.group_name or "").strip().lower() == g_name_lower
+            ]
             bal = sum(pkr(m.current_receivable) for m in members)
 
         items.append({
@@ -2013,7 +2691,11 @@ def list_customers(
             (Customer.group_name.ilike(pat))
         )
 
-    customers = query.order_by(Customer.id.asc()).all()
+    customers = (
+    query.options(selectinload(Customer.sales).selectinload(Sale.items).joinedload(SaleItem.product))
+    .order_by(Customer.id.asc())
+    .all()
+)
     result = []
     for c in customers:
         confirmed_sales = [s for s in c.sales if getattr(s, "doc_type", "SALE") == "SALE"]
@@ -2680,7 +3362,7 @@ def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Dep
 
 @app.get("/api/suppliers")
 def list_suppliers(db: Session = Depends(get_db)):
-    suppliers = db.query(Supplier).order_by(Supplier.id.asc()).all()
+    suppliers = db.query(Supplier).options(selectinload(Supplier.purchases)).order_by(Supplier.id.asc()).all()
     result = []
     for s in suppliers:
         pur_rows = s.purchases
@@ -2808,7 +3490,17 @@ def update_supplier(supplier_id: int, payload: SupplierUpdate, db: Session = Dep
 
 @app.get("/api/accounts")
 def list_financial_accounts(db: Session = Depends(get_db)):
-    return db.query(FinancialAccount).order_by(FinancialAccount.id.asc()).all()
+    rows = db.query(FinancialAccount).order_by(FinancialAccount.id.asc()).all()
+    return [
+        {
+            "id": a.id,
+            "name": a.name,
+            "type": a.type,
+            "account_number": a.account_number or "",
+            "current_balance": pkr(a.current_balance)
+        }
+        for a in rows
+    ]
 
 
 @app.post("/api/accounts")
@@ -3067,8 +3759,11 @@ def serialize_purchase(p: Purchase) -> Dict[str, Any]:
         "discount_amount": pkr(getattr(p, "discount_amount", 0.0)),
         "freight_amount": pkr(getattr(p, "freight_amount", 0.0)),
         "total_amount": pkr(p.total_amount),
+        "previous_dues": pkr(getattr(p, "previous_dues", 0.0)),
         "paid_amount": pkr(p.paid_amount),
+        "applied_to_previous": pkr(getattr(p, "applied_to_previous", 0.0)),
         "payable_amount": pkr(p.payable_amount),
+        "closing_payable": pkr(getattr(p, "closing_payable", p.solver_payable if hasattr(p, "solver_payable") else (p.supplier.current_payable if p.supplier else p.payable_amount))),
         "payment_status": p.payment_status,
         "payment_method": channel,
         "payment_arrangement": getattr(p, "payment_arrangement", "WALLET") or "WALLET",
@@ -3088,7 +3783,15 @@ def list_purchases(
     db: Session = Depends(get_db)
 ):
     start_dt, end_dt = get_period_bounds(period)
-    q = db.query(Purchase).order_by(Purchase.id.desc())
+    q = (
+    db.query(Purchase)
+    .options(
+        joinedload(Purchase.supplier),
+        selectinload(Purchase.items).joinedload(PurchaseItem.product).joinedload(Product.brand),
+        selectinload(Purchase.items).joinedload(PurchaseItem.location)
+    )
+    .order_by(Purchase.id.desc())
+)
     if start_dt:
         q = q.filter(Purchase.invoice_date >= start_dt)
     if end_dt:
@@ -3099,6 +3802,25 @@ def list_purchases(
 @app.post("/api/purchases")
 def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    clean_idem_key = (payload.idempotency_key or "").strip() or None
+
+    # 1. Strict Idempotency Key Guard: Prevent duplicate purchase bills on retry or double-click
+    if clean_idem_key:
+        existing_by_key = db.query(Purchase).filter(Purchase.idempotency_key == clean_idem_key).first()
+        if existing_by_key:
+            return {
+                "status": "success",
+                "duplicate_prevented": True,
+                "purchase_number": existing_by_key.purchase_number,
+                "purchase": serialize_purchase(existing_by_key),
+                "total": pkr(existing_by_key.total_amount),
+                "payable": pkr(existing_by_key.payable_amount),
+                "snapshot": export_full_snapshot(db)
+            }
+
+    if not payload.items or len(payload.items) == 0:
+        raise HTTPException(status_code=400, detail="Purchase bill must contain at least one product item.")
+
     doc_type = (payload.doc_type or "PURCHASE").strip().upper()
     is_return = (doc_type == "PURCHASE_RETURN")
 
@@ -3110,39 +3832,43 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
         city=payload.supplier_city
     )
 
-    supplier = None
-    if payload.supplier_id:
-        supplier = db.query(Supplier).filter(Supplier.id == payload.supplier_id).first()
-    if not supplier and payload.supplier_name and payload.supplier_name.strip():
-        clean_name = payload.supplier_name.strip()
-        supplier = db.query(Supplier).filter(Supplier.name.ilike(clean_name)).first()
-        if not supplier:
-            supplier = Supplier(
-                code=f"SUP-{uuid.uuid4().hex[:4].upper()}",
-                name=clean_name,
-                phone=payload.supplier_phone,
-                cnic=payload.supplier_cnic,
-                group_id=grp.id,
-                group_name=grp.name,
-                city=(payload.supplier_city or "Local").strip(),
-                opening_payable=0.0,
-                current_payable=0.0,
-                is_favorite=bool(payload.mark_favorite) if payload.mark_favorite is not None else False
-            )
-            db.add(supplier)
-            db.flush()
+    supplier = resolve_supplier_multifactor(
+        db=db,
+        supplier_id=payload.supplier_id,
+        supplier_name=payload.supplier_name,
+        supplier_phone=payload.supplier_phone,
+        supplier_cnic=payload.supplier_cnic,
+        supplier_city=payload.supplier_city,
+        grp=grp,
+        mark_favorite=payload.mark_favorite,
+        force_create_new=bool(payload.force_create_new_party)
+    )
 
-    if not supplier:
-        raise HTTPException(status_code=400, detail="Please enter a Supplier name or select from the Supplier list.")
-    if payload.mark_favorite is True:
-        supplier.is_favorite = True
-    if payload.supplier_cnic:
-        supplier.cnic = payload.supplier_cnic
-    if payload.supplier_group_id or payload.supplier_group:
-        supplier.group_id = grp.id
-        supplier.group_name = grp.name
-    if payload.supplier_phone:
-        supplier.phone = payload.supplier_phone
+    # 2. Secondary 15-Second Fingerprint Guard (blocks rapid identical double-posts even without key)
+    expected_sub = sum(pkr(it.quantity * pkr(it.unit_rate)) for it in payload.items)
+    expected_tot = pkr(max(0.0, expected_sub - pkr(payload.discount_amount) + pkr(payload.freight_amount)))
+    recent_cutoff = now_pkt() - timedelta(seconds=15)
+    recent_dup = (
+        db.query(Purchase)
+        .filter(
+            Purchase.supplier_id == supplier.id,
+            Purchase.doc_type == doc_type,
+            Purchase.total_amount == expected_tot,
+            Purchase.invoice_date >= recent_cutoff
+        )
+        .order_by(Purchase.id.desc())
+        .first()
+    )
+    if recent_dup and len(recent_dup.items) == len(payload.items):
+        return {
+            "status": "success",
+            "duplicate_prevented": True,
+            "purchase_number": recent_dup.purchase_number,
+            "purchase": serialize_purchase(recent_dup),
+            "total": pkr(recent_dup.total_amount),
+            "payable": pkr(recent_dup.payable_amount),
+            "snapshot": export_full_snapshot(db)
+        }
 
     subtotal_amount = 0.0
     purchase_items = []
@@ -3202,19 +3928,19 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
     freight = pkr(payload.freight_amount)
     total_amount = pkr(max(0.0, subtotal_amount - discount + freight))
 
+    prev_dues = pkr(supplier.current_payable)
     paid_amt = pkr(payload.paid_amount)
-    payable = pkr(max(0.0, total_amount - paid_amt))
-    payment_status = "PAID" if payable <= 0 else ("PARTIAL" if paid_amt > 0 else "UNPAID")
+    applied_to_prev = 0.0
 
+    tx_now = now_pkt()
     prefix = "PRN" if is_return else "PUR"
-    pur_no = f"{prefix}-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    pur_no = f"{prefix}-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     stored_remarks = f"{payload.payment_method.upper()}|{payload.remarks or ''}"
 
-    # Verify or arrange funds BEFORE committing purchase
+    # Verify or arrange the FULL paid_amt BEFORE committing purchase
     target_acc = resolve_financial_account(db, payload.account_id, payload.payment_method)
     if paid_amt > 0:
         if is_return:
-            # Supplier refunded cash to us
             if target_acc:
                 target_acc.current_balance = pkr(target_acc.current_balance + paid_amt)
         else:
@@ -3230,46 +3956,128 @@ def create_purchase(payload: PurchaseCreate, db: Session = Depends(get_db)):
                 description=f"Stock Purchase Bill {pur_no}"
             )
 
-    new_purchase = Purchase(
-        purchase_number=pur_no,
-        doc_type=doc_type,
-        supplier_id=supplier.id,
-        subtotal_amount=subtotal_amount,
-        discount_amount=discount,
-        freight_amount=freight,
-        total_amount=total_amount,
-        paid_amount=paid_amt,
-        payable_amount=payable,
-        payment_status=payment_status,
-        payment_arrangement=(payload.payment_arrangement or "WALLET").upper(),
-        account_id=target_acc.id if target_acc else None,
-        admin_id=payload.admin_id,
-        admin_name=(payload.admin_name or "Admin").strip(),
-        remarks=stored_remarks,
-        items=purchase_items
-    )
-    db.add(new_purchase)
-    db.flush()
-
-    for prod, loc_id, delta_qty in stock_updates:
-        adjust_location_stock(db, prod, loc_id, delta_qty)
-        db.add(StockMovement(
-            product_id=prod.id,
-            movement_type=doc_type,
-            reference_number=pur_no,
-            qty_in=max(0, delta_qty),
-            qty_out=abs(min(0, delta_qty)),
-            running_balance=prod.current_stock
-        ))
-
     if is_return:
-        supplier.current_payable = pkr(max(0.0, supplier.current_payable - payable))
+        direct_paid = min(total_amount, paid_amt)
+        payable = pkr(max(0.0, total_amount - direct_paid))
+        payment_status = "RETURNED"
+        closing_pay = pkr(max(0.0, prev_dues - payable))
+    elif paid_amt <= total_amount:
+        direct_paid = paid_amt
+        payable = pkr(total_amount - direct_paid)
+        payment_status = "PAID" if payable <= 0 else ("PARTIAL" if direct_paid > 0 else "UNPAID")
+        closing_pay = pkr(prev_dues + payable)
     else:
-        supplier.current_payable = pkr(supplier.current_payable + payable)
+        # Supplier Overpayment / Previous-Bill Settlement Cascade
+        direct_paid = total_amount
+        payable = 0.0
+        payment_status = "PAID"
+        excess_for_prev = pkr(paid_amt - total_amount)
+        unpaid_past_purs = (
+            db.query(Purchase)
+            .filter(
+                Purchase.supplier_id == supplier.id,
+                Purchase.doc_type == "PURCHASE",
+                Purchase.payable_amount > 0
+            )
+            .order_by(Purchase.invoice_date.asc(), Purchase.id.asc())
+            .all()
+        )
+        settled_pur_notes = []
+        for past_p in unpaid_past_purs:
+            if excess_for_prev <= 0:
+                break
+            cur_rem = pkr(past_p.payable_amount)
+            deduct = pkr(min(cur_rem, excess_for_prev))
+            new_rem = pkr(cur_rem - deduct)
+            past_p.paid_amount = pkr(past_p.paid_amount + deduct)
+            past_p.payable_amount = new_rem
+            past_p.payment_status = "PAID" if new_rem <= 0 else "PARTIAL"
+            orig_ch, prev_rem = extract_channel_and_remarks(past_p.remarks, "CASH")
+            stamp = tx_now.strftime("%Y-%m-%d %I:%M %p")
+            past_p.remarks = f"{orig_ch}|{prev_rem} [Settled PKR {int(deduct):,} on {stamp} via {pur_no}]".strip()
+            settled_pur_notes.append(f"{past_p.purchase_number}: PKR {deduct:,.0f}")
+            applied_to_prev = pkr(applied_to_prev + deduct)
+            excess_for_prev = pkr(excess_for_prev - deduct)
 
-    bump_version()
-    db.commit()
-    db.refresh(new_purchase)
+        if excess_for_prev > 0 and supplier.opening_payable > 0:
+            op_deduct = pkr(min(supplier.opening_payable, excess_for_prev))
+            supplier.opening_payable = pkr(supplier.opening_payable - op_deduct)
+            applied_to_prev = pkr(applied_to_prev + op_deduct)
+            settled_pur_notes.append(f"Opening Payable: PKR {op_deduct:,.0f}")
+
+        if applied_to_prev > 0 and (payload.payment_arrangement or "WALLET").upper() == "WALLET":
+            db.add(AccountTransaction(
+                tx_number=f"PPAY-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
+                tx_date=tx_now,
+                tx_type="SUPPLIER KHATA PAYMENT",
+                account_id=target_acc.id if target_acc else None,
+                channel=target_acc.type if target_acc else payload.payment_method.upper(),
+                party=supplier.name,
+                reference_id=supplier.id,
+                admin_id=payload.admin_id,
+                admin_name=(payload.admin_name or "Admin").strip(),
+                description=f"Auto-settled previous supplier bills from {pur_no} [{'; '.join(settled_pur_notes)}]",
+                cash_in=0.0,
+                cash_out=applied_to_prev
+            ))
+
+        closing_pay = pkr(max(0.0, prev_dues - applied_to_prev))
+
+    try:
+        new_purchase = Purchase(
+            purchase_number=pur_no,
+            idempotency_key=clean_idem_key,
+            doc_type=doc_type,
+            supplier_id=supplier.id,
+            invoice_date=tx_now,
+            subtotal_amount=subtotal_amount,
+            discount_amount=discount,
+            freight_amount=freight,
+            total_amount=total_amount,
+            previous_dues=prev_dues,
+            paid_amount=direct_paid,
+            applied_to_previous=applied_to_prev,
+            payable_amount=payable,
+            closing_payable=closing_pay,
+            payment_status=payment_status,
+            payment_arrangement=(payload.payment_arrangement or "WALLET").upper(),
+            account_id=target_acc.id if target_acc else None,
+            admin_id=payload.admin_id,
+            admin_name=(payload.admin_name or "Admin").strip(),
+            remarks=stored_remarks,
+            items=purchase_items
+        )
+        db.add(new_purchase)
+        db.flush()
+
+        for prod, loc_id, delta_qty in stock_updates:
+            adjust_location_stock(db, prod, loc_id, delta_qty)
+            db.add(StockMovement(
+                movement_date=tx_now,
+                product_id=prod.id,
+                movement_type=doc_type,
+                reference_number=pur_no,
+                qty_in=max(0, delta_qty),
+                qty_out=abs(min(0, delta_qty)),
+                running_balance=prod.current_stock
+            ))
+
+        if is_return:
+            supplier.current_payable = pkr(max(0.0, supplier.current_payable - payable))
+        else:
+            recompute_supplier_authoritative_payable(db, supplier)
+            new_purchase.closing_payable = pkr(supplier.current_payable)
+
+        bump_version()
+        db.commit()
+        db.refresh(new_purchase)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Purchase transaction rolled back safely: {str(exc)}")
+
     return {
         "status": "success",
         "purchase_number": pur_no,
@@ -3337,6 +4145,138 @@ def record_purchase_partial_payment(purchase_id: int, payload: PartialPaymentReq
     bump_version()
     db.commit()
     return {"status": "success", "purchase_number": pur.purchase_number, "snapshot": export_full_snapshot(db)}
+
+
+@app.post("/api/suppliers/{supplier_id}/confirm-payment-allocation")
+def confirm_supplier_payment_allocation(
+    supplier_id: int,
+    payload: ConfirmSupplierPaymentAllocationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Atomically validates and settles one or multiple outstanding purchase bills for a Supplier.
+    Supports WALLET, OWNER_CAPITAL, and MARKET_LOAN payment arrangements and records full audit history.
+    """
+    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    sup = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    if not sup:
+        raise HTTPException(status_code=404, detail="Supplier not found.")
+
+    pay_amt = pkr(payload.payment_amount)
+    if pay_amt <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than PKR 0.")
+
+    unpaid_purs = (
+        db.query(Purchase)
+        .filter(Purchase.supplier_id == sup.id, Purchase.doc_type == "PURCHASE", Purchase.payable_amount > 0)
+        .order_by(Purchase.invoice_date.asc(), Purchase.id.asc())
+        .all()
+    )
+    unpaid_map = {p.id: p for p in unpaid_purs}
+    total_outstanding_before = pkr(sup.current_payable)
+
+    validated_allocations = []
+    seen_pur_ids = set()
+    total_allocated = 0.0
+
+    for item in payload.allocations:
+        alloc_val = pkr(item.allocated_amount)
+        if alloc_val <= 0:
+            continue
+        if item.purchase_id in seen_pur_ids:
+            raise HTTPException(status_code=400, detail=f"Duplicate allocation entry for Purchase ID #{item.purchase_id}.")
+        seen_pur_ids.add(item.purchase_id)
+
+        pur_row = unpaid_map.get(item.purchase_id)
+        if not pur_row:
+            raise HTTPException(status_code=400, detail=f"Purchase bill ID #{item.purchase_id} is already settled or invalid.")
+        bill_rem = pkr(pur_row.payable_amount)
+        if alloc_val > bill_rem:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Allocation of PKR {alloc_val:,.0f} for {pur_row.purchase_number} exceeds its remaining balance of PKR {bill_rem:,.0f}."
+            )
+        total_allocated = pkr(total_allocated + alloc_val)
+        validated_allocations.append((pur_row, bill_rem, alloc_val))
+
+    if total_allocated <= 0:
+        raise HTTPException(status_code=400, detail="Please allocate the payment to at least one outstanding supplier bill.")
+    if total_allocated != pay_amt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment amount (PKR {pay_amt:,.0f}) must match total allocated across selected bills (PKR {total_allocated:,.0f})."
+        )
+
+    tx_now = now_pkt()
+    pay_no = f"PPAY-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+
+    try:
+        acc = handle_outflow_with_arrangement(
+            db=db,
+            amount=pay_amt,
+            account_id=payload.account_id,
+            payment_method=payload.payment_method,
+            arrangement=payload.payment_arrangement,
+            lender_name=payload.lender_name,
+            reference_no=pay_no,
+            party_name=sup.name,
+            description=f"Consolidated Supplier Payment {pay_no}",
+            reference_id=sup.id
+        )
+
+        alloc_summaries = []
+        for pur_row, bill_before, alloc_val in validated_allocations:
+            rem_after = pkr(max(0.0, bill_before - alloc_val))
+            pur_row.paid_amount = pkr(pur_row.paid_amount + alloc_val)
+            pur_row.payable_amount = rem_after
+            pur_row.payment_status = "PAID" if rem_after <= 0 else "PARTIAL"
+            orig_ch, prev_rem = extract_channel_and_remarks(pur_row.remarks, "CASH")
+            stamp = tx_now.strftime("%Y-%m-%d %I:%M %p")
+            pur_row.remarks = f"{orig_ch}|{prev_rem} [Settled -PKR {int(alloc_val):,} on {stamp} via {pay_no}]".strip()
+            alloc_summaries.append(f"{pur_row.purchase_number}: PKR {alloc_val:,.0f} (Rem: PKR {rem_after:,.0f})")
+
+        db.flush()
+        recompute_supplier_authoritative_payable(db, sup)
+        for pur_row, _, _ in validated_allocations:
+            pur_row.closing_payable = pkr(sup.current_payable)
+
+        if (payload.payment_arrangement or "WALLET").upper() == "WALLET":
+            db.add(AccountTransaction(
+                tx_number=pay_no,
+                tx_date=tx_now,
+                tx_type="SUPPLIER KHATA PAYMENT",
+                account_id=acc.id if acc else None,
+                channel=acc.type if acc else payload.payment_method.upper(),
+                party=sup.name,
+                reference_id=sup.id,
+                admin_id=payload.admin_id,
+                admin_name=(payload.admin_name or "Admin").strip(),
+                description=(
+                    f"Supplier Payment PKR {pay_amt:,.0f} allocated [{'; '.join(alloc_summaries)}]"
+                    + (f" | {payload.remarks}" if payload.remarks else "")
+                ),
+                cash_in=0.0,
+                cash_out=pay_amt
+            ))
+
+        bump_version()
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to commit supplier payment allocation: {str(exc)}")
+
+    return {
+        "status": "confirmed",
+        "payment_number": pay_no,
+        "message": (
+            f"Supplier Payment {pay_no} of PKR {pay_amt:,.0f} settled across {len(validated_allocations)} bill(s) for {sup.name}. "
+            f"Remaining Supplier Payable: PKR {pkr(sup.current_payable):,.0f}."
+        ),
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 # ==================== LOCATION-AWARE SALES & SMART PREVIOUS KHATA ENGINE ====================
@@ -3425,7 +4365,7 @@ def serialize_sale(s: Sale) -> Dict[str, Any]:
 
 @app.get("/api/sales")
 def list_sales(
-    period: str = Query("all", pattern="^(daily|weekly|monthly|all)$"),
+    period: str = Query("all"),
     doc_type: str = Query("ALL"),
     customer_id: Optional[int] = Query(None),
     location_id: Optional[int] = Query(None),
@@ -3433,10 +4373,20 @@ def list_sales(
     search: str = Query(""),
     db: Session = Depends(get_db)
 ):
-    start_dt = get_period_start(period)
-    q = db.query(Sale).order_by(Sale.invoice_date.desc(), Sale.id.desc())
+    start_dt, end_dt = get_period_bounds(period)
+    q = (
+        db.query(Sale)
+        .options(
+            joinedload(Sale.customer),
+            selectinload(Sale.items).joinedload(SaleItem.product).joinedload(Product.brand),
+            selectinload(Sale.items).joinedload(SaleItem.location)
+        )
+        .order_by(Sale.invoice_date.desc(), Sale.id.desc())
+    )
     if start_dt:
         q = q.filter(Sale.invoice_date >= start_dt)
+    if end_dt:
+        q = q.filter(Sale.invoice_date < end_dt)
     if doc_type and doc_type.upper() != "ALL":
         q = q.filter(Sale.doc_type == doc_type.upper())
     if customer_id:
@@ -3468,6 +4418,20 @@ def list_sales(
 @app.post("/api/sales")
 def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    clean_idem_key = (payload.idempotency_key or "").strip() or None
+    if clean_idem_key:
+        existing_sale_by_key = db.query(Sale).filter(Sale.idempotency_key == clean_idem_key).first()
+        if existing_sale_by_key:
+            return {
+                "status": "success",
+                "duplicate_prevented": True,
+                "invoice_number": existing_sale_by_key.invoice_number,
+                "sale": serialize_sale(existing_sale_by_key),
+                "total": pkr(existing_sale_by_key.total_amount),
+                "receivable": pkr(existing_sale_by_key.receivable_amount),
+                "closing_receivable": pkr(existing_sale_by_key.customer.current_receivable if existing_sale_by_key.customer else existing_sale_by_key.closing_receivable),
+                "snapshot": export_full_snapshot(db)
+            }
     doc_type = (payload.doc_type or "SALE").strip().upper()
     is_estimate = (doc_type == "ESTIMATE")
     is_return = (doc_type == "SALE_RETURN")
@@ -3480,40 +4444,17 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         city=payload.customer_city
     )
 
-    customer = None
-    if payload.customer_id:
-        customer = db.query(Customer).filter(Customer.id == payload.customer_id).first()
-    if not customer and payload.customer_name and payload.customer_name.strip():
-        clean_name = payload.customer_name.strip()
-        customer = db.query(Customer).filter(Customer.name.ilike(clean_name)).first()
-        if not customer:
-            customer = Customer(
-                code=f"CUS-{uuid.uuid4().hex[:4].upper()}",
-                name=clean_name,
-                phone=payload.customer_phone,
-                cnic=payload.customer_cnic,
-                group_id=grp.id,
-                group_name=grp.name,
-                city=(payload.customer_city or "Local").strip(),
-                credit_limit=50000.0,
-                opening_receivable=0.0,
-                current_receivable=0.0,
-                is_favorite=bool(payload.mark_favorite) if payload.mark_favorite is not None else False
-            )
-            db.add(customer)
-            db.flush()
-
-    if not customer:
-        raise HTTPException(status_code=400, detail="Please enter a Customer / Dealership name or select from the Customer list.")
-    if payload.mark_favorite is True:
-        customer.is_favorite = True
-    if payload.customer_cnic:
-        customer.cnic = payload.customer_cnic
-    if payload.customer_group_id or payload.customer_group:
-        customer.group_id = grp.id
-        customer.group_name = grp.name
-    if payload.customer_phone:
-        customer.phone = payload.customer_phone
+    customer = resolve_customer_multifactor(
+        db=db,
+        customer_id=payload.customer_id,
+        customer_name=payload.customer_name,
+        customer_phone=payload.customer_phone,
+        customer_cnic=payload.customer_cnic,
+        customer_city=payload.customer_city,
+        grp=grp,
+        mark_favorite=payload.mark_favorite,
+        force_create_new=bool(payload.force_create_new_party)
+    )
 
     subtotal_amount = 0.0
     sale_items = []
@@ -3587,108 +4528,171 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
     total_amount = pkr(max(0.0, subtotal_amount - discount + freight))
 
     prev_dues = pkr(customer.current_receivable)
-    include_prev = bool(payload.include_previous_dues) and not is_estimate and not is_return
+    include_prev = bool(payload.include_previous_dues or prev_dues > 0) and not is_estimate and not is_return
     grand_payable = pkr(total_amount + (prev_dues if include_prev else 0.0))
 
+    tx_now = now_pkt()
     rec_amt = 0.0 if is_estimate else pkr(payload.received_amount)
+    direct_bill_received = 0.0
     applied_to_prev = 0.0
 
     prefix = "EST" if is_estimate else ("SRN" if is_return else "INV")
-    invoice_no = f"{prefix}-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    invoice_no = f"{prefix}-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     stored_remarks = f"{payload.payment_method.upper()}|{payload.remarks or ''}"
+
     target_acc = resolve_financial_account(db, payload.account_id, payload.payment_method)
 
     if is_estimate:
         receivable = 0.0
         closing_rec = prev_dues
         payment_status = "ESTIMATE"
-        applied_to_prev = 0.0
     elif is_return:
-        receivable = pkr(max(0.0, total_amount - rec_amt))
+        direct_bill_received = pkr(min(total_amount, rec_amt))
+        receivable = pkr(max(0.0, total_amount - direct_bill_received))
         closing_rec = pkr(max(0.0, prev_dues - receivable))
         payment_status = "RETURNED"
-        applied_to_prev = 0.0
     else:
-        if rec_amt <= total_amount:
-            receivable = pkr(total_amount - rec_amt)
-            applied_to_prev = 0.0
-            closing_rec = pkr(prev_dues + receivable)
-            payment_status = "PAID" if receivable <= 0 else ("PARTIAL" if rec_amt > 0 else "UNPAID")
-        else:
-            # Overpayment workflow: Customer paid more than this bill to clear previous khata dues!
-            # Example: Current bill = 25,000, previous dues = 40,000, received = 60,000
-            receivable = 0.0
-            payment_status = "PAID"
-            excess_for_prev = pkr(rec_amt - total_amount)  # e.g., 35,000 for previous bills
-            
-            # Automatically apply excess to older unpaid SALE bills (Oldest First)
-            unpaid_past_bills = (
-                db.query(Sale)
-                .filter(
-                    Sale.customer_id == customer.id,
-                    Sale.doc_type == "SALE",
-                    Sale.receivable_amount > 0
-                )
-                .order_by(Sale.invoice_date.asc(), Sale.id.asc())
-                .all()
+        # Fetch older unpaid SALE bills ordered Oldest First (FIFO)
+        unpaid_past_bills = (
+            db.query(Sale)
+            .filter(
+                Sale.customer_id == customer.id,
+                Sale.doc_type == "SALE",
+                Sale.receivable_amount > 0
             )
-            
-            applied_to_prev = 0.0
-            
-            if excess_for_prev > 0 and len(unpaid_past_bills) > 0:
-                past_pay_no = f"CPAY-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-                past_pm = CustomerPayment(
-                    payment_number=past_pay_no,
-                    customer_id=customer.id,
-                    payment_amount=excess_for_prev,
-                    allocated_amount=0.0,
-                    unallocated_credit=0.0,
-                    outstanding_before=prev_dues,
-                    outstanding_after=0.0,
-                    payment_method=target_acc.type if target_acc else payload.payment_method.upper(),
+            .order_by(Sale.invoice_date.asc(), Sale.id.asc())
+            .all()
+        )
+
+        # Determine allocation order:
+        # 1. If payload.include_previous_dues is True (or customer is settling running Khata FIFO):
+        #    Settle Oldest Previous Bill(s) FIRST, then allocate remaining payment to the New Bill!
+        #    (Example: Old Bill = 60,000, New Bill = 80,000, Payment = 100,000 ->
+        #     60,000 settles Old Bill to 0; remaining 40,000 settles New Bill leaving 40,000).
+        # 2. If payload.include_previous_dues is False but rec_amt > total_amount:
+        #    Settle New Bill (total_amount), and allocate the excess (rec_amt - total_amount) to Oldest Previous Bills.
+        settle_prev_first = bool(payload.include_previous_dues and prev_dues > 0 and rec_amt > 0)
+
+        if settle_prev_first:
+            budget_for_prev = rec_amt
+        elif rec_amt > total_amount:
+            budget_for_prev = pkr(rec_amt - total_amount)
+        else:
+            budget_for_prev = 0.0
+
+        settled_invoice_notes = []
+        if budget_for_prev > 0 and len(unpaid_past_bills) > 0:
+            past_pay_no = f"CPAY-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+            past_pm = CustomerPayment(
+                payment_number=past_pay_no,
+                customer_id=customer.id,
+                payment_date=tx_now,
+                payment_amount=0.0,
+                allocated_amount=0.0,
+                unallocated_credit=0.0,
+                outstanding_before=prev_dues,
+                outstanding_after=prev_dues,
+                payment_method=target_acc.type if target_acc else payload.payment_method.upper(),
+                account_id=target_acc.id if target_acc else None,
+                admin_id=payload.admin_id,
+                admin_name=(payload.admin_name or "Admin").strip(),
+                remarks=f"Settled on {tx_now.strftime('%Y-%m-%d %I:%M %p')} via Invoice #{invoice_no}",
+                status="CONFIRMED"
+            )
+            db.add(past_pm)
+            db.flush()
+
+            rem_prev_budget = budget_for_prev
+            for past_b in unpaid_past_bills:
+                if rem_prev_budget <= 0:
+                    break
+                cur_rem = pkr(past_b.receivable_amount)
+                alloc_amt = pkr(min(cur_rem, rem_prev_budget))
+                new_rem = pkr(cur_rem - alloc_amt)
+                # Update bill balance WITHOUT overwriting past_b.invoice_date
+                past_b.received_amount = pkr(past_b.received_amount + alloc_amt)
+                past_b.receivable_amount = new_rem
+                past_b.payment_status = "PAID" if new_rem <= 0 else "PARTIAL"
+                orig_ch, prev_rem_txt = extract_channel_and_remarks(past_b.remarks, "CASH")
+                past_b.remarks = (
+                    f"{orig_ch}|{prev_rem_txt} "
+                    f"[Settled +PKR {int(alloc_amt):,} on {tx_now.strftime('%Y-%m-%d %I:%M %p')} via {invoice_no}]"
+                ).strip()
+
+                db.add(CustomerPaymentAllocation(
+                    payment_id=past_pm.id,
+                    sale_id=past_b.id,
+                    invoice_number=past_b.invoice_number,
+                    bill_original_amount=pkr(past_b.total_amount),
+                    outstanding_before=cur_rem,
+                    allocated_amount=alloc_amt,
+                    remaining_after=new_rem,
+                    created_at=tx_now
+                ))
+                settled_invoice_notes.append(f"{past_b.invoice_number}: PKR {alloc_amt:,.0f} (Rem: PKR {new_rem:,.0f})")
+                applied_to_prev = pkr(applied_to_prev + alloc_amt)
+                rem_prev_budget = pkr(rem_prev_budget - alloc_amt)
+
+            # Also check if customer had opening_receivable not tied to a bill
+            if rem_prev_budget > 0 and pkr(customer.opening_receivable) > 0:
+                op_deduct = pkr(min(pkr(customer.opening_receivable), rem_prev_budget))
+                customer.opening_receivable = pkr(customer.opening_receivable - op_deduct)
+                applied_to_prev = pkr(applied_to_prev + op_deduct)
+                rem_prev_budget = pkr(rem_prev_budget - op_deduct)
+                settled_invoice_notes.append(f"Opening Khata: PKR {op_deduct:,.0f}")
+
+            past_pm.payment_amount = applied_to_prev
+            past_pm.allocated_amount = applied_to_prev
+            past_pm.outstanding_after = pkr(max(0.0, prev_dues - applied_to_prev))
+
+            # Record explicit AccountTransaction for the previous-bill settlement on today's date
+            if applied_to_prev > 0:
+                db.add(AccountTransaction(
+                    tx_number=past_pay_no,
+                    tx_date=tx_now,
+                    tx_type="PREVIOUS KHATA COLLECTION",
                     account_id=target_acc.id if target_acc else None,
+                    channel=target_acc.type if target_acc else payload.payment_method.upper(),
+                    party=customer.name,
+                    reference_id=past_pm.id,
                     admin_id=payload.admin_id,
                     admin_name=(payload.admin_name or "Admin").strip(),
-                    remarks=f"Auto-applied from Invoice #{invoice_no} payment",
-                    status="CONFIRMED"
-                )
-                db.add(past_pm)
-                db.flush()
-                
-                for past_b in unpaid_past_bills:
-                    if excess_for_prev <= 0:
-                        break
-                    cur_rem = pkr(past_b.receivable_amount)
-                    alloc_amt = pkr(min(cur_rem, excess_for_prev))
-                    new_rem = pkr(cur_rem - alloc_amt)
-                    past_b.received_amount = pkr(past_b.received_amount + alloc_amt)
-                    past_b.receivable_amount = new_rem
-                    past_b.payment_status = "PAID" if new_rem <= 0 else "PARTIAL"
-                    
-                    db.add(CustomerPaymentAllocation(
-                        payment_id=past_pm.id,
-                        sale_id=past_b.id,
-                        invoice_number=past_b.invoice_number,
-                        bill_original_amount=pkr(past_b.total_amount),
-                        outstanding_before=cur_rem,
-                        allocated_amount=alloc_amt,
-                        remaining_after=new_rem
-                    ))
-                    applied_to_prev = pkr(applied_to_prev + alloc_amt)
-                    excess_for_prev = pkr(excess_for_prev - alloc_amt)
-                
-                past_pm.allocated_amount = applied_to_prev
-                # If still excess cash remains after settling all bills, credit to customer's advance
-                if excess_for_prev > 0:
-                    past_pm.unallocated_credit = excess_for_prev
-                    customer.advance_credit = pkr(getattr(customer, "advance_credit", 0.0) + excess_for_prev)
-                
-                past_pm.outstanding_after = pkr(max(0.0, prev_dues - applied_to_prev))
-            elif excess_for_prev > 0:
-                # No prior unpaid bills, excess goes directly to customer advance credit
-                customer.advance_credit = pkr(getattr(customer, "advance_credit", 0.0) + excess_for_prev)
-            
-            closing_rec = pkr(max(0.0, prev_dues - applied_to_prev))
+                    description=f"Auto-settled previous bills from {invoice_no} [{'; '.join(settled_invoice_notes)}]",
+                    cash_in=applied_to_prev,
+                    cash_out=0.0
+                ))
+        elif budget_for_prev > 0 and pkr(customer.opening_receivable) > 0:
+            op_deduct = pkr(min(pkr(customer.opening_receivable), budget_for_prev))
+            customer.opening_receivable = pkr(customer.opening_receivable - op_deduct)
+            applied_to_prev = pkr(applied_to_prev + op_deduct)
+            past_pay_no = f"CPAY-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+            db.add(AccountTransaction(
+                tx_number=past_pay_no,
+                tx_date=tx_now,
+                tx_type="PREVIOUS KHATA COLLECTION",
+                account_id=target_acc.id if target_acc else None,
+                channel=target_acc.type if target_acc else payload.payment_method.upper(),
+                party=customer.name,
+                reference_id=customer.id,
+                admin_id=payload.admin_id,
+                admin_name=(payload.admin_name or "Admin").strip(),
+                description=f"Auto-settled Opening Khata from {invoice_no} (PKR {op_deduct:,.0f})",
+                cash_in=op_deduct,
+                cash_out=0.0
+            ))
+
+        # Remaining payment after previous-bill settlement goes to this new bill
+        remaining_cash_for_new_bill = pkr(max(0.0, rec_amt - applied_to_prev))
+        direct_bill_received = pkr(min(total_amount, remaining_cash_for_new_bill))
+        receivable = pkr(max(0.0, total_amount - direct_bill_received))
+        payment_status = "PAID" if receivable <= 0 else ("PARTIAL" if direct_bill_received > 0 else "UNPAID")
+
+        # Any unallocated overpayment beyond (prev_dues + total_amount) is credited to advance_credit
+        unallocated_excess = pkr(max(0.0, remaining_cash_for_new_bill - direct_bill_received))
+        if unallocated_excess > 0:
+            customer.advance_credit = pkr(getattr(customer, "advance_credit", 0.0) + unallocated_excess)
+
+        closing_rec = pkr(max(0.0, (prev_dues - applied_to_prev) + receivable))
 
     if rec_amt > 0 and not is_estimate:
         if is_return:
@@ -3701,8 +4705,10 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
 
     new_sale = Sale(
         invoice_number=invoice_no,
+        idempotency_key=clean_idem_key,
         doc_type=doc_type,
         customer_id=customer.id,
+        invoice_date=tx_now,
         subtotal_amount=subtotal_amount,
         discount_amount=discount,
         freight_amount=freight,
@@ -3710,7 +4716,7 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         previous_dues=prev_dues,
         include_previous_dues=include_prev,
         grand_payable=grand_payable,
-        received_amount=rec_amt,
+        received_amount=direct_bill_received,
         applied_to_previous=applied_to_prev,
         receivable_amount=receivable,
         closing_receivable=closing_rec,
@@ -3724,25 +4730,25 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
     db.add(new_sale)
     db.flush()
 
-    # If payment was received on this sale, also record a traceable CustomerPaymentAllocation audit entry
-    if rec_amt > 0 and doc_type == "SALE":
-        direct_bill_alloc = pkr(min(total_amount, rec_amt))
-        pay_no = f"SPAY-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    # Record traceable CustomerPaymentAllocation for the portion allocated to this new bill
+    if direct_bill_received > 0 and doc_type == "SALE":
+        pay_no = f"SPAY-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
         pm_rec = CustomerPayment(
             payment_number=pay_no,
             customer_id=customer.id,
-            payment_amount=direct_bill_alloc,
-            allocated_amount=direct_bill_alloc,
+            payment_date=tx_now,
+            payment_amount=direct_bill_received,
+            allocated_amount=direct_bill_received,
             unallocated_credit=0.0,
-            outstanding_before=pkr(prev_dues + total_amount),
-            outstanding_after=closing_rec,
+            outstanding_before=total_amount,
+            outstanding_after=receivable,
             payment_method=target_acc.type if target_acc else payload.payment_method.upper(),
             account_id=target_acc.id if target_acc else None,
             admin_id=payload.admin_id,
             admin_name=(payload.admin_name or "Admin").strip(),
             remarks=(
                 f"Initial payment on {invoice_no}"
-                + (f" (+PKR {applied_to_prev:,.0f} auto-applied to previous bills)" if applied_to_prev > 0 else "")
+                + (f" (+PKR {applied_to_prev:,.0f} settled on previous bills)" if applied_to_prev > 0 else "")
             ),
             status="CONFIRMED"
         )
@@ -3754,12 +4760,14 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
             invoice_number=invoice_no,
             bill_original_amount=total_amount,
             outstanding_before=total_amount,
-            allocated_amount=direct_bill_alloc,
-            remaining_after=receivable
+            allocated_amount=direct_bill_received,
+            remaining_after=receivable,
+            created_at=tx_now
         ))
 
     for prod, _, delta_qty in stock_deltas:
         db.add(StockMovement(
+            movement_date=tx_now,
             product_id=prod.id,
             movement_type=doc_type,
             reference_number=invoice_no,
@@ -3770,6 +4778,7 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
 
     if not is_estimate:
         recompute_customer_authoritative_receivable(db, customer)
+        new_sale.closing_receivable = pkr(customer.current_receivable)
 
     bump_version()
     db.commit()
@@ -3917,7 +4926,24 @@ def list_expenses(
         q = q.filter(Expense.expense_date >= start_dt)
     if end_dt:
         q = q.filter(Expense.expense_date < end_dt)
-    return q.all()
+    return [
+        {
+            "id": e.id,
+            "expense_number": e.expense_number,
+            "expense_date": e.expense_date.strftime("%Y-%m-%d %H:%M") if e.expense_date else "",
+            "category": e.category,
+            "description": e.description or "",
+            "payment_method": e.payment_method,
+            "account_id": getattr(e, "account_id", None),
+            "payment_arrangement": getattr(e, "payment_arrangement", "WALLET") or "WALLET",
+            "amount": pkr(e.amount),
+            "paid_to": e.paid_to or "",
+            "reference": e.reference or "",
+            "admin_id": getattr(e, "admin_id", None),
+            "admin_name": getattr(e, "admin_name", "Admin") or "Admin"
+        }
+        for e in q.all()
+    ]
 
 
 @app.post("/api/expenses")
@@ -3971,17 +4997,46 @@ def get_accounts_history(
     start_dt, end_dt = get_period_bounds(period)
     ledger = []
 
-    for s in db.query(Sale).all():
+    sales_q = db.query(Sale).options(joinedload(Sale.customer))
+    purchases_q = db.query(Purchase).options(joinedload(Purchase.supplier))
+    expenses_q = db.query(Expense)
+    tx_q = db.query(AccountTransaction)
+
+    if start_dt:
+        sales_q = sales_q.filter(Sale.invoice_date >= start_dt)
+        purchases_q = purchases_q.filter(Purchase.invoice_date >= start_dt)
+        expenses_q = expenses_q.filter(Expense.expense_date >= start_dt)
+        tx_q = tx_q.filter(AccountTransaction.tx_date >= start_dt)
+    if end_dt:
+        sales_q = sales_q.filter(Sale.invoice_date < end_dt)
+        purchases_q = purchases_q.filter(Purchase.invoice_date < end_dt)
+        expenses_q = expenses_q.filter(Expense.expense_date < end_dt)
+        tx_q = tx_q.filter(AccountTransaction.tx_date < end_dt)
+
+    tx_rows = tx_q.all()
+
+    for s in sales_q.all():
         if getattr(s, "doc_type", "SALE") == "ESTIMATE":
-            continue
-        if start_dt and s.invoice_date < start_dt:
-            continue
-        if end_dt and s.invoice_date >= end_dt:
             continue
         pay_channel, clean_rem = extract_channel_and_remarks(s.remarks, "CASH")
         if channel != "ALL" and pay_channel != channel:
             continue
         dtype = getattr(s, "doc_type", "SALE")
+        # Separate initial payment on s.invoice_date from any later CPAY/RCV settlements
+        later_settled = get_sale_later_settled_amount(db, s.id, s.invoice_number)
+        initial_direct = pkr(max(0.0, pkr(s.received_amount) - later_settled))
+        app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
+        has_cpay_atx = any(
+            s.invoice_number in (t.description or "") and t.tx_type == "PREVIOUS KHATA COLLECTION"
+            for t in tx_rows
+        )
+        # If an older sale (like INV-20261031-4020) settled previous bills before PREVIOUS KHATA COLLECTION ATX existed,
+        # include app_prev in its cash_in so the full PKR 100,000 (60,000 + 40,000) is shown!
+        effective_cash_in = pkr(initial_direct + (0.0 if has_cpay_atx else app_prev))
+        desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({s.payment_status})"]
+        if app_prev > 0 and not has_cpay_atx:
+            desc_parts.append(f"[Bill: PKR {initial_direct:,.0f} + Old Khata Settled: PKR {app_prev:,.0f}]")
+
         ledger.append({
             "id": f"SALE-{s.id}",
             "entity_type": "SALE",
@@ -3994,18 +5049,29 @@ def get_accounts_history(
             "channel": pay_channel,
             "admin_id": getattr(s, "admin_id", None),
             "admin_name": getattr(s, "admin_name", "Admin") or "Admin",
-            "description": clean_rem or f"{dtype} ({s.payment_status})",
+            "description": " ".join(desc_parts),
             "total_bill": pkr(s.total_amount),
-            "cash_in": 0.0 if dtype == "SALE_RETURN" else pkr(s.received_amount),
-            "cash_out": pkr(s.received_amount) if dtype == "SALE_RETURN" else 0.0
+            "cash_in": 0.0 if dtype == "SALE_RETURN" else effective_cash_in,
+            "cash_out": effective_cash_in if dtype == "SALE_RETURN" else 0.0
         })
-    for p in db.query(Purchase).all():
-        if start_dt and p.invoice_date < start_dt:
-            continue
+
+    for p in purchases_q.all():
         pay_channel, clean_rem = extract_channel_and_remarks(p.remarks, "CASH")
         if channel != "ALL" and pay_channel != channel:
             continue
         dtype = getattr(p, "doc_type", "PURCHASE")
+        later_pur_paid = get_purchase_later_settled_amount(db, p.id)
+        initial_pur_paid = pkr(max(0.0, pkr(p.paid_amount) - later_pur_paid))
+        app_prev_pur = pkr(getattr(p, "applied_to_previous", 0.0))
+        has_ppay_atx = any(
+            p.purchase_number in (t.description or "") and t.tx_type == "SUPPLIER KHATA PAYMENT"
+            for t in tx_rows
+        )
+        effective_cash_out = pkr(initial_pur_paid + (0.0 if has_ppay_atx else app_prev_pur))
+        desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({p.payment_status})"]
+        if app_prev_pur > 0 and not has_ppay_atx:
+            desc_parts.append(f"[Bill: PKR {initial_pur_paid:,.0f} + Old Dues Settled: PKR {app_prev_pur:,.0f}]")
+
         ledger.append({
             "id": f"PUR-{p.id}",
             "entity_type": "PURCHASE",
@@ -4018,14 +5084,13 @@ def get_accounts_history(
             "channel": pay_channel,
             "admin_id": getattr(p, "admin_id", None),
             "admin_name": getattr(p, "admin_name", "Admin") or "Admin",
-            "description": clean_rem or f"{dtype} ({p.payment_status})",
+            "description": " ".join(desc_parts),
             "total_bill": pkr(p.total_amount),
-            "cash_in": pkr(p.paid_amount) if dtype == "PURCHASE_RETURN" else 0.0,
-            "cash_out": 0.0 if dtype == "PURCHASE_RETURN" else pkr(p.paid_amount)
+            "cash_in": effective_cash_out if dtype == "PURCHASE_RETURN" else 0.0,
+            "cash_out": 0.0 if dtype == "PURCHASE_RETURN" else effective_cash_out
         })
-    for e in db.query(Expense).all():
-        if start_dt and e.expense_date < start_dt:
-            continue
+
+    for e in expenses_q.all():
         if channel != "ALL" and e.payment_method != channel:
             continue
         ledger.append({
@@ -4045,9 +5110,8 @@ def get_accounts_history(
             "cash_in": 0.0,
             "cash_out": pkr(e.amount)
         })
-    for t in db.query(AccountTransaction).all():
-        if start_dt and t.tx_date < start_dt:
-            continue
+
+    for t in tx_rows:
         if channel != "ALL" and channel not in (t.channel or ""):
             continue
         ledger.append({
@@ -4081,17 +5145,30 @@ def get_vyapar_reports(
 ):
     start_dt, end_dt = get_period_bounds(period)
 
-    # 1. Bill-Wise Profit & Loss Report
-    sales_q = db.query(Sale).order_by(Sale.id.desc())
+    # 1. Bill-Wise Profit & Loss Report (Eager-loaded in 1 batch)
+    sales_q = (
+        db.query(Sale)
+        .options(
+            joinedload(Sale.customer),
+            selectinload(Sale.items).joinedload(SaleItem.product).joinedload(Product.brand),
+            selectinload(Sale.items).joinedload(SaleItem.location)
+        )
+        .order_by(Sale.id.desc())
+    )
     if start_dt:
         sales_q = sales_q.filter(Sale.invoice_date >= start_dt)
     if end_dt:
         sales_q = sales_q.filter(Sale.invoice_date < end_dt)
 
+    period_sales = sales_q.all()
     bill_wise_pnl = []
-    for s in sales_q.all():
+    s_items_by_prod: Dict[int, List[SaleItem]] = {}
+
+    for s in period_sales:
         if getattr(s, "doc_type", "SALE") == "ESTIMATE":
             continue
+        for si in s.items:
+            s_items_by_prod.setdefault(si.product_id, []).append(si)
         ser = serialize_sale(s)
         bill_wise_pnl.append({
             "id": s.id,
@@ -4111,19 +5188,23 @@ def get_vyapar_reports(
             "pending_amount": ser["receivable_amount"]
         })
 
-    # 2. Item-Wise Stock & Profit Summary Report
-    products = db.query(Product).order_by(Product.id.asc()).all()
+    # 2. Item-Wise Stock & Profit Summary Report (Single batch query instead of 2*N queries)
+    pur_items_q = db.query(PurchaseItem).join(Purchase)
+    if start_dt:
+        pur_items_q = pur_items_q.filter(Purchase.invoice_date >= start_dt)
+    if end_dt:
+        pur_items_q = pur_items_q.filter(Purchase.invoice_date < end_dt)
+
+    p_items_by_prod: Dict[int, List[PurchaseItem]] = {}
+    for pi in pur_items_q.all():
+        p_items_by_prod.setdefault(pi.product_id, []).append(pi)
+
+    products = db.query(Product).options(joinedload(Product.brand)).order_by(Product.id.asc()).all()
     item_reports = []
     for p in products:
         upc = max(1, p.units_per_carton or 12)
-        pur_items_q = db.query(PurchaseItem).join(Purchase).filter(PurchaseItem.product_id == p.id)
-        sale_items_q = db.query(SaleItem).join(Sale).filter(SaleItem.product_id == p.id, Sale.doc_type != "ESTIMATE")
-        if start_dt:
-            pur_items_q = pur_items_q.filter(Purchase.invoice_date >= start_dt)
-            sale_items_q = sale_items_q.filter(Sale.invoice_date >= start_dt)
-
-        p_items = pur_items_q.all()
-        s_items = sale_items_q.all()
+        p_items = p_items_by_prod.get(p.id, [])
+        s_items = s_items_by_prod.get(p.id, [])
 
         qty_bought_btls = sum(i.base_quantity for i in p_items)
         purchase_val = sum(pkr(i.line_total) for i in p_items)
@@ -4158,7 +5239,7 @@ def get_vyapar_reports(
 
     # 3. Customer Group / Route Summary
     group_map: Dict[str, Dict[str, Any]] = {}
-    for c in db.query(Customer).all():
+    for c in db.query(Customer).options(selectinload(Customer.sales)).all():
         g_name = getattr(c, "group_name", "General Market") or "General Market"
         if g_name not in group_map:
             group_map[g_name] = {
@@ -4191,7 +5272,7 @@ def reverse_and_move_to_trash(
     db: Session = Depends(get_db)
 ):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    verify_admin_password(payload.admin_password)
+    verify_admin_password(payload.admin_password, db=db, admin_id=payload.admin_id, admin_name=payload.admin_name)
     etype = entity_type.upper()
 
     default_loc = db.query(StorageLocation).first()
@@ -4208,6 +5289,7 @@ def reverse_and_move_to_trash(
 
             channel, _ = extract_channel_and_remarks(sale.remarks, "CASH")
             dtype = getattr(sale, "doc_type", "SALE") or "SALE"
+            cust_obj = sale.customer
             items_data = []
             for item in sale.items:
                 items_data.append({
@@ -4226,11 +5308,56 @@ def reverse_and_move_to_trash(
                     rev_delta = -item.base_quantity if dtype == "SALE_RETURN" else item.base_quantity
                     adjust_location_stock(db, item.product, item.location_id or default_loc_id, rev_delta)
 
-            if sale.customer and dtype != "ESTIMATE":
-                if dtype == "SALE_RETURN":
-                    sale.customer.current_receivable = pkr(sale.customer.current_receivable + sale.receivable_amount)
-                else:
-                    sale.customer.current_receivable = pkr(max(0.0, sale.customer.current_receivable - sale.receivable_amount + getattr(sale, "applied_to_previous", 0.0)))
+            # 1. If this Sale auto-settled older bills via a CPAY voucher, restore those older bills' balances
+            auto_cpay_rows = (
+                db.query(CustomerPayment)
+                .filter(
+                    CustomerPayment.customer_id == sale.customer_id,
+                    CustomerPayment.remarks.ilike(f"%{sale.invoice_number}%")
+                )
+                .all()
+            )
+            for cpay in auto_cpay_rows:
+                for al in list(cpay.allocations):
+                    if al.sale_id != sale.id:
+                        older_sale = db.query(Sale).filter(Sale.id == al.sale_id).first()
+                        if older_sale:
+                            older_sale.received_amount = pkr(max(0.0, older_sale.received_amount - al.allocated_amount))
+                            older_sale.receivable_amount = pkr(max(0.0, older_sale.total_amount - older_sale.received_amount))
+                            older_sale.payment_status = (
+                                "PAID" if older_sale.receivable_amount <= 0
+                                else ("PARTIAL" if older_sale.received_amount > 0 else "UNPAID")
+                            )
+                    db.delete(al)
+                db.execute(
+                    text("DELETE FROM account_transactions WHERE tx_number = :tno"),
+                    {"tno": cpay.payment_number}
+                )
+                db.delete(cpay)
+            db.flush()
+
+            # 2. Remove any remaining CustomerPaymentAllocation rows referencing this sale_id so PostgreSQL FK never blocks delete
+            direct_allocs = (
+                db.query(CustomerPaymentAllocation)
+                .filter(CustomerPaymentAllocation.sale_id == sale.id)
+                .all()
+            )
+            affected_payment_ids = {al.payment_id for al in direct_allocs}
+            for al in direct_allocs:
+                db.delete(al)
+            db.flush()
+
+            for pid in affected_payment_ids:
+                pm_obj = db.query(CustomerPayment).filter(CustomerPayment.id == pid).first()
+                if pm_obj:
+                    rem_allocs = db.query(CustomerPaymentAllocation).filter(CustomerPaymentAllocation.payment_id == pid).count()
+                    if rem_allocs == 0:
+                        db.execute(
+                            text("DELETE FROM account_transactions WHERE tx_number = :tno"),
+                            {"tno": pm_obj.payment_number}
+                        )
+                        db.delete(pm_obj)
+            db.flush()
 
             total_cash_effect = pkr(sale.received_amount + getattr(sale, "applied_to_previous", 0.0))
             if total_cash_effect > 0 and dtype != "ESTIMATE":
@@ -4261,8 +5388,8 @@ def reverse_and_move_to_trash(
                 entity_type="SALE",
                 entity_id=sale.id,
                 reference_code=sale.invoice_number,
-                title=f"{dtype} to {sale.customer.name if sale.customer else 'Customer'}",
-                summary=f"Reversed {dtype} | Total: PKR {sale.total_amount:,.0f} | Received: PKR {sale.received_amount:,.0f}",
+                title=f"{dtype} to {cust_obj.name if cust_obj else 'Customer'}",
+                summary=f"Reversed {dtype} | Total: PKR {sale.total_amount:,.0f} | Received: PKR {total_cash_effect:,.0f}",
                 amount=pkr(sale.total_amount),
                 payload_json=json.dumps(snapshot)
             ))
@@ -4270,6 +5397,11 @@ def reverse_and_move_to_trash(
             db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale.invoice_number})
             db.execute(text("DELETE FROM sale_items WHERE sale_id = :sid"), {"sid": sale.id})
             db.execute(text("DELETE FROM sales WHERE id = :sid"), {"sid": sale.id})
+            db.flush()
+
+            if cust_obj and dtype != "ESTIMATE":
+                recompute_customer_authoritative_receivable(db, cust_obj)
+
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Sale {snapshot['invoice_number']} reversed & moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
@@ -4281,6 +5413,7 @@ def reverse_and_move_to_trash(
 
             channel, _ = extract_channel_and_remarks(pur.remarks, "CASH")
             dtype = getattr(pur, "doc_type", "PURCHASE") or "PURCHASE"
+            sup_obj = pur.supplier
             items_data = []
             for item in pur.items:
                 items_data.append({
@@ -4308,19 +5441,14 @@ def reverse_and_move_to_trash(
                     all_ls = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == item.product_id).all()
                     item.product.current_stock = sum(x.stock_bottles for x in all_ls)
 
-            if pur.supplier:
-                if dtype == "PURCHASE_RETURN":
-                    pur.supplier.current_payable = pkr(pur.supplier.current_payable + pur.payable_amount)
-                else:
-                    pur.supplier.current_payable = pkr(max(0.0, pur.supplier.current_payable - pur.payable_amount))
-
-            if pur.paid_amount > 0 and getattr(pur, "payment_arrangement", "WALLET") == "WALLET":
+            total_pur_cash = pkr(pur.paid_amount + getattr(pur, "applied_to_previous", 0.0))
+            if total_pur_cash > 0 and getattr(pur, "payment_arrangement", "WALLET") == "WALLET":
                 acc = resolve_financial_account(db, getattr(pur, "account_id", None), channel)
                 if acc:
                     if dtype == "PURCHASE_RETURN":
-                        acc.current_balance = pkr(max(0.0, acc.current_balance - pur.paid_amount))
+                        acc.current_balance = pkr(max(0.0, acc.current_balance - total_pur_cash))
                     else:
-                        acc.current_balance = pkr(acc.current_balance + pur.paid_amount)
+                        acc.current_balance = pkr(acc.current_balance + total_pur_cash)
 
             snapshot = {
                 "purchase_number": pur.purchase_number,
@@ -4339,15 +5467,21 @@ def reverse_and_move_to_trash(
                 entity_type="PURCHASE",
                 entity_id=pur.id,
                 reference_code=pur.purchase_number,
-                title=f"Purchase Bill from {pur.supplier.name if pur.supplier else 'Supplier'}",
-                summary=f"Reversed Purchase | Bill: PKR {pur.total_amount:,.0f} | Paid: PKR {pur.paid_amount:,.0f}",
+                title=f"Purchase Bill from {sup_obj.name if sup_obj else 'Supplier'}",
+                summary=f"Reversed Purchase | Bill: PKR {pur.total_amount:,.0f} | Paid: PKR {total_pur_cash:,.0f}",
                 amount=pkr(pur.total_amount),
                 payload_json=json.dumps(snapshot)
             ))
 
+            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :pid AND tx_type = 'SUPPLIER KHATA PAYMENT'"), {"pid": pur.id})
             db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": pur.purchase_number})
             db.execute(text("DELETE FROM purchase_items WHERE purchase_id = :pid"), {"pid": pur.id})
             db.execute(text("DELETE FROM purchases WHERE id = :pid"), {"pid": pur.id})
+            db.flush()
+
+            if sup_obj:
+                recompute_supplier_authoritative_payable(db, sup_obj)
+
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Purchase {snapshot['purchase_number']} reversed & moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
@@ -4835,7 +5969,7 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
 @app.post("/api/recycle-bin/{trash_id}/permanent-delete")
 def permanent_delete_single(trash_id: int, payload: PasswordVerifyRequest, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    verify_admin_password(payload.admin_password)
+    verify_admin_password(payload.admin_password, db=db, admin_id=payload.admin_id, admin_name=payload.admin_name)
     trash = db.query(RecycleBin).filter(RecycleBin.id == trash_id).first()
     if not trash:
         raise HTTPException(status_code=404, detail="Record not found in Recycle Bin")
@@ -4848,7 +5982,7 @@ def permanent_delete_single(trash_id: int, payload: PasswordVerifyRequest, db: S
 @app.post("/api/recycle-bin/empty")
 def empty_recycle_bin(payload: PasswordVerifyRequest, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    verify_admin_password(payload.admin_password)
+    verify_admin_password(payload.admin_password, db=db, admin_id=payload.admin_id, admin_name=payload.admin_name)
     db.query(RecycleBin).delete(synchronize_session=False)
     bump_version()
     db.commit()

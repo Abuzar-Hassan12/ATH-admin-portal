@@ -34,6 +34,8 @@ class AdminApprovalDecisionRequest(BaseModel):
 class PasswordVerifyRequest(BaseModel):
     admin_password: str
     reason: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
 
 
@@ -252,6 +254,7 @@ class PurchaseCreate(BaseModel):
     supplier_group_id: Optional[int] = None
     supplier_group: Optional[str] = "General Suppliers"
     mark_favorite: Optional[bool] = None
+    force_create_new_party: Optional[bool] = False
     items: List[PurchaseItemCreate]
     discount_amount: float = 0.0
     freight_amount: float = 0.0
@@ -261,6 +264,7 @@ class PurchaseCreate(BaseModel):
     payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN, SUPPLIER_CREDIT
     lender_name: Optional[str] = None
     remarks: Optional[str] = None
+    idempotency_key: Optional[str] = None
     admin_id: Optional[int] = None
     admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
@@ -289,6 +293,7 @@ class SaleCreate(BaseModel):
     customer_group_id: Optional[int] = None
     customer_group: Optional[str] = "General Market"
     mark_favorite: Optional[bool] = None
+    force_create_new_party: Optional[bool] = False
     items: List[SaleItemCreate]
     discount_amount: float = 0.0
     freight_amount: float = 0.0
@@ -297,6 +302,7 @@ class SaleCreate(BaseModel):
     payment_method: str = "CASH"
     account_id: Optional[int] = None
     remarks: Optional[str] = None
+    idempotency_key: Optional[str] = None
     admin_id: Optional[int] = None
     admin_name: Optional[str] = None
     client_snapshot: Optional[Dict[str, Any]] = None
@@ -318,6 +324,25 @@ class ConfirmPaymentAllocationRequest(BaseModel):
     account_id: Optional[int] = None
     allocations: List[BillAllocationItemInput]
     excess_action: str = "NONE"  # NONE, ADVANCE_CREDIT
+    remarks: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    admin_id: Optional[int] = None
+    admin_name: Optional[str] = None
+    client_snapshot: Optional[Dict[str, Any]] = None
+
+
+class SupplierBillAllocationItemInput(BaseModel):
+    purchase_id: int
+    allocated_amount: float = Field(..., ge=0)
+
+
+class ConfirmSupplierPaymentAllocationRequest(BaseModel):
+    payment_amount: float = Field(..., gt=0)
+    payment_method: str = "CASH"
+    account_id: Optional[int] = None
+    payment_arrangement: str = "WALLET"  # WALLET, OWNER_CAPITAL, MARKET_LOAN
+    lender_name: Optional[str] = None
+    allocations: List[SupplierBillAllocationItemInput]
     remarks: Optional[str] = None
     idempotency_key: Optional[str] = None
     admin_id: Optional[int] = None

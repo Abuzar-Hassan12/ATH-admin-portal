@@ -330,139 +330,90 @@ const pkr = (v: number | string | undefined | null): number => {
 };
 
 function OilDropletsBackdrop() {
-  const drops = [
-    { left: '8%', width: '6px', height: '11px', duration: '12s', delay: '0s' },
-    { left: '24%', width: '5px', height: '9px', duration: '15s', delay: '3s' },
-    { left: '46%', width: '7px', height: '13px', duration: '10.5s', delay: '1.5s' },
-    { left: '68%', width: '6px', height: '10px', duration: '13.5s', delay: '4s' },
-    { left: '88%', width: '7px', height: '12px', duration: '11.5s', delay: '2s' },
-  ];
+  // Subtle top brand accent bar only — no floating cartoon droplets
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 no-print" aria-hidden="true">
-      {drops.map((d, idx) => (
-        <span
-          key={idx}
-          className="oil-droplet"
-          style={{
-            left: d.left,
-            width: d.width,
-            height: d.height,
-            animationDuration: d.duration,
-            animationDelay: d.delay,
-          }}
-        />
-      ))}
-    </div>
+    <div
+      className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#005B66] via-[#FF6B3D] to-[#005B66] pointer-events-none z-50 no-print"
+      aria-hidden="true"
+    />
   );
 }
 
 function AthFracturedCurrentHero({ onNavigate }: { onNavigate: (partial: Partial<NavState>) => void }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#F7F7F5]/25 bg-gradient-to-br from-[#00262B] via-[#004A54] to-[#005B66] p-5 sm:p-7 shadow-2xl">
-      {/* SVG Fractured Current Signature Pattern (Petrol Teal, Coral Orange & Off-White) */}
+    <div className="relative overflow-hidden rounded-xl border border-[#F7F7F5]/15 bg-[#00282E] p-5 shadow-lg">
+      {/* Subtle ATH Fractured Current Brand Vector Accent */}
       <svg
-        className="absolute right-0 top-0 h-full w-2/3 opacity-35 pointer-events-none"
-        viewBox="0 0 600 400"
+        className="absolute right-0 top-0 h-full w-1/2 opacity-20 pointer-events-none"
+        viewBox="0 0 500 320"
         fill="none"
         preserveAspectRatio="none"
       >
-        <path d="M180 420 C260 280, 390 220, 620 40" stroke="#FF6B3D" strokeWidth="14" strokeLinecap="round" />
-        <path d="M240 420 C320 290, 430 240, 640 95" stroke="#F7F7F5" strokeWidth="6" strokeLinecap="round" strokeDasharray="18 24" />
-        <path d="M110 420 C210 250, 350 170, 590 -10" stroke="#008899" strokeWidth="18" strokeLinecap="round" />
-        <path d="M310 420 C390 310, 480 260, 650 150" stroke="#FF6B3D" strokeWidth="8" strokeLinecap="round" />
-        <circle cx="450" cy="140" r="8" fill="#FF6B3D" />
-        <circle cx="380" cy="210" r="5" fill="#F7F7F5" />
-        <circle cx="510" cy="95" r="6" fill="#FF6B3D" />
-        <circle cx="320" cy="285" r="7" fill="#FF6B3D" />
+        <path d="M140 340 C220 220, 340 160, 520 20" stroke="#FF6B3D" strokeWidth="10" strokeLinecap="round" />
+        <path d="M200 340 C280 230, 380 180, 540 65" stroke="#F7F7F5" strokeWidth="4" strokeLinecap="round" strokeDasharray="14 18" />
+        <path d="M80 340 C170 200, 290 120, 490 -10" stroke="#005B66" strokeWidth="16" strokeLinecap="round" />
       </svg>
 
-      <div className="relative z-10 flex flex-col justify-between gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="relative z-10 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F7F7F5]/10 pb-4">
           <div className="flex items-center gap-3.5">
-            <div className="bg-[#F7F7F5] px-3.5 py-2 rounded-xl shadow-md border border-white">
+            <div className="bg-[#F7F7F5] px-3 py-1.5 rounded-lg border border-white shadow-sm shrink-0">
               <img
                 src="/logo.png"
                 alt="ATH Lubricants"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                className="h-10 sm:h-12 w-auto object-contain"
+                className="h-9 w-auto object-contain"
               />
             </div>
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-widest text-[#FF6B3D]">
-                Awan Trade Hub • Your Trusted Partner
+              <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
+                Awan Trade Hub • Commercial Distribution & ERP
               </div>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#F7F7F5] samsung-heading">
-                ATH LUBRICANTS — <span className="text-[#FF6B3D]">GOLD 4T</span> SERIES
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-[#F7F7F5]">
+                ATH LUBRICANTS — <span className="text-[#FF6B3D]">GOLD 4T</span> M2 / M4 SERIES
               </h2>
-              <p className="text-xs text-[#F7F7F5]/85 font-medium">
-                Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life (M2 / M4 SAE 20W-40 API SL)
+              <p className="text-xs text-[#F7F7F5]/75">
+                SAE 20W-40 API SL • 12 × 700 ML Master Cartons • Smoother Ride | Better Protection | Longer Life
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#00373E] text-[#F7F7F5] border border-[#F7F7F5]/25">
-              ● Petrol Teal #005B66
-            </span>
-            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#FF6B3D] text-white">
-              ● Coral Orange #FF6B3D
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-[#001D21] text-emerald-300 border border-emerald-400/30">
+              PKR Whole-Rupee Ledger
             </span>
           </div>
         </div>
 
-        {/* 3 Brand Pillars + Quick Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#F7F7F5]/15">
-          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
-            <Droplet className="w-5 h-5 text-[#FF6B3D] shrink-0" />
-            <div>
-              <div className="text-xs font-extrabold text-[#F7F7F5]">SMOOTHER RIDE</div>
-              <div className="text-[11px] text-[#F7F7F5]/75">Gold 4T M2/M4 Synthetic & Heavy Duty</div>
-            </div>
-          </div>
-          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-[#FF6B3D] shrink-0" />
-            <div>
-              <div className="text-xs font-extrabold text-[#F7F7F5]">BETTER PROTECTION</div>
-              <div className="text-[11px] text-[#F7F7F5]/75">100% Whole-PKR Audited Khata & Stock</div>
-            </div>
-          </div>
-          <div className="bg-[#00262B]/75 px-3.5 py-2.5 rounded-xl border border-[#F7F7F5]/15 flex items-center gap-2.5">
-            <Layers className="w-5 h-5 text-[#FF6B3D] shrink-0" />
-            <div>
-              <div className="text-xs font-extrabold text-[#F7F7F5]">LONGER ENGINE LIFE</div>
-              <div className="text-[11px] text-[#F7F7F5]/75">Multi-Godown Carton & Bottle Tracking</div>
-            </div>
-          </div>
-        </div>
-
+        {/* Direct Commercial Operations Launchpad */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <button
             type="button"
             onClick={() => onNavigate({ main: 'accounts', accSub: 'sales' })}
             className="btn-primary py-2.5 px-3 text-xs"
           >
-            + Customer Sale Invoice
+            <Plus className="w-3.5 h-3.5" /> New Sale Invoice
           </button>
           <button
             type="button"
             onClick={() => onNavigate({ main: 'accounts', accSub: 'purchases' })}
             className="btn-oil py-2.5 px-3 text-xs"
           >
-            + Add Stock / Purchase
+            <ShoppingCart className="w-3.5 h-3.5" /> Record Purchase
           </button>
           <button
             type="button"
-            onClick={() => onNavigate({ main: 'directory', dirSub: 'parties' })}
+            onClick={() => onNavigate({ main: 'accounts', accSub: 'partials' })}
             className="btn-secondary py-2.5 px-3 text-xs"
           >
-            Customer 360° Khata
+            <Clock className="w-3.5 h-3.5 text-[#FF6B3D]" /> Settle Khata Dues
           </button>
           <button
             type="button"
-            onClick={() => onNavigate({ main: 'reports', repSub: 'bill_pnl' })}
+            onClick={() => onNavigate({ main: 'reports', repSub: 'daybook' })}
             className="btn-secondary py-2.5 px-3 text-xs"
           >
-            Profit & Day Book Reports
+            <FileText className="w-3.5 h-3.5 text-emerald-300" /> Day Book (Roznamcha)
           </button>
         </div>
       </div>
@@ -471,6 +422,92 @@ function AthFracturedCurrentHero({ onNavigate }: { onNavigate: (partial: Partial
 }
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes inactivity timeout
+
+const MONTH_NAMES_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+const DAY_NAMES_FULL = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+/** Returns current wall-clock Date components in Pakistan Standard Time (Asia/Karachi, UTC+5) */
+function getNowPktParts(): { year: number; month: number; day: number; weekday: string; ymd: string; time12: string } {
+  const now = new Date();
+  const pktMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (5 * 3600 * 1000);
+  const d = new Date(pktMs);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const weekday = DAY_NAMES_FULL[d.getDay()];
+  const ymd = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  let hrs = d.getHours();
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hrs >= 12 ? 'PM' : 'AM';
+  hrs = hrs % 12 || 12;
+  const time12 = `${String(hrs).padStart(2, '0')}:${mins} ${ampm}`;
+  return { year, month, day, weekday, ymd, time12 };
+}
+
+/** Formats YYYY-MM-DD into '12-October-2026' (or with Day Name if includeDay=true) */
+function formatHumanPktDate(ymd: string, includeDay = false): string {
+  if (!ymd || ymd.length < 10) return ymd || '';
+  const [y, m, d] = ymd.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const mName = MONTH_NAMES_FULL[m - 1] || 'Month';
+  const base = `${String(d).padStart(2, '0')}-${mName}-${y}`;
+  if (!includeDay) return base;
+  const dt = new Date(y, m - 1, d);
+  return `${DAY_NAMES_FULL[dt.getDay()]}, ${base}`;
+}
+
+/** Formats 'YYYY-MM-DD HH:MM' or ISO string into '28-October-2026 • 06:40 PM' */
+function formatRecordDateTimePkt(raw: string | undefined | null): string {
+  if (!raw) return '';
+  const clean = String(raw).trim().replace('T', ' ');
+  const ymd = clean.slice(0, 10);
+  const hm = clean.slice(11, 16);
+  const datePart = formatHumanPktDate(ymd, false);
+  if (!hm || !hm.includes(':')) return datePart;
+  const [hStr, mStr] = hm.split(':');
+  let h = Number(hStr);
+  if (!Number.isFinite(h)) return `${datePart} ${hm}`;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${datePart} • ${String(h).padStart(2, '0')}:${mStr} ${ampm}`;
+}
+
+/** Extracts 'YYYY-MM-DD' date key from any record date/timestamp string */
+function extractRecordYmd(raw: string | undefined | null): string {
+  if (!raw) return '';
+  return String(raw).trim().slice(0, 10);
+}
+
+/** Normalizes CNIC by stripping all non-digit characters */
+function normalizeCnic(raw: string | undefined | null): string {
+  if (!raw) return '';
+  return String(raw).replace(/\D+/g, '');
+}
+
+/** Normalizes phone numbers (+92 / 0092 / 03xx-xxxxxxx -> 03xxxxxxxxx) */
+function normalizePhone(raw: string | undefined | null): string {
+  if (!raw) return '';
+  let digits = String(raw).replace(/\D+/g, '');
+  if (digits.startsWith('0092') && digits.length >= 12) {
+    digits = '0' + digits.slice(4);
+  } else if (digits.startsWith('92') && digits.length === 12) {
+    digits = '0' + digits.slice(2);
+  } else if (digits.length === 10 && digits.startsWith('3')) {
+    digits = '0' + digits;
+  }
+  return digits;
+}
+
+/** Normalizes name, village/city, and group text for comparison */
+function normalizeIdentityText(raw: string | undefined | null): string {
+  if (!raw) return '';
+  return String(raw).trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 export default function App() {
   // ==================== AUTHENTICATION & 15-MINUTE INACTIVITY TIMEOUT ====================
@@ -565,28 +602,51 @@ export default function App() {
   const handleForward = () => { if (canGoForward) setNavIndex(navIndex + 1); };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  // Default to daily ('daily') so every Admin immediately sees Today's Activities upon login
+  // Default to daily ('daily') in Pakistan Standard Time (12:00 AM to 11:59 PM PKT)
   const [period, setPeriod] = useState<TimePeriod>('daily');
-  const [customDate, setCustomDate] = useState<string>('');
+  const [customDate, setCustomDate] = useState<string>(''); // Start Date (or Single Specific Date)
+  const [customDateTo, setCustomDateTo] = useState<string>(''); // End Date for Range (e.g. 12-October-2026 To 31-October-2026)
+  const [pktClock, setPktClock] = useState(() => getNowPktParts());
   const [channelFilter, setChannelFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<{ msg: string; isError?: boolean } | null>(null);
   const initialSyncDone = useRef<boolean>(false);
 
-  // ==================== DATA STATES ====================
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [locations, setLocations] = useState<StorageLocation[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [accounts, setAccounts] = useState<FinancialAccount[]>([]);
-  const [loans, setLoans] = useState<LoanRecord[]>([]);
-  const [accountHistory, setAccountHistory] = useState<AccountHistoryEntry[]>([]);
-  const [recycleBin, setRecycleBin] = useState<RecycleBinItem[]>([]);
-  const [vyaparReports, setVyaparReports] = useState<VyaparReportsData | null>(null);
+  // Live Pakistan Standard Time clock: automatically rolls over day at 12:00 AM midnight PKT
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPktClock(getNowPktParts());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ==================== DATA STATES (WITH INSTANT REFRESH CACHE) ====================
+  const cachedUiBoot = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('ath_ui_cache_v2');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const [rawStats, setStats] = useState<DashboardStats | null>(() => cachedUiBoot?.stats || null);
+  const [locations, setLocations] = useState<StorageLocation[]>(() => cachedUiBoot?.locations || []);
+  const [products, setProducts] = useState<Product[]>(() => cachedUiBoot?.products || []);
+  const [customers, setCustomers] = useState<Customer[]>(() => cachedUiBoot?.customers || []);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => cachedUiBoot?.suppliers || []);
+  const [allSales, setSales] = useState<SaleRecord[]>(() => cachedUiBoot?.sales || []);
+  const [allPurchases, setPurchases] = useState<PurchaseRecord[]>(() => cachedUiBoot?.purchases || []);
+  const [allPendingSales, setAllPendingSales] = useState<SaleRecord[]>(() => cachedUiBoot?.pending_sales || []);
+  const [allPendingPurchases, setAllPendingPurchases] = useState<PurchaseRecord[]>(() => cachedUiBoot?.pending_purchases || []);
+  const [allExpenses, setExpenses] = useState<Expense[]>(() => cachedUiBoot?.expenses || []);
+  const [accounts, setAccounts] = useState<FinancialAccount[]>(() => cachedUiBoot?.accounts || []);
+  const [loans, setLoans] = useState<LoanRecord[]>(() => cachedUiBoot?.loans || []);
+  const [allAccountHistory, setAccountHistory] = useState<AccountHistoryEntry[]>(() => cachedUiBoot?.account_history || []);
+  const [recycleBin, setRecycleBin] = useState<RecycleBinItem[]>(() => cachedUiBoot?.recycle_bin || []);
+  const [rawVyaparReports, setVyaparReports] = useState<VyaparReportsData | null>(() => cachedUiBoot?.vyapar_reports || null);
+  const fetchSeqRef = useRef<number>(0);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   // ==================== SALE FORM & MULTI-ITEM CART STATE ====================
   const [saleDocType, setSaleDocType] = useState<SaleDocType>('SALE');
@@ -833,6 +893,10 @@ export default function App() {
 
   const getSavedSnapshot = () => {
     try {
+      // Once connected to permanent PostgreSQL, do not upload bulky localStorage snapshots on every API call
+      if (localStorage.getItem('ath_pg_persistent') === 'true') {
+        return null;
+      }
       const raw = localStorage.getItem('ath_erp_snapshot');
       return raw ? JSON.parse(raw) : null;
     } catch {
@@ -854,11 +918,13 @@ export default function App() {
   const saveSnapshot = (snap: any, allowOverwriteIfEmpty = false) => {
     if (!snap || typeof snap !== 'object' || !snap.version) return;
     try {
+      if (snap.persistent) {
+        localStorage.setItem('ath_pg_persistent', 'true');
+        return;
+      }
       const existing = getSavedSnapshot();
       const existingTxs = getSnapshotTxCount(existing);
       const incomingTxs = getSnapshotTxCount(snap);
-      // Strict guard: Never allow an empty transaction snapshot (from cold start or bootstrap)
-      // to wipe out existing recorded sales, purchases, or expenses in local storage!
       if (!allowOverwriteIfEmpty && existingTxs > 0 && incomingTxs === 0) {
         return;
       }
@@ -868,18 +934,58 @@ export default function App() {
     }
   };
 
+  const resilientFetch = async (
+    url: string,
+    options: RequestInit,
+    maxRetries = 2
+  ): Promise<{ res: Response; data: any }> => {
+    let lastErr: any = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(url, options);
+        const text = await res.text();
+        let data: any = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          if ([502, 503, 504].includes(res.status) && attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 900 * (attempt + 1)));
+            continue;
+          }
+          throw new Error(`Server returned status ${res.status}. Please try again.`);
+        }
+        return { res, data };
+      } catch (err: any) {
+        if (err?.name === 'AbortError') throw err;
+        lastErr = err;
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 850 * (attempt + 1)));
+          continue;
+        }
+      }
+    }
+    const rawMsg = String(lastErr?.message || '');
+    if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('networkerror')) {
+      throw new Error('Unable to reach the server. Please ensure your connection is active and try again.');
+    }
+    throw lastErr || new Error('Network request failed.');
+  };
+
   const apiSend = async (endpoint: string, method: 'POST' | 'PUT', payload: Record<string, any>) => {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        admin_id: currentAdmin?.id || 1,
-        admin_name: currentAdmin?.full_name || currentAdmin?.username || 'Admin',
-        ...payload,
-        client_snapshot: getSavedSnapshot()
-      })
-    });
-    const data = await res.json();
+    const { res, data } = await resilientFetch(
+      `${API_BASE}${endpoint}`,
+      {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin_id: currentAdmin?.id || 1,
+          admin_name: currentAdmin?.full_name || currentAdmin?.username || 'Admin',
+          ...payload,
+          client_snapshot: getSavedSnapshot()
+        })
+      },
+      2
+    );
     if (!res.ok) {
       throw new Error(data.detail || 'Operation failed');
     }
@@ -892,21 +998,32 @@ export default function App() {
 
   const fetchData = async () => {
     if (!isAuthenticated) return;
+    const requestId = ++fetchSeqRef.current;
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const localSnap = getSavedSnapshot();
-      const res = await fetch(`${API_BASE}/bootstrap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          period,
-          custom_date: customDate || null,
-          channel: channelFilter,
-          client_snapshot: getSavedSnapshot()
-        })
-      });
-      if (!res.ok) throw new Error('Bootstrap sync failed');
-      const data = await res.json();
+      // Fetch complete dataset once via POST /api/bootstrap so all date/timeframe filters switch in 0ms!
+      const { res, data } = await resilientFetch(
+        `${API_BASE}/bootstrap`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            period: 'all',
+            custom_date: null,
+            channel: 'ALL',
+            client_snapshot: getSavedSnapshot()
+          })
+        },
+        2
+      );
+      if (!res.ok) throw new Error(data.detail || 'Failed to sync ERP database');
+      if (requestId !== fetchSeqRef.current) return;
+
       if (data.snapshot) {
         saveSnapshot(data.snapshot, false);
         initialSyncDone.current = true;
@@ -929,6 +1046,8 @@ export default function App() {
       setSuppliers(Array.isArray(data.suppliers) ? data.suppliers : []);
       setSales(Array.isArray(data.sales) ? data.sales : []);
       setPurchases(Array.isArray(data.purchases) ? data.purchases : []);
+      setAllPendingSales(Array.isArray(data.pending_sales) ? data.pending_sales : []);
+      setAllPendingPurchases(Array.isArray(data.pending_purchases) ? data.pending_purchases : []);
       setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
 
       const accList: FinancialAccount[] = Array.isArray(data.accounts) ? data.accounts : [];
@@ -945,20 +1064,280 @@ export default function App() {
       setLoans(Array.isArray(data.loans) ? data.loans : []);
       setAccountHistory(Array.isArray(data.account_history) ? data.account_history : []);
       setRecycleBin(Array.isArray(data.recycle_bin) ? data.recycle_bin : []);
-      
-      if (data.vyapar_reports) setVyaparReports(data.vyapar_reports);
-      if (Array.isArray(data.admins)) setAdminsList(data.admins);
-      if (Array.isArray(data.partner_transparency)) setPartnerTransparency(data.partner_transparency);
-    } catch (err) {
-      console.error('Error syncing with backend:', err);
+      setVyaparReports(data.vyapar_reports || null);
+      setAdminsList(Array.isArray(data.admins) ? data.admins : []);
+      setPartnerTransparency(Array.isArray(data.partner_transparency) ? data.partner_transparency : []);
+
+      try {
+        const { snapshot, ...uiCache } = data;
+        localStorage.setItem('ath_ui_cache_v2', JSON.stringify(uiCache));
+      } catch {
+        // Ignore storage quota
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError' && requestId === fetchSeqRef.current) {
+        console.error('Sync warning:', err);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === fetchSeqRef.current) setLoading(false);
     }
   };
 
+  // Only fetch from server on login; timeframe & date-range switches happen in 0ms in memory!
   useEffect(() => {
     fetchData();
-  }, [isAuthenticated, period, customDate, channelFilter]);
+  }, [isAuthenticated]);
+
+  // ==================== INSTANT 0ms PAKISTAN TIME (PKT) DATE RANGE & FILTER ENGINE ====================
+  const activeDateRangeInfo = useMemo(() => {
+    const todayYmd = pktClock.ymd;
+    const [yr, mo, dy] = todayYmd.split('-').map(Number);
+    const monthName = MONTH_NAMES_FULL[(mo || 1) - 1] || 'October';
+
+    if (customDate) {
+      const startYmd = customDate;
+      const endYmd = customDateTo && customDateTo >= customDate ? customDateTo : customDate;
+      const label =
+        startYmd === endYmd
+          ? `${formatHumanPktDate(startYmd, true)} (12:00 AM – 11:59 PM PKT)`
+          : `${formatHumanPktDate(startYmd)} To ${formatHumanPktDate(endYmd)} (12:00 AM – 11:59 PM PKT)`;
+      return { startYmd, endYmd, badge: startYmd === endYmd ? formatHumanPktDate(startYmd) : `${formatHumanPktDate(startYmd)} To ${formatHumanPktDate(endYmd)}`, fullLabel: label };
+    }
+
+    if (period === 'daily') {
+      return {
+        startYmd: todayYmd,
+        endYmd: todayYmd,
+        badge: `TODAY • ${formatHumanPktDate(todayYmd)}`,
+        fullLabel: `Today — ${formatHumanPktDate(todayYmd, true)} (12:00 AM To 11:59 PM PKT)`
+      };
+    }
+
+    if (period === 'weekly') {
+      const startDt = new Date(yr, (mo || 1) - 1, (dy || 1) - 6);
+      const startYmd = `${startDt.getFullYear()}-${String(startDt.getMonth() + 1).padStart(2, '0')}-${String(startDt.getDate()).padStart(2, '0')}`;
+      return {
+        startYmd,
+        endYmd: todayYmd,
+        badge: `7 DAYS (${formatHumanPktDate(startYmd)} To ${formatHumanPktDate(todayYmd)})`,
+        fullLabel: `Last 7 Days — ${formatHumanPktDate(startYmd)} To ${formatHumanPktDate(todayYmd)} (PKT)`
+      };
+    }
+
+    if (period === 'monthly') {
+      const firstOfMonth = `${yr}-${String(mo).padStart(2, '0')}-01`;
+      return {
+        startYmd: firstOfMonth,
+        endYmd: todayYmd,
+        badge: `${monthName.toUpperCase()} ${yr} (${formatHumanPktDate(firstOfMonth)} To ${formatHumanPktDate(todayYmd)})`,
+        fullLabel: `Month of ${monthName} ${yr} — ${formatHumanPktDate(firstOfMonth)} To ${formatHumanPktDate(todayYmd)} (PKT)`
+      };
+    }
+
+    return {
+      startYmd: '1970-01-01',
+      endYmd: '2099-12-31',
+      badge: 'ALL-TIME RECORDS',
+      fullLabel: `All-Time Complete Business History (Up to ${formatHumanPktDate(todayYmd)} 11:59 PM PKT)`
+    };
+  }, [period, customDate, customDateTo, pktClock.ymd]);
+
+  const isDateInActiveRange = (rawDateStr: string | undefined | null): boolean => {
+    const ymd = extractRecordYmd(rawDateStr);
+    if (!ymd) return true;
+    return ymd >= activeDateRangeInfo.startYmd && ymd <= activeDateRangeInfo.endYmd;
+  };
+
+  // Filtered Sales, Purchases, Expenses & Cashflow Ledger for the active Pakistan date range (0ms)
+  const sales = useMemo(
+    () => allSales.filter(s => isDateInActiveRange(s.invoice_date)),
+    [allSales, activeDateRangeInfo]
+  );
+
+  const purchases = useMemo(
+    () => allPurchases.filter(p => isDateInActiveRange(p.invoice_date)),
+    [allPurchases, activeDateRangeInfo]
+  );
+
+  const expenses = useMemo(
+    () => allExpenses.filter(e => isDateInActiveRange(e.expense_date)),
+    [allExpenses, activeDateRangeInfo]
+  );
+
+  const accountHistory = useMemo(
+    () =>
+      allAccountHistory.filter(h => {
+        if (!isDateInActiveRange(h.date || h.timestamp)) return false;
+        if (channelFilter !== 'ALL' && !String(h.channel || '').toUpperCase().includes(channelFilter)) {
+          return false;
+        }
+        return true;
+      }),
+    [allAccountHistory, activeDateRangeInfo, channelFilter]
+  );
+
+  // Instant Synchronized Dashboard KPIs for the Active Date Range
+  const stats = useMemo<DashboardStats | null>(() => {
+    if (!rawStats && products.length === 0 && accounts.length === 0) return null;
+    const activeConfirmedSales = sales.filter(s => (s.doc_type || 'SALE') !== 'ESTIMATE');
+    let salesRev = 0;
+    let salesPend = 0;
+    let totalCogs = 0;
+
+    for (const s of activeConfirmedSales) {
+      const sign = s.doc_type === 'SALE_RETURN' ? -1 : 1;
+      const tot = pkr(s.total_amount);
+      salesRev += sign * tot;
+      if ((s.doc_type || 'SALE') === 'SALE') {
+        salesPend += pkr(s.receivable_amount);
+      }
+      totalCogs += sign * pkr(s.bill_cost);
+    }
+
+    let purCost = 0;
+    let purPend = 0;
+    for (const p of purchases) {
+      const sign = p.doc_type === 'PURCHASE_RETURN' ? -1 : 1;
+      const tot = pkr(p.total_amount);
+      purCost += sign * tot;
+      if ((p.doc_type || 'PURCHASE') === 'PURCHASE') {
+        purPend += pkr(p.payable_amount);
+      }
+    }
+
+    // Reconcile Sales Collected & Purchases Paid directly from dated ledger entries in the active range
+    let salesCol = 0;
+    let purPaid = 0;
+    for (const h of accountHistory) {
+      if (
+        h.entity_type === 'SALE' ||
+        h.type === 'CUSTOMER PAYMENT ALLOCATION' ||
+        h.type === 'CUSTOMER KHATA COLLECTION' ||
+        h.type === 'PREVIOUS KHATA COLLECTION'
+      ) {
+        salesCol += pkr(h.cash_in) - pkr(h.cash_out);
+      } else if (
+        h.entity_type === 'PURCHASE' ||
+        h.type === 'SUPPLIER KHATA PAYMENT' ||
+        h.type === 'ARRANGED PAYMENT OUTFLOW'
+      ) {
+        purPaid += pkr(h.cash_out) - pkr(h.cash_in);
+      }
+    }
+
+    const expTotal = expenses.reduce((sum, e) => sum + pkr(e.amount), 0);
+    const grossProfit = pkr(salesRev - totalCogs);
+    const netProfit = pkr(grossProfit - expTotal);
+
+    const totalStockBottles = products.reduce((sum, p) => sum + pkr(p.current_stock_bottles), 0);
+    const totalStockVal = products.reduce((sum, p) => sum + pkr(p.stock_valuation), 0);
+    const totalRec = customers.reduce((sum, c) => sum + pkr(c.current_receivable), 0);
+    const totalPay = suppliers.reduce((sum, s) => sum + pkr(s.current_payable), 0);
+    const totalCash = accounts.reduce((sum, a) => sum + pkr(a.current_balance), 0);
+    const totalLoans = loans.reduce((sum, l) => sum + pkr(l.current_balance), 0);
+
+    return {
+      period,
+      total_stock_bottles: totalStockBottles,
+      total_stock_value: totalStockVal,
+      total_receivable: totalRec,
+      total_payable: totalPay,
+      total_loan_payable: totalLoans,
+      total_cash_bank: totalCash,
+      total_sales_revenue: pkr(salesRev),
+      sales_collected: pkr(salesCol),
+      sales_pending: pkr(salesPend),
+      sales_count: activeConfirmedSales.length,
+      total_purchases_cost: pkr(purCost),
+      purchases_paid: pkr(purPaid),
+      purchases_pending: pkr(purPend),
+      purchases_count: purchases.length,
+      total_expenses: pkr(expTotal),
+      expenses_count: expenses.length,
+      estimated_gross_profit: grossProfit,
+      net_profit: netProfit,
+      net_cash_flow: pkr(salesCol - purPaid - expTotal),
+      trash_count: recycleBin.length
+    };
+  }, [rawStats, sales, purchases, expenses, products, customers, suppliers, accounts, loans, recycleBin, period]);
+
+  // Instant Synchronized Vyapar Reports for the Active Date Range
+  const vyaparReports = useMemo<VyaparReportsData | null>(() => {
+    if (!rawVyaparReports && products.length === 0) return null;
+    const billWise = sales
+      .filter(s => (s.doc_type || 'SALE') !== 'ESTIMATE')
+      .map(s => ({
+        id: s.id,
+        invoice_number: s.invoice_number,
+        doc_type: s.doc_type || 'SALE',
+        date: formatRecordDateTimePkt(s.invoice_date),
+        customer_name: s.customer_name,
+        customer_city: s.customer_city || 'Local',
+        customer_group: s.customer_group || 'General Market',
+        items_summary: s.items_summary,
+        sale_amount: pkr(s.total_amount),
+        cost_amount: pkr(s.bill_cost),
+        discount_amount: pkr(s.discount_amount),
+        freight_amount: pkr(s.freight_amount),
+        net_profit: pkr(s.bill_profit),
+        received_amount: pkr(s.received_amount) + pkr(s.applied_to_previous),
+        pending_amount: pkr(s.receivable_amount)
+      }));
+
+    const itemSummary = products.map(p => {
+      const upc = Math.max(1, p.units_per_carton || 12);
+      let boughtBtls = 0;
+      let boughtVal = 0;
+      for (const pur of purchases) {
+        for (const it of pur.items || []) {
+          if (it.product_id === p.id) {
+            boughtBtls += pkr(it.base_quantity);
+            boughtVal += pkr(it.line_total);
+          }
+        }
+      }
+      let soldBtls = 0;
+      let soldVal = 0;
+      let soldCogs = 0;
+      for (const sal of sales) {
+        if ((sal.doc_type || 'SALE') === 'ESTIMATE') continue;
+        for (const it of sal.items || []) {
+          if (it.product_id === p.id) {
+            soldBtls += pkr(it.base_quantity);
+            soldVal += pkr(it.line_total);
+            soldCogs += pkr(it.line_cost);
+          }
+        }
+      }
+      return {
+        product_id: p.id,
+        sku: p.sku,
+        name: p.name,
+        brand_name: p.brand_name,
+        pack_size: p.pack_size,
+        units_per_carton: upc,
+        purchased_bottles: boughtBtls,
+        purchased_formatted: `${Math.floor(boughtBtls / upc)} Ctn + ${boughtBtls % upc} Btl`,
+        purchase_value: pkr(boughtVal),
+        sold_bottles: soldBtls,
+        sold_formatted: `${Math.floor(soldBtls / upc)} Ctn + ${soldBtls % upc} Btl`,
+        sale_revenue: pkr(soldVal),
+        cogs: pkr(soldCogs),
+        profit: pkr(soldVal - soldCogs),
+        closing_bottles: p.current_stock_bottles,
+        closing_formatted: `${p.cartons} Ctn + ${p.loose_bottles} Btl`,
+        closing_valuation: pkr(p.stock_valuation)
+      };
+    });
+
+    return {
+      period,
+      bill_wise_profit: billWise,
+      item_wise_summary: itemSummary,
+      customer_groups: rawVyaparReports?.customer_groups || [],
+      daybook: accountHistory
+    };
+  }, [rawVyaparReports, sales, purchases, products, accountHistory, period]);
 
   // ==================== ENRICHED LOCATIONS ====================
   const enrichedLocations = useMemo(() => {
@@ -995,13 +1374,77 @@ export default function App() {
   const favoriteSuppliers = useMemo(() => suppliers.filter(s => s.is_favorite), [suppliers]);
   const favoriteProducts = useMemo(() => products.filter(p => p.is_favorite !== false), [products]);
 
-  const activeSaleCustomer = useMemo(() => {
-    if (saleCustomerId) return customers.find(c => c.id === Number(saleCustomerId)) || null;
-    if (saleCustomerName.trim()) {
-      return customers.find(c => c.name.toLowerCase() === saleCustomerName.trim().toLowerCase()) || null;
+  const [saleForceNewCustomer, setSaleForceNewCustomer] = useState<boolean>(false);
+  const [purForceNewSupplier, setPurForceNewSupplier] = useState<boolean>(false);
+  const [expandedKhataPartyKeys, setExpandedKhataPartyKeys] = useState<Record<string, boolean>>({});
+  const [selectedKhataBillIds, setSelectedKhataBillIds] = useState<Record<string, number[]>>({});
+
+  const [allocationSelectedSaleIds, setAllocationSelectedSaleIds] = useState<number[]>([]);
+
+  // Multi-factor Customer Identity Evaluation (CNIC -> Phone -> Name + City + Group)
+  const saleCustomerIdentityCheck = useMemo(() => {
+    if (saleCustomerId > 0) {
+      const exact = customers.find(c => c.id === Number(saleCustomerId)) || null;
+      return { verifiedCustomer: exact, possibleMatches: [] as Customer[] };
     }
-    return null;
-  }, [customers, saleCustomerId, saleCustomerName]);
+    if (saleForceNewCustomer) {
+      return { verifiedCustomer: null, possibleMatches: [] as Customer[] };
+    }
+    const nName = normalizeIdentityText(saleCustomerName);
+    const nCnic = normalizeCnic(saleCustomerCnic);
+    const nPhone = normalizePhone(saleCustomerPhone);
+    const nCity = normalizeIdentityText(saleCustomerCity);
+
+    if (!nName && !nCnic && !nPhone) {
+      return { verifiedCustomer: null, possibleMatches: [] as Customer[] };
+    }
+
+    // 1. Exact CNIC match is strongest identifier
+    if (nCnic.length >= 5) {
+      const cnicMatch = customers.find(c => normalizeCnic(c.cnic) === nCnic);
+      if (cnicMatch) {
+        return { verifiedCustomer: cnicMatch, possibleMatches: [cnicMatch] };
+      }
+    }
+
+    // 2. Find candidates sharing Name or Phone
+    const candidates = customers.filter(c => {
+      const cName = normalizeIdentityText(c.name);
+      const cPhone = normalizePhone(c.phone);
+      const cCnic = normalizeCnic(c.cnic);
+      if (nCnic && cCnic && nCnic === cCnic) return true;
+      if (nPhone.length >= 7 && cPhone === nPhone) return true;
+      if (nName && cName === nName) return true;
+      return false;
+    });
+
+    if (candidates.length === 0) {
+      return { verifiedCustomer: null, possibleMatches: [] as Customer[] };
+    }
+
+    // Check if there is a single unambiguous multi-factor match (e.g. Name + Phone match with no CNIC conflict)
+    if (candidates.length === 1) {
+      const cand = candidates[0];
+      const cCnic = normalizeCnic(cand.cnic);
+      const cPhone = normalizePhone(cand.phone);
+      const cCity = normalizeIdentityText(cand.city);
+      const cnicConflict = Boolean(nCnic && cCnic && nCnic !== cCnic);
+      const phoneConflict = Boolean(nPhone && cPhone && nPhone !== cPhone);
+      const cityConflict = Boolean(nCity && nCity !== 'local' && cCity && cCity !== 'local' && nCity !== cCity);
+
+      if (!cnicConflict && !phoneConflict && !cityConflict) {
+        // Strong match if phone matches or if no conflicting identifiers exist
+        if ((nPhone && cPhone === nPhone) || (nCnic && cCnic === nCnic)) {
+          return { verifiedCustomer: cand, possibleMatches: [cand] };
+        }
+      }
+    }
+
+    // Otherwise, identity is uncertain or has multiple/conflicting matches -> ask user to confirm!
+    return { verifiedCustomer: null, possibleMatches: candidates };
+  }, [customers, saleCustomerId, saleCustomerName, saleCustomerPhone, saleCustomerCnic, saleCustomerCity, saleForceNewCustomer]);
+
+  const activeSaleCustomer = saleCustomerIdentityCheck.verifiedCustomer;
 
   const selectedSaleProduct = useMemo(() => {
     if (saleProductId) return products.find(p => p.id === Number(saleProductId)) || null;
@@ -1138,9 +1581,20 @@ export default function App() {
   }, [saleDocType, salePaymentMode, computedSaleGrandPayable, saleReceived]);
 
   const computedAppliedToPrev = useMemo(() => {
-    if (saleDocType !== 'SALE' || computedSaleReceived <= computedSaleTotal) return 0;
+    if (saleDocType !== 'SALE' || computedSaleReceived <= 0 || customerPreviousDues <= 0) return 0;
+    if (saleIncludePrevDues) {
+      // Oldest Bill First (FIFO): settle previous Khata first, remainder goes to current bill
+      return pkr(Math.min(customerPreviousDues, computedSaleReceived));
+    }
+    if (computedSaleReceived <= computedSaleTotal) return 0;
     return pkr(Math.min(customerPreviousDues, computedSaleReceived - computedSaleTotal));
-  }, [saleDocType, computedSaleReceived, computedSaleTotal, customerPreviousDues]);
+  }, [saleDocType, saleIncludePrevDues, computedSaleReceived, computedSaleTotal, customerPreviousDues]);
+
+  const computedAllocatedToNewBill = useMemo(() => {
+    if (saleDocType === 'ESTIMATE') return 0;
+    const remAfterPrev = Math.max(0, computedSaleReceived - computedAppliedToPrev);
+    return pkr(Math.min(computedSaleTotal, remAfterPrev));
+  }, [saleDocType, computedSaleReceived, computedAppliedToPrev, computedSaleTotal]);
 
   const computedClosingKhata = useMemo(() => {
     if (saleDocType === 'ESTIMATE') return customerPreviousDues;
@@ -1149,8 +1603,8 @@ export default function App() {
       return pkr(Math.max(0, customerPreviousDues - unpaidRet));
     }
     const totalDues = computedSaleTotal + customerPreviousDues;
-    return pkr(Math.max(0, totalDues - computedSaleReceived));
-  }, [saleDocType, customerPreviousDues, computedSaleTotal, computedSaleReceived]);
+    return pkr(Math.max(0, totalDues - (computedAllocatedToNewBill + computedAppliedToPrev)));
+  }, [saleDocType, customerPreviousDues, computedSaleTotal, computedSaleReceived, computedAllocatedToNewBill, computedAppliedToPrev]);
 
   const purUpc = Math.max(1, Math.round(Number(purCartonSize) || 12));
   const purQtyNum = Number(purQuantity) || 0;
@@ -1218,13 +1672,60 @@ export default function App() {
       (saleDraftBottles > 0 && saleDraftBottles > saleLocAvailableBottles)
     );
 
-  const activePurSupplier = useMemo(() => {
-    if (purSupplierId) return suppliers.find(s => s.id === Number(purSupplierId)) || null;
-    if (purSupplierName.trim()) {
-      return suppliers.find(s => s.name.toLowerCase() === purSupplierName.trim().toLowerCase()) || null;
+  const purSupplierIdentityCheck = useMemo(() => {
+    if (purSupplierId > 0) {
+      const exact = suppliers.find(s => s.id === Number(purSupplierId)) || null;
+      return { verifiedSupplier: exact, possibleMatches: [] as Supplier[] };
     }
-    return null;
-  }, [suppliers, purSupplierId, purSupplierName]);
+    if (purForceNewSupplier) {
+      return { verifiedSupplier: null, possibleMatches: [] as Supplier[] };
+    }
+    const nName = normalizeIdentityText(purSupplierName);
+    const nCnic = normalizeCnic(purSupplierCnic);
+    const nPhone = normalizePhone(purSupplierPhone);
+    const nCity = normalizeIdentityText(purSupplierCity);
+
+    if (!nName && !nCnic && !nPhone) {
+      return { verifiedSupplier: null, possibleMatches: [] as Supplier[] };
+    }
+
+    if (nCnic.length >= 5) {
+      const cnicMatch = suppliers.find(s => normalizeCnic(s.cnic) === nCnic);
+      if (cnicMatch) {
+        return { verifiedSupplier: cnicMatch, possibleMatches: [cnicMatch] };
+      }
+    }
+
+    const candidates = suppliers.filter(s => {
+      const sName = normalizeIdentityText(s.name);
+      const sPhone = normalizePhone(s.phone);
+      const sCnic = normalizeCnic(s.cnic);
+      if (nCnic && sCnic && nCnic === sCnic) return true;
+      if (nPhone.length >= 7 && sPhone === nPhone) return true;
+      if (nName && sName === nName) return true;
+      return false;
+    });
+
+    if (candidates.length === 1) {
+      const cand = candidates[0];
+      const sCnic = normalizeCnic(cand.cnic);
+      const sPhone = normalizePhone(cand.phone);
+      const sCity = normalizeIdentityText(cand.city);
+      const cnicConflict = Boolean(nCnic && sCnic && nCnic !== sCnic);
+      const phoneConflict = Boolean(nPhone && sPhone && nPhone !== sPhone);
+      const cityConflict = Boolean(nCity && nCity !== 'local' && sCity && sCity !== 'local' && nCity !== sCity);
+
+      if (!cnicConflict && !phoneConflict && !cityConflict) {
+        if ((nPhone && sPhone === nPhone) || (nCnic && sCnic === nCnic)) {
+          return { verifiedSupplier: cand, possibleMatches: [cand] };
+        }
+      }
+    }
+
+    return { verifiedSupplier: null, possibleMatches: candidates };
+  }, [suppliers, purSupplierId, purSupplierName, purSupplierPhone, purSupplierCnic, purSupplierCity, purForceNewSupplier]);
+
+  const activePurSupplier = purSupplierIdentityCheck.verifiedSupplier;
 
   const supplierPreviousDues = pkr(activePurSupplier?.current_payable || 0);
 
@@ -1325,32 +1826,35 @@ export default function App() {
   // ==================== LOGIN & LOGOUT ====================
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authBusy) return;
     setLoginError('');
     setSignupSuccessMsg('');
     setAuthBusy(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: loginUser.trim(),
-          password: loginPass,
-          client_snapshot: getSavedSnapshot()
-        })
-      });
-      const data = await res.json();
+      const { res, data } = await resilientFetch(
+        `${API_BASE}/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: loginUser.trim(),
+            password: loginPass
+          })
+        },
+        2
+      );
       if (!res.ok) {
-        throw new Error(data.detail || 'Invalid Gmail / username or password.');
+        throw new Error(data.detail || 'Invalid email/username or password.');
       }
       if (data.snapshot) {
         saveSnapshot(data.snapshot, false);
       }
       const profile: AdminUserRecord = {
         id: data.id || 1,
-        full_name: data.full_name || data.username || 'Admin',
-        email: data.email || 'malikabuzar411@gmail.com',
-        username: data.username || 'Admin',
-        role: data.role || 'SUPER_ADMIN',
+        full_name: data.full_name || data.username || 'Authorized User',
+        email: data.email || '',
+        username: data.username || loginUser.trim(),
+        role: data.role || 'ADMIN',
         approval_status: data.approval_status || 'APPROVED',
         is_super_admin: Boolean(data.is_super_admin)
       };
@@ -1360,7 +1864,7 @@ export default function App() {
       setCurrentAdmin(profile);
       setIsAuthenticated(true);
     } catch (err: any) {
-      setLoginError(err.message || 'Authentication failed.');
+      setLoginError(err.message || 'Authentication failed. Please verify your credentials.');
     } finally {
       setAuthBusy(false);
     }
@@ -1368,23 +1872,26 @@ export default function App() {
 
   const handleAdminSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authBusy) return;
     setLoginError('');
     setSignupSuccessMsg('');
     setAuthBusy(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: signupFullName.trim(),
-          email: signupEmail.trim().toLowerCase(),
-          username: signupUsername.trim() || signupEmail.trim().split('@')[0],
-          password: signupPassword,
-          role: 'ADMIN',
-          client_snapshot: getSavedSnapshot()
-        })
-      });
-      const data = await res.json();
+      const { res, data } = await resilientFetch(
+        `${API_BASE}/auth/signup`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: signupFullName.trim(),
+            email: signupEmail.trim().toLowerCase(),
+            username: signupUsername.trim() || signupEmail.trim().split('@')[0],
+            password: signupPassword,
+            role: 'ADMIN'
+          })
+        },
+        2
+      );
       if (!res.ok) {
         throw new Error(data.detail || 'Registration failed.');
       }
@@ -1397,7 +1904,7 @@ export default function App() {
       setSignupPassword('');
       setAuthTab('LOGIN');
     } catch (err: any) {
-      setLoginError(err.message || 'Signup failed.');
+      setLoginError(err.message || 'Registration failed.');
     } finally {
       setAuthBusy(false);
     }
@@ -1405,9 +1912,9 @@ export default function App() {
 
   const handleAdminApprovalDecision = async (targetAdminId: number, decision: 'APPROVED' | 'NOT_APPROVED') => {
     try {
-      const approverEmail = currentAdmin?.email || 'malikabuzar411@gmail.com';
+      const approverIdent = currentAdmin?.email || currentAdmin?.username || 'Admin';
       const data = await apiSend(`/auth/admins/${targetAdminId}/decision`, 'POST', {
-        approver_email: approverEmail,
+        approver_email: approverIdent,
         decision
       });
       notify(data.message || `Admin status updated to ${decision}`);
@@ -1440,9 +1947,19 @@ export default function App() {
     fetchData();
   };
 
-  // ==================== CREATE SALE & PURCHASE HANDLERS ====================
+  // ==================== CREATE SALE & PURCHASE HANDLERS (WITH IDEMPOTENCY & DOUBLE-SUBMIT LOCKS) ====================
+  const [saleSubmitting, setSaleSubmitting] = useState<boolean>(false);
+  const saleSubmitLockRef = useRef<boolean>(false);
+  const saleIdempotencyKeyRef = useRef<string>(`SALE-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
+  const [purSubmitting, setPurSubmitting] = useState<boolean>(false);
+  const purSubmitLockRef = useRef<boolean>(false);
+  const purIdempotencyKeyRef = useRef<string>(`PUR-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
   const handleCreateSale = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saleSubmitLockRef.current || saleSubmitting) return;
+
     if (!saleCustomerName.trim() && !saleCustomerId) {
       notify('Please type a Customer / Dealership name or select a saved customer.', true);
       return;
@@ -1453,7 +1970,7 @@ export default function App() {
       const locObj = locations.find(l => l.id === Number(saleLocationId));
       finalItems.push({
         product_id: saleProductId || null,
-        product_name: saleProductName.trim(),
+        product_name: saleProductName.trim() || selectedSaleProduct?.name || 'Product',
         company_name: saleCompanyName.trim() || 'ATH Oils',
         mark_product_favorite: saleProdFav,
         location_id: Number(saleLocationId),
@@ -1471,11 +1988,10 @@ export default function App() {
     }
 
     if (finalItems.length === 0) {
-      notify('Please enter a Product, Quantity, and Rate (or add items to the bill).', true);
+      notify('Please enter a Product, Quantity, and Rate (or click "+ Add Item to Bill" first).', true);
       return;
     }
 
-    // Allow customer to pay the current bill and clear previous khata dues simultaneously
     const directBillReceived =
       saleDocType === 'ESTIMATE'
         ? 0
@@ -1486,17 +2002,22 @@ export default function App() {
         : pkr(saleReceived);
 
     const selAcc = accounts.find(a => a.id === Number(saleAccountId));
+    saleSubmitLockRef.current = true;
+    setSaleSubmitting(true);
+
     try {
       const data = await apiSend('/sales', 'POST', {
+        idempotency_key: saleIdempotencyKeyRef.current,
         doc_type: saleDocType,
         customer_id: saleCustomerId || null,
-        customer_name: saleCustomerName.trim(),
-        customer_city: saleCustomerCity.trim() || 'Local',
+        customer_name: saleCustomerName.trim() || activeSaleCustomer?.name || '',
+        customer_city: saleCustomerCity.trim() || activeSaleCustomer?.city || 'Local',
         customer_phone: saleCustomerPhone.trim() || null,
         customer_cnic: saleCustomerCnic.trim() || null,
         customer_group_id: saleCustomerGroupId,
         customer_group: saleCustomerGroup.trim() || 'General Market',
         mark_favorite: saleMarkFav ? true : null,
+        force_create_new_party: saleForceNewCustomer,
         items: finalItems.map(it => ({
           product_id: it.product_id,
           product_name: it.product_name,
@@ -1518,7 +2039,14 @@ export default function App() {
         remarks: saleRemarks
       });
 
+      // Rotate idempotency key ONLY after confirmed success
+      saleIdempotencyKeyRef.current = `SALE-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
       notify(`${saleDocType} ${data.invoice_number} posted successfully!`);
+      if (data.sale) {
+        setSales(prev => (prev.some(x => x.id === data.sale.id) ? prev : [data.sale, ...prev]));
+        setInvoiceModal({ kind: 'SALE', sale: data.sale });
+      }
       setSaleDocType('SALE');
       setSaleCart([]);
       setSaleCustomerId(0);
@@ -1527,6 +2055,7 @@ export default function App() {
       setSaleCustomerPhone('');
       setSaleCustomerCnic('');
       setSaleMarkFav(false);
+      setSaleForceNewCustomer(false);
       setSaleProdFav(false);
       setSaleQuantity('');
       setSaleRate('');
@@ -1536,12 +2065,11 @@ export default function App() {
       setSalePaymentMode('UNPAID');
       setSaleRemarks('');
       await fetchData();
-
-      if (data.sale) {
-        setInvoiceModal({ kind: 'SALE', sale: data.sale });
-      }
     } catch (err: any) {
-      notify(err.message, true);
+      notify(err.message || 'Could not post Sale Invoice. Your entered items are preserved.', true);
+    } finally {
+      saleSubmitLockRef.current = false;
+      setSaleSubmitting(false);
     }
   };
 
@@ -1558,8 +2086,10 @@ export default function App() {
 
   const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (purSubmitLockRef.current || purSubmitting) return;
+
     if (!purSupplierName.trim() && !purSupplierId) {
-      notify('Please type a Supplier / Dealership name or pick from Favorites.', true);
+      notify('Please type a Supplier / Dealership name or pick a saved Supplier.', true);
       return;
     }
 
@@ -1568,7 +2098,7 @@ export default function App() {
       const locObj = locations.find(l => l.id === Number(purLocationId));
       finalItems.push({
         product_id: purProductId || null,
-        product_name: purProductName.trim(),
+        product_name: purProductName.trim() || selectedPurchaseProduct?.name || 'Product',
         company_name: purCompanyName.trim() || 'ATH Oils',
         mark_product_favorite: purProdFav,
         location_id: Number(purLocationId),
@@ -1587,22 +2117,27 @@ export default function App() {
     }
 
     if (finalItems.length === 0) {
-      notify('Please enter a Product, Quantity, and Rate (or add items to the purchase bill).', true);
+      notify('Please enter a Product, Quantity, and Buy Rate (or click "+ Add to Bill" first).', true);
       return;
     }
 
     const selAcc = accounts.find(a => a.id === Number(purAccountId));
+    purSubmitLockRef.current = true;
+    setPurSubmitting(true);
+
     try {
       const data = await apiSend('/purchases', 'POST', {
+        idempotency_key: purIdempotencyKeyRef.current,
         doc_type: purDocType,
         supplier_id: purSupplierId || null,
-        supplier_name: purSupplierName.trim(),
-        supplier_city: purSupplierCity.trim() || 'Local',
+        supplier_name: purSupplierName.trim() || activePurSupplier?.name || '',
+        supplier_city: purSupplierCity.trim() || activePurSupplier?.city || 'Local',
         supplier_phone: purSupplierPhone.trim() || null,
         supplier_cnic: purSupplierCnic.trim() || null,
         supplier_group_id: purSupplierGroupId,
         supplier_group: purSupplierGroup.trim() || 'General Suppliers',
         mark_favorite: purMarkFav ? true : null,
+        force_create_new_party: purForceNewSupplier,
         items: finalItems.map(it => ({
           product_id: it.product_id,
           product_name: it.product_name,
@@ -1626,13 +2161,21 @@ export default function App() {
         remarks: purRemarks
       });
 
+      // Rotate idempotency key ONLY after confirmed success
+      purIdempotencyKeyRef.current = `PUR-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
       notify(`Purchase Bill ${data.purchase_number} recorded!`);
+      if (data.purchase) {
+        setPurchases(prev => (prev.some(x => x.id === data.purchase.id) ? prev : [data.purchase, ...prev]));
+        setInvoiceModal({ kind: 'PURCHASE', purchase: data.purchase });
+      }
       setPurCart([]);
       setPurSupplierId(0);
       setPurSupplierName('');
       setPurSupplierCity('');
       setPurSupplierPhone('');
       setPurSupplierCnic('');
+      setPurForceNewSupplier(false);
       setPurQuantity('');
       setPurRate('');
       setPurNewSaleRatePerBottle('');
@@ -1644,12 +2187,11 @@ export default function App() {
       setPurLenderName('');
       setPurRemarks('');
       await fetchData();
-
-      if (data.purchase) {
-        setInvoiceModal({ kind: 'PURCHASE', purchase: data.purchase });
-      }
     } catch (err: any) {
-      notify(err.message, true);
+      notify(err.message || 'Could not save Purchase Bill. Your entered items are preserved.', true);
+    } finally {
+      purSubmitLockRef.current = false;
+      setPurSubmitting(false);
     }
   };
 
@@ -1901,27 +2443,76 @@ export default function App() {
     return map;
   };
 
-  const openCustomerAllocationModal = async (customerId: number, initialPaymentAmt?: number) => {
+  const openCustomerAllocationModal = async (
+    customerId: number,
+    initialPaymentAmt?: number,
+    preselectedSaleIds?: number[]
+  ) => {
     try {
       setAllocationError('');
       setAllocationConfirming(false);
-      const res = await fetch(`${API_BASE}/customers/${customerId}/outstanding-ledger`);
+      const { res, data: ledger } = await resilientFetch(
+        `${API_BASE}/customers/${customerId}/outstanding-ledger`,
+        { method: 'GET' },
+        2
+      );
       if (!res.ok) throw new Error('Could not load customer outstanding ledger');
-      const ledger: CustomerOutstandingLedger = await res.json();
       setAllocationLedgerModal(ledger);
-      const defaultPay = initialPaymentAmt && initialPaymentAmt > 0 ? pkr(initialPaymentAmt) : 0;
+      const allBillIds = (ledger.outstanding_bills || []).map((b: any) => b.sale_id);
+      const activeIds =
+        preselectedSaleIds && preselectedSaleIds.length > 0 ? preselectedSaleIds : allBillIds;
+      setAllocationSelectedSaleIds(activeIds);
+
+      const targetBills = (ledger.outstanding_bills || []).filter((b: any) =>
+        activeIds.includes(b.sale_id)
+      );
+      const selectedSum = targetBills.reduce((s: number, b: any) => s + pkr(b.remaining_balance), 0);
+      const defaultPay =
+        initialPaymentAmt !== undefined && initialPaymentAmt > 0
+          ? pkr(initialPaymentAmt)
+          : preselectedSaleIds && preselectedSaleIds.length > 0
+          ? selectedSum
+          : pkr(ledger.total_bills_outstanding);
+
       setAllocationPaymentInput(defaultPay > 0 ? String(defaultPay) : '');
       setAllocationPolicy('OLDEST_FIRST');
       setAllocationExcessAction('NONE');
       setAllocationRemarks('');
       setAllocationIdempotencyKey(`PAY-${customerId}-${Date.now()}`);
-      setAllocationDraftMap(
-        computeDefaultDraftAllocations(ledger.outstanding_bills, defaultPay, 'OLDEST_FIRST')
-      );
+
+      const draft = computeDefaultDraftAllocations(targetBills, defaultPay, 'OLDEST_FIRST');
+      const fullMap: Record<number, number> = {};
+      for (const b of ledger.outstanding_bills || []) {
+        fullMap[b.sale_id] = draft[b.sale_id] || 0;
+      }
+      setAllocationDraftMap(fullMap);
     } catch (err: any) {
       notify(err.message || 'Failed to load customer ledger', true);
     }
   };
+
+  const toggleCustomerBillSelectionInModal = (saleId: number) => {
+    if (!allocationLedgerModal) return;
+    const nextIds = allocationSelectedSaleIds.includes(saleId)
+      ? allocationSelectedSaleIds.filter(id => id !== saleId)
+      : [...allocationSelectedSaleIds, saleId];
+    setAllocationSelectedSaleIds(nextIds);
+    const activeBills = allocationLedgerModal.outstanding_bills.filter(b =>
+      nextIds.includes(b.sale_id)
+    );
+    const selectedTotal = activeBills.reduce((sum, b) => sum + pkr(b.remaining_balance), 0);
+    setAllocationPaymentInput(selectedTotal > 0 ? String(selectedTotal) : '');
+    const subDraft = computeDefaultDraftAllocations(activeBills, selectedTotal, allocationPolicy);
+    const nextMap: Record<number, number> = {};
+    for (const b of allocationLedgerModal.outstanding_bills) {
+      nextMap[b.sale_id] = subDraft[b.sale_id] || 0;
+    }
+    setAllocationDraftMap(nextMap);
+    setAllocationConfirming(false);
+    setAllocationError('');
+  };
+
+  
 
   const handlePaymentInputOrPolicyChange = (
     rawAmount: string,
@@ -2135,6 +2726,54 @@ export default function App() {
     }
   };
 
+  // ==================== RESOLVE AUTHENTICATED CREATOR SIGNATURE ====================
+  const resolveInvoiceAuthorizerSignature = (doc: any): { signatureText: string; fullName: string; roleLabel: string } => {
+    const rawSaved = String(doc?.admin_name || '').trim();
+    const cleanedSaved = rawSaved.replace(/\s*\(Super Admin\)\s*/gi, '').trim();
+    const matchedAdmin = adminsList.find(
+      a =>
+        (doc?.admin_id && a.id === doc.admin_id) ||
+        (cleanedSaved &&
+          (a.full_name.toLowerCase() === cleanedSaved.toLowerCase() ||
+            a.username.toLowerCase() === cleanedSaved.toLowerCase()))
+    );
+
+    if (matchedAdmin) {
+      const cleanFull = matchedAdmin.full_name.replace(/\s*\(Super Admin\)\s*/gi, '').trim();
+      const sig =
+        matchedAdmin.username && matchedAdmin.username.toLowerCase() !== 'admin'
+          ? matchedAdmin.username
+          : cleanFull;
+      return {
+        signatureText: sig,
+        fullName: cleanFull,
+        roleLabel: `${matchedAdmin.username} • ${matchedAdmin.role}`
+      };
+    }
+
+    if (cleanedSaved && cleanedSaved.toLowerCase() !== 'admin') {
+      return {
+        signatureText: cleanedSaved,
+        fullName: cleanedSaved,
+        roleLabel: currentAdmin?.username || 'Authorized Partner'
+      };
+    }
+
+    const fallbackFull = (currentAdmin?.full_name || currentAdmin?.username || 'Malik Abuzar')
+      .replace(/\s*\(Super Admin\)\s*/gi, '')
+      .trim();
+    const fallbackSig =
+      currentAdmin?.username && currentAdmin.username.toLowerCase() !== 'admin'
+        ? currentAdmin.username
+        : fallbackFull;
+
+    return {
+      signatureText: fallbackSig,
+      fullName: fallbackFull,
+      roleLabel: `${currentAdmin?.username || fallbackSig} • ${currentAdmin?.role || 'SUPER_ADMIN'}`
+    };
+  };
+
   // ==================== NATIVE HIGH-RES INVOICE PNG & PDF/PRINT GENERATOR ====================
   const downloadOrShareInvoiceImage = async (mode: 'DOWNLOAD' | 'SHARE') => {
     if (!invoiceModal) return;
@@ -2144,25 +2783,37 @@ export default function App() {
 
     const items = (doc.items || []) as any[];
     const canvas = document.createElement('canvas');
-    const width = 920;
-    const rowHeight = 46;
-    const height = Math.max(760, 480 + items.length * rowHeight);
+    const width = 940;
+    const rowHeight = 48;
+    const height = Math.max(920, 620 + items.length * rowHeight);
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // White Background
+    // 1. Crisp White Paper Background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, width, height);
 
-    // Top ATH Slate-Gray & Crimson Header Banner
-    ctx.fillStyle = '#1E232D';
-    ctx.fillRect(0, 0, width, 125);
-    ctx.fillStyle = '#E11D48';
-    ctx.fillRect(0, 125, width, 6);
+    // Top ATH Brand Accent Bar (Petrol Teal #005B66 + Coral Orange #FF6B3D)
+    ctx.fillStyle = '#005B66';
+    ctx.fillRect(0, 0, width, 10);
+    ctx.fillStyle = '#FF6B3D';
+    ctx.fillRect(width * 0.62, 0, width * 0.38, 10);
 
-    // Load /logo.png if available
+    // 2. Bold "INVOICE" Heading & Awan Trade Hub / ATH Lubricants Identity
+    ctx.fillStyle = '#00262B';
+    ctx.font = '900 46px Inter, Arial, sans-serif';
+    ctx.fillText('INVOICE', 48, 78);
+
+    ctx.fillStyle = '#005B66';
+    ctx.font = 'bold 15px Inter, Arial, sans-serif';
+    ctx.fillText('ATH LUBRICANTS — AWAN TRADE HUB', 48, 106);
+    ctx.fillStyle = '#475569';
+    ctx.font = '12px Inter, Arial, sans-serif';
+    ctx.fillText('Gold 4T Series • Smoother Ride | Better Protection | Longer Life', 48, 125);
+
+    // Load /logo.png on Top Right if available
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -2172,148 +2823,253 @@ export default function App() {
         img.src = '/logo.png';
       });
       if (img.width > 0) {
-        ctx.drawImage(img, 36, 22, 82, 82);
+        ctx.drawImage(img, width - 155, 32, 105, 76);
       }
     } catch {
       // Fallback if logo not loaded
     }
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 28px Inter, sans-serif';
-    ctx.fillText('ATH LUBRICANTS', 135, 58);
-    ctx.fillStyle = '#FACC15';
-    ctx.font = 'bold 14px Inter, sans-serif';
-    ctx.fillText('PRECISION MOTOR OIL DISTRIBUTION & TRADE INVOICE', 135, 84);
-    ctx.fillStyle = '#CBD5E1';
-    ctx.font = '12px Inter, sans-serif';
-    ctx.fillText('Official Computerized Tax / Trade Bill (PKR)', 135, 104);
-
     const refNo = isSale ? (doc as SaleRecord).invoice_number : (doc as PurchaseRecord).purchase_number;
     const docType = (doc as any).doc_type || (isSale ? 'SALE' : 'PURCHASE');
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#FACC15';
-    ctx.font = 'bold 20px monospace';
-    ctx.fillText(refNo, width - 36, 56);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '13px monospace';
-    ctx.fillText(`Date: ${doc.invoice_date}`, width - 36, 82);
-    ctx.fillStyle = '#10B981';
-    ctx.font = 'bold 13px Inter, sans-serif';
-    ctx.fillText(`${docType} • ${doc.payment_status}`, width - 36, 104);
-    ctx.textAlign = 'left';
-
-    // Party Info Box
-    ctx.fillStyle = '#F8FAFC';
-    ctx.fillRect(36, 150, width - 72, 85);
-    ctx.strokeStyle = '#CBD5E1';
-    ctx.strokeRect(36, 150, width - 72, 85);
-
     const partyName = isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name;
     const partyCity = isSale ? (doc as SaleRecord).customer_city : (doc as PurchaseRecord).supplier_city;
     const partyPhone = isSale ? (doc as SaleRecord).customer_phone : (doc as PurchaseRecord).supplier_phone;
     const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
     const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
+    const locSummary = (doc as any).location_summary || (isSale ? 'Shop Display' : 'Main Warehouse');
 
-    ctx.fillStyle = '#64748B';
-    ctx.font = 'bold 11px Inter, sans-serif';
-    ctx.fillText(isSale ? 'BILLED TO CUSTOMER / DEALERSHIP:' : 'SUPPLIER / VENDOR:', 52, 172);
+    // 3. 3-Column Meta Section: BILL TO | DISPATCH LOCATION | INVOICE DETAILS
+    const metaY = 165;
+    ctx.fillStyle = '#00262B';
+    ctx.font = 'bold 13px Inter, Arial, sans-serif';
+    ctx.fillText(isSale ? 'BILL TO' : 'SUPPLIER / VENDOR', 48, metaY);
+    ctx.fillText(isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING GODOWN', 330, metaY);
+
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 18px Inter, sans-serif';
-    ctx.fillText(`${partyName} (${partyCity || 'Local'})`, 52, 198);
+    ctx.font = 'bold 16px Inter, Arial, sans-serif';
+    ctx.fillText(partyName || ' Valued Partner', 48, metaY + 24);
     ctx.fillStyle = '#334155';
-    ctx.font = '13px Inter, sans-serif';
-    ctx.fillText(
-      `Phone: ${partyPhone || 'N/A'}   |   CNIC: ${partyCnic || 'N/A'}   |   Group: ${partyGroup || 'General'}`,
-      52,
-      220
-    );
+    ctx.font = '12px Inter, Arial, sans-serif';
+    ctx.fillText(`City / Route: ${partyCity || 'Local'} (${partyGroup || 'General'})`, 48, metaY + 44);
+    ctx.fillText(`Phone: ${partyPhone || 'N/A'}`, 48, metaY + 62);
+    ctx.fillText(`CNIC: ${partyCnic || 'N/A'}`, 48, metaY + 80);
 
-    // Table Header
-    let y = 260;
-    ctx.fillStyle = '#1E232D';
-    ctx.fillRect(36, y, width - 72, 36);
-    ctx.fillStyle = '#FACC15';
-    ctx.font = 'bold 12px Inter, sans-serif';
-    ctx.fillText('#', 50, y + 23);
-    ctx.fillText('PRODUCT & SIZE', 85, y + 23);
-    ctx.fillText('QTY & CARTON BREAKDOWN', 370, y + 23);
-    ctx.fillText('RATE (PKR)', 640, y + 23);
+    ctx.fillStyle = '#0F172A';
+    ctx.font = 'bold 14px Inter, Arial, sans-serif';
+    ctx.fillText(locSummary, 330, metaY + 24);
+    ctx.fillStyle = '#334155';
+    ctx.font = '12px Inter, Arial, sans-serif';
+    ctx.fillText(`Channel: ${doc.payment_method || 'CASH'}`, 330, metaY + 44);
+    ctx.fillText(`Document: ${docType}`, 330, metaY + 62);
+    ctx.fillText(`Remarks: ${doc.remarks || 'Standard Trade Bill'}`, 330, metaY + 80);
+
+    // Right Column Meta Labels & Values
+    const drawMetaRight = (lbl: string, val: string, rY: number, highlight = false) => {
+      ctx.fillStyle = '#00262B';
+      ctx.font = 'bold 12px Inter, Arial, sans-serif';
+      ctx.fillText(lbl, 610, rY);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = highlight ? '#FF6B3D' : '#0F172A';
+      ctx.font = highlight ? 'bold 14px monospace' : 'bold 12px monospace';
+      ctx.fillText(val, width - 48, rY);
+      ctx.textAlign = 'left';
+    };
+    drawMetaRight('INVOICE #', refNo, metaY, true);
+    drawMetaRight('INVOICE DATE', formatRecordDateTimePkt(doc.invoice_date), metaY + 24);
+    drawMetaRight('PAYMENT STATUS', doc.payment_status, metaY + 48);
+    drawMetaRight('CURRENCY', 'PKR (Whole Rupees)', metaY + 72);
+
+    // 4. Star Divider & Coral-Orange Bordered Table Header
+    let y = 272;
+    ctx.fillStyle = '#005B66';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('★  '.repeat(43).trim(), 48, y);
+
+    y += 12;
+    ctx.strokeStyle = '#FF6B3D';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(48, y);
+    ctx.lineTo(width - 48, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#00262B';
+    ctx.font = 'bold 12px Inter, Arial, sans-serif';
+    ctx.fillText('QTY', 58, y + 24);
+    ctx.fillText('DESCRIPTION & PACK SIZE', 165, y + 24);
     ctx.textAlign = 'right';
-    ctx.fillText('TOTAL (PKR)', width - 50, y + 23);
+    ctx.fillText('UNIT PRICE (PKR)', 715, y + 24);
+    ctx.fillText('AMOUNT (PKR)', width - 58, y + 24);
     ctx.textAlign = 'left';
 
     y += 36;
+    ctx.strokeStyle = '#FF6B3D';
+    ctx.beginPath();
+    ctx.moveTo(48, y);
+    ctx.lineTo(width - 48, y);
+    ctx.stroke();
+
+    // 5. Line Items Rows
     items.forEach((it, idx) => {
-      ctx.fillStyle = idx % 2 === 0 ? '#FFFFFF' : '#F1F5F9';
-      ctx.fillRect(36, y, width - 72, rowHeight);
-      ctx.strokeStyle = '#E2E8F0';
-      ctx.strokeRect(36, y, width - 72, rowHeight);
-
+      if (idx % 2 === 1) {
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fillRect(48, y, width - 96, rowHeight);
+      }
       ctx.fillStyle = '#0F172A';
-      ctx.font = 'bold 13px Inter, sans-serif';
-      ctx.fillText(String(idx + 1), 50, y + 28);
-      ctx.fillText(`${it.product_name} (${it.pack_size || '700 ML'})`, 85, y + 22);
-      ctx.fillStyle = '#64748B';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.fillText(`${it.company_name || 'ATH Oils'} • ${it.location_name || ''}`, 85, y + 38);
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText(`${it.quantity} ${it.unit_type}`, 58, y + 28);
 
-      ctx.fillStyle = '#0F172A';
-      ctx.font = 'bold 12px monospace';
+      ctx.font = 'bold 13px Inter, Arial, sans-serif';
+      ctx.fillText(`${it.product_name} (${it.pack_size || '700 ML'})`, 165, y + 21);
+      ctx.fillStyle = '#475569';
+      ctx.font = '11px Inter, Arial, sans-serif';
       ctx.fillText(
-        `${it.quantity} ${it.unit_type} (${it.base_quantity} Btls = ${it.cartons} Ctn + ${it.loose_bottles} Btl)`,
-        370,
-        y + 28
+        `${it.company_name || 'ATH Oils'} • ${it.base_quantity} Btls (${it.cartons} Ctn + ${it.loose_bottles} Btl) • ${it.location_name || ''}`,
+        165,
+        y + 39
       );
-      ctx.fillText(`PKR ${pkr(it.unit_rate).toLocaleString()}`, 640, y + 28);
 
       ctx.textAlign = 'right';
+      ctx.fillStyle = '#0F172A';
+      ctx.font = '13px monospace';
+      ctx.fillText(pkr(it.unit_rate).toLocaleString(), 715, y + 28);
       ctx.font = 'bold 14px monospace';
-      ctx.fillText(`PKR ${pkr(it.line_total).toLocaleString()}`, width - 50, y + 28);
+      ctx.fillText(`PKR ${pkr(it.line_total).toLocaleString()}`, width - 58, y + 28);
       ctx.textAlign = 'left';
+
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(48, y + rowHeight);
+      ctx.lineTo(width - 48, y + rowHeight);
+      ctx.stroke();
       y += rowHeight;
     });
 
-    // Totals & Previous Dues Summary Box
-    y += 20;
-    ctx.fillStyle = '#F8FAFC';
-    ctx.fillRect(width - 420, y, 384, 175);
-    ctx.strokeStyle = '#94A3B8';
-    ctx.strokeRect(width - 420, y, 384, 175);
+    // 6. Totals & Khata Summary (Right-Aligned)
+    y += 24;
+    const sDoc = doc as SaleRecord;
+    const pDoc = doc as PurchaseRecord;
+    const curTotal = pkr(doc.total_amount);
+    const prevDues = isSale ? pkr(sDoc.previous_dues) : pkr(pDoc.previous_dues);
+    const grandPay = pkr(curTotal + prevDues);
+    const appliedPrev = isSale ? pkr(sDoc.applied_to_previous) : pkr(pDoc.applied_to_previous);
+    const rawPaid = isSale ? pkr(sDoc.received_amount) : pkr(pDoc.paid_amount);
+    const billPortion = rawPaid > curTotal ? curTotal : rawPaid;
+    const totalRecToday = pkr(billPortion + appliedPrev);
+    const closeBal = isSale
+      ? pkr(sDoc.closing_receivable ?? Math.max(0, grandPay - totalRecToday))
+      : pkr(pDoc.closing_payable ?? Math.max(0, grandPay - totalRecToday));
 
-    const drawSumRow = (label: string, val: string, rowY: number, color = '#0F172A', bold = false) => {
-      ctx.fillStyle = '#475569';
-      ctx.font = bold ? 'bold 14px Inter, sans-serif' : '13px Inter, sans-serif';
-      ctx.fillText(label, width - 404, rowY);
+    const drawTotalRow = (label: string, val: string, rY: number, color = '#0F172A', isBold = false, isLarge = false) => {
       ctx.textAlign = 'right';
+      ctx.fillStyle = isBold ? '#00262B' : '#475569';
+      ctx.font = isLarge ? '900 16px Inter, Arial, sans-serif' : isBold ? 'bold 13px Inter, Arial, sans-serif' : '13px Inter, Arial, sans-serif';
+      ctx.fillText(label, 715, rY);
       ctx.fillStyle = color;
-      ctx.font = bold ? 'bold 15px monospace' : 'bold 13px monospace';
-      ctx.fillText(val, width - 52, rowY);
+      ctx.font = isLarge ? '900 18px monospace' : isBold ? 'bold 14px monospace' : '13px monospace';
+      ctx.fillText(val, width - 58, rY);
       ctx.textAlign = 'left';
     };
 
-    drawSumRow('Current Bill Total:', `PKR ${pkr(doc.total_amount).toLocaleString()}`, y + 28, '#0F172A', true);
-    if (isSale) {
-      const sDoc = doc as SaleRecord;
-      const prevDues = pkr(sDoc.previous_dues);
-      const grandPay = pkr(sDoc.grand_payable || sDoc.total_amount + prevDues);
-      const totalRecToday = pkr(sDoc.received_amount + (sDoc.applied_to_previous || 0));
-      const closeRec = pkr(sDoc.closing_receivable ?? sDoc.receivable_amount);
+    drawTotalRow('Current Bill Total', `PKR ${curTotal.toLocaleString()}`, y, '#0F172A', true);
+    drawTotalRow('+ Previous Khata Balance', `PKR ${prevDues.toLocaleString()}`, y + 26, '#D97706');
+    drawTotalRow('= Total Payable Amount', `PKR ${grandPay.toLocaleString()}`, y + 52, '#00262B', true);
+    drawTotalRow(`- ${isSale ? 'Received' : 'Paid'} Today (${doc.payment_method})`, `PKR ${totalRecToday.toLocaleString()}`, y + 78, '#059669', true);
+    drawTotalRow(
+      isSale ? 'NET CLOSING KHATA BALANCE' : 'NET CLOSING SUPPLIER PAYABLE',
+      `PKR ${closeBal.toLocaleString()}`,
+      y + 110,
+      '#FF6B3D',
+      true,
+      true
+    );
 
-      drawSumRow('+ Previous Balance (Old Khata):', `PKR ${prevDues.toLocaleString()}`, y + 56, '#D97706');
-      drawSumRow('= Total Payable Amount:', `PKR ${grandPay.toLocaleString()}`, y + 84, '#0F172A', true);
-      drawSumRow(`- Received Today (${sDoc.payment_method}):`, `PKR ${totalRecToday.toLocaleString()}`, y + 114, '#059669', true);
-      drawSumRow('Net Closing Khata Balance:', `PKR ${closeRec.toLocaleString()}`, y + 148, '#E11D48', true);
-    } else {
-      const pDoc = doc as PurchaseRecord;
-      drawSumRow(`Paid Amount (${pDoc.payment_method}):`, `PKR ${pkr(pDoc.paid_amount).toLocaleString()}`, y + 64, '#059669', true);
-      drawSumRow('Remaining Payable Balance:', `PKR ${pkr(pDoc.payable_amount).toLocaleString()}`, y + 104, '#E11D48', true);
-    }
+    // 7. ATH "Fractured Current" Flowing Stripes & Dynamic Droplets Across Lower Section (Petrol Teal #005B66 & Coral Orange #FF6B3D)
+    const waveBaseY = y + 170;
+    ctx.save();
+    const drawFlowingStripe = (yOffset: number, color: string, lineW: number, dash: number[] = []) => {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineW;
+      ctx.lineCap = 'round';
+      ctx.setLineDash(dash);
+      ctx.moveTo(30, waveBaseY + yOffset + 45);
+      ctx.bezierCurveTo(
+        width * 0.32,
+        waveBaseY + yOffset - 55,
+        width * 0.65,
+        waveBaseY + yOffset - 35,
+        width - 30,
+        waveBaseY + yOffset + 25
+      );
+      ctx.stroke();
+    };
+    drawFlowingStripe(0, 'rgba(0, 91, 102, 0.16)', 22);
+    drawFlowingStripe(18, 'rgba(255, 107, 61, 0.25)', 10);
+    drawFlowingStripe(34, 'rgba(0, 91, 102, 0.22)', 6, [18, 14]);
+    drawFlowingStripe(50, 'rgba(255, 107, 61, 0.18)', 14);
+    ctx.setLineDash([]);
 
+    // Dynamic ATH Oil Droplets along the Fractured Current
+    const droplets = [
+      { cx: 180, cy: waveBaseY + 12, r: 6, col: '#FF6B3D' },
+      { cx: 310, cy: waveBaseY - 8, r: 4.5, col: '#005B66' },
+      { cx: 460, cy: waveBaseY + 4, r: 7, col: '#FF6B3D' },
+      { cx: 590, cy: waveBaseY - 6, r: 5, col: '#005B66' },
+      { cx: 760, cy: waveBaseY + 15, r: 6, col: '#FF6B3D' }
+    ];
+    droplets.forEach(d => {
+      ctx.beginPath();
+      ctx.fillStyle = d.col;
+      ctx.arc(d.cx, d.cy, d.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+
+    // 8. Authenticated User Signature (Handwritten Script Style)
+    const sigInfo = resolveInvoiceAuthorizerSignature(doc);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#00262B';
+    ctx.font = 'italic bold 32px "Segoe Script", "Brush Script MT", "Lucida Handwriting", Georgia, cursive';
+    ctx.fillText(sigInfo.signatureText, width - 195, waveBaseY - 4);
+
+    ctx.strokeStyle = '#005B66';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(width - 315, waveBaseY + 10);
+    ctx.lineTo(width - 75, waveBaseY + 10);
+    ctx.stroke();
+
+    ctx.fillStyle = '#005B66';
+    ctx.font = 'bold 11px Inter, Arial, sans-serif';
+    ctx.fillText(`AUTHORIZED SIGNATURE — ${sigInfo.fullName.toUpperCase()}`, width - 195, waveBaseY + 28);
     ctx.fillStyle = '#64748B';
-    ctx.font = '12px Inter, sans-serif';
-    ctx.fillText('Thank you for doing business with ATH Lubricants!', 36, y + 40);
-    ctx.fillText(`Remarks: ${doc.remarks || 'None'}`, 36, y + 65);
+    ctx.font = '10px monospace';
+    ctx.fillText(`Verified By: ${sigInfo.roleLabel}`, width - 195, waveBaseY + 43);
+    ctx.restore();
+
+    // 9. Bottom Footer: Script "Thank you" | TERMS & CONDITIONS
+    const footerY = height - 55;
+    ctx.fillStyle = '#00262B';
+    ctx.font = 'italic bold 36px Georgia, "Times New Roman", serif';
+    ctx.fillText('Thank you', 160, footerY + 10);
+
+    ctx.strokeStyle = '#005B66';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(395, footerY - 26);
+    ctx.lineTo(395, footerY + 24);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FF6B3D';
+    ctx.font = 'bold 12px Inter, Arial, sans-serif';
+    ctx.fillText('TERMS & CONDITIONS', 415, footerY - 10);
+    ctx.fillStyle = '#334155';
+    ctx.font = '11px Inter, Arial, sans-serif';
+    ctx.fillText('100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life', 415, footerY + 8);
+    ctx.fillText('Please quote Invoice # on all payments to ATH Lubricants (Awan Trade Hub).', 415, footerY + 24);
 
     canvas.toBlob(async blob => {
       if (!blob) return;
@@ -2341,7 +3097,7 @@ export default function App() {
     }, 'image/png');
   };
 
-  // ==================== PRINT / SAVE PDF FOR SINGLE INVOICE OR ALL CUSTOMER INVOICES ====================
+  // ==================== PRINT / SAVE PDF FOR SINGLE INVOICE (WHITE ATH FRACTURED CURRENT THEME) ====================
   const printSingleInvoicePdf = (thermal = false) => {
     if (!invoiceModal) return;
     const isSale = invoiceModal.kind === 'SALE';
@@ -2349,97 +3105,154 @@ export default function App() {
     if (!doc) return;
 
     const refNo = isSale ? (doc as SaleRecord).invoice_number : (doc as PurchaseRecord).purchase_number;
+    const docType = (doc as any).doc_type || (isSale ? 'SALE' : 'PURCHASE');
     const partyName = isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name;
     const partyCity = isSale ? (doc as SaleRecord).customer_city : (doc as PurchaseRecord).supplier_city;
     const partyPhone = isSale ? (doc as SaleRecord).customer_phone : (doc as PurchaseRecord).supplier_phone;
     const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
+    const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
+    const locSummary = (doc as any).location_summary || (isSale ? 'Shop Display' : 'Main Warehouse');
     const items = (doc.items || []) as any[];
+    const sigInfo = resolveInvoiceAuthorizerSignature(doc);
 
-    const win = window.open('', '_blank', 'width=900,height=750');
+    const win = window.open('', '_blank', 'width=940,height=820');
     if (!win) return;
 
     const rowsHtml = items
       .map(
         (it, idx) => `
-        <tr>
-          <td>${idx + 1}</td>
-          <td><strong>${it.product_name}</strong> (${it.pack_size || '700 ML'})<br/><small>${it.company_name || 'ATH Oils'}</small></td>
-          <td>${it.quantity} ${it.unit_type}<br/><small>${it.base_quantity} Btls (${it.cartons} Ctn + ${it.loose_bottles} Btl)</small></td>
-          <td style="text-align:right">PKR ${pkr(it.unit_rate).toLocaleString()}</td>
-          <td style="text-align:right"><strong>PKR ${pkr(it.line_total).toLocaleString()}</strong></td>
+        <tr style="background:${idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF'};">
+          <td style="font-family:monospace;font-weight:bold;">${it.quantity} ${it.unit_type}</td>
+          <td>
+            <div style="font-weight:800;color:#00262B;">${idx + 1}. ${it.product_name} (${it.pack_size || '700 ML'})</div>
+            <div style="font-size:11px;color:#475569;">${it.company_name || 'ATH Oils'} • ${it.base_quantity} Btls (${it.cartons} Ctn + ${it.loose_bottles} Btl) • ${it.location_name || ''}</div>
+          </td>
+          <td style="text-align:right;font-family:monospace;">PKR ${pkr(it.unit_rate).toLocaleString()}</td>
+          <td style="text-align:right;font-family:monospace;font-weight:800;color:#00262B;">PKR ${pkr(it.line_total).toLocaleString()}</td>
         </tr>`
       )
       .join('');
 
     const sDoc = doc as SaleRecord;
-    const prevDues = isSale ? pkr(sDoc.previous_dues) : 0;
-    const grandPay = isSale ? pkr(sDoc.grand_payable || sDoc.total_amount + prevDues) : pkr(doc.total_amount);
-    const recToday = isSale ? pkr(sDoc.received_amount + (sDoc.applied_to_previous || 0)) : pkr((doc as PurchaseRecord).paid_amount);
-    const closingBal = isSale ? pkr(sDoc.closing_receivable ?? sDoc.receivable_amount) : pkr((doc as PurchaseRecord).payable_amount);
+    const pDoc = doc as PurchaseRecord;
+    const curTotal = pkr(doc.total_amount);
+    const prevDues = isSale ? pkr(sDoc.previous_dues) : pkr(pDoc.previous_dues);
+    const grandPay = pkr(curTotal + prevDues);
+    const appliedPrev = isSale ? pkr(sDoc.applied_to_previous) : pkr(pDoc.applied_to_previous);
+    const rawPaid = isSale ? pkr(sDoc.received_amount) : pkr(pDoc.paid_amount);
+    const billPortion = rawPaid > curTotal ? curTotal : rawPaid;
+    const recToday = pkr(billPortion + appliedPrev);
+    const closingBal = isSale
+      ? pkr(sDoc.closing_receivable ?? Math.max(0, grandPay - recToday))
+      : pkr(pDoc.closing_payable ?? Math.max(0, grandPay - recToday));
 
     win.document.write(`
       <html>
         <head>
           <title>Invoice ${refNo} - ATH Lubricants</title>
           <style>
-            body { font-family: Arial, sans-serif; color: #111; margin: ${thermal ? '8px' : '28px'}; max-width: ${thermal ? '300px' : '840px'}; }
-            .hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #E11D48; padding-bottom: 12px; }
-            .hdr img { height: 64px; object-fit: contain; }
-            table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: ${thermal ? '11px' : '13px'}; }
-            th, td { border: 1px solid #CBD5E1; padding: 8px; text-align: left; }
-            th { background: #1E232D; color: #FACC15; }
-            .sum-box { margin-top: 18px; margin-left: auto; width: ${thermal ? '100%' : '340px'}; border: 1px solid #64748B; padding: 12px; background: #F8FAFC; }
-            .sum-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-            .sum-row.bold { font-weight: bold; font-size: 14px; border-top: 1px solid #CBD5E1; padding-top: 6px; margin-top: 4px; }
+            @page { margin: ${thermal ? '4mm' : '12mm'}; }
+            body { font-family: 'Inter', Arial, sans-serif; background: #FFFFFF; color: #0F172A; margin: 0; padding: ${thermal ? '8px' : '28px'}; max-width: ${thermal ? '300px' : '860px'}; margin-inline: auto; }
+            .top-bar { height: 8px; background: linear-gradient(90deg, #005B66 62%, #FF6B3D 38%); margin-bottom: 20px; border-radius: 4px; }
+            .hdr { display: flex; justify-content: space-between; align-items: flex-start; }
+            .inv-title { font-size: ${thermal ? '26px' : '44px'}; font-weight: 900; color: #00262B; letter-spacing: -1px; margin: 0; line-height: 1; }
+            .meta-grid { display: grid; grid-template-columns: ${thermal ? '1fr' : '1.2fr 1fr 1.1fr'}; gap: 16px; margin-top: 22px; font-size: 12px; }
+            .meta-head { font-weight: 800; color: #00262B; text-transform: uppercase; margin-bottom: 4px; font-size: 12px; }
+            .stars { color: #005B66; font-size: 11px; letter-spacing: 3px; overflow: hidden; white-space: nowrap; margin-top: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: ${thermal ? '11px' : '13px'}; }
+            thead th { border-top: 2px solid #FF6B3D; border-bottom: 2px solid #FF6B3D; padding: 10px 8px; text-align: left; color: #00262B; font-weight: 800; text-transform: uppercase; font-size: 12px; }
+            tbody td { border-bottom: 1px solid #E2E8F0; padding: 10px 8px; vertical-align: top; }
+            .sum-wrap { display: flex; justify-content: flex-end; margin-top: 18px; }
+            .sum-table { width: ${thermal ? '100%' : '380px'}; font-size: 13px; }
+            .sum-row { display: flex; justify-content: space-between; padding: 5px 0; }
+            .sum-row.total { font-weight: 900; font-size: 16px; color: #FF6B3D; border-top: 2px solid #00262B; padding-top: 8px; margin-top: 4px; }
+            .wave-sig-wrap { position: relative; margin-top: 28px; padding-top: 10px; min-height: 120px; }
+            .sig-box { position: relative; z-index: 2; margin-left: auto; width: 260px; text-align: center; }
+            .sig-script { font-family: 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', Georgia, cursive; font-size: 28px; font-weight: bold; font-style: italic; color: #00262B; line-height: 1.1; }
+            .sig-line { border-top: 1.5px solid #005B66; margin-top: 4px; padding-top: 4px; font-size: 11px; font-weight: 800; color: #005B66; text-transform: uppercase; }
+            .ftr { display: flex; align-items: center; gap: 20px; margin-top: 22px; padding-top: 14px; border-top: 1px solid #E2E8F0; }
+            .thank-you { font-family: Georgia, serif; font-size: 32px; font-weight: bold; font-style: italic; color: #00262B; padding-right: 18px; border-right: 2px solid #005B66; }
           </style>
         </head>
         <body>
+          <div class="top-bar"></div>
           <div class="hdr">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <img src="${window.location.origin}/logo.png" onerror="this.style.display='none'" />
-              <div>
-                <h2 style="margin:0;color:#1E232D;">ATH LUBRICANTS</h2>
-                <div style="font-size:12px;color:#475569;">Precision Motor Oil Distribution & Trade Portal</div>
-              </div>
+            <div>
+              <h1 class="inv-title">INVOICE</h1>
+              <div style="font-weight:800;color:#005B66;margin-top:6px;font-size:14px;">ATH LUBRICANTS — AWAN TRADE HUB</div>
+              <div style="font-size:11px;color:#475569;">Gold 4T Series • Smoother Ride | Better Protection | Longer Life</div>
             </div>
-            <div style="text-align:right;">
-              <h3 style="margin:0;color:#E11D48;">${refNo}</h3>
-              <div style="font-size:12px;">Date: ${doc.invoice_date}</div>
-              <div style="font-size:12px;font-weight:bold;">Status: ${doc.payment_status}</div>
+            <img src="${window.location.origin}/logo.png" onerror="this.style.display='none'" style="height:64px;object-fit:contain;" />
+          </div>
+
+          <div class="meta-grid">
+            <div>
+              <div class="meta-head">${isSale ? 'BILL TO' : 'SUPPLIER / VENDOR'}</div>
+              <div style="font-weight:800;font-size:15px;color:#0F172A;">${partyName}</div>
+              <div>City / Route: <strong>${partyCity || 'Local'}</strong> (${partyGroup || 'General'})</div>
+              <div>Phone: ${partyPhone || 'N/A'}</div>
+              <div>CNIC: ${partyCnic || 'N/A'}</div>
+            </div>
+            <div>
+              <div class="meta-head">${isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING GODOWN'}</div>
+              <div style="font-weight:800;font-size:14px;color:#0F172A;">${locSummary}</div>
+              <div>Payment Channel: <strong>${doc.payment_method}</strong></div>
+              <div>Document Type: <strong>${docType}</strong></div>
+              <div>Remarks: ${doc.remarks || 'Standard Trade Bill'}</div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#00262B;">INVOICE #</strong><span style="font-family:monospace;font-weight:800;color:#FF6B3D;">${refNo}</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#00262B;">INVOICE DATE</strong><span style="font-family:monospace;">${formatRecordDateTimePkt(doc.invoice_date)}</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#00262B;">STATUS</strong><span style="font-weight:800;color:#059669;">${doc.payment_status}</span></div>
             </div>
           </div>
-          <div style="margin-top:14px;padding:10px;background:#F1F5F9;border:1px solid #CBD5E1;font-size:13px;">
-            <strong>Party:</strong> ${partyName} (${partyCity || 'Local'}) &nbsp;|&nbsp;
-            <strong>Phone:</strong> ${partyPhone || 'N/A'} &nbsp;|&nbsp;
-            <strong>CNIC:</strong> ${partyCnic || 'N/A'}
-          </div>
+
+          <div class="stars">★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★</div>
           <table>
             <thead>
               <tr>
-                <th>#</th>
-                <th>Product</th>
-                <th>Qty & Cartons</th>
-                <th style="text-align:right">Rate</th>
-                <th style="text-align:right">Total</th>
+                <th>QTY</th>
+                <th>DESCRIPTION & PACK SIZE</th>
+                <th style="text-align:right">UNIT PRICE</th>
+                <th style="text-align:right">AMOUNT</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
           </table>
-          <div class="sum-box">
-            <div class="sum-row bold"><span>Current Bill Total:</span><span>PKR ${pkr(doc.total_amount).toLocaleString()}</span></div>
-            ${
-              isSale
-                ? `
-              <div class="sum-row"><span>+ Previous Dues (Old Khata):</span><span>PKR ${prevDues.toLocaleString()}</span></div>
-              <div class="sum-row bold"><span>= Total Payable:</span><span>PKR ${grandPay.toLocaleString()}</span></div>
-              <div class="sum-row" style="color:#059669;font-weight:bold;"><span>- Received Today (${doc.payment_method}):</span><span>PKR ${recToday.toLocaleString()}</span></div>
-              <div class="sum-row bold" style="color:#E11D48;"><span>Net Closing Khata Balance:</span><span>PKR ${closingBal.toLocaleString()}</span></div>
-            `
-                : `
-              <div class="sum-row" style="color:#059669;font-weight:bold;"><span>Paid (${doc.payment_method}):</span><span>PKR ${recToday.toLocaleString()}</span></div>
-              <div class="sum-row bold" style="color:#E11D48;"><span>Remaining Payable:</span><span>PKR ${closingBal.toLocaleString()}</span></div>
-            `
-            }
+
+          <div class="sum-wrap">
+            <div class="sum-table">
+              <div class="sum-row"><span>Current Bill Total:</span><strong style="font-family:monospace;">PKR ${curTotal.toLocaleString()}</strong></div>
+              <div class="sum-row" style="color:#D97706;"><span>+ Previous Balance (Old Khata):</span><strong style="font-family:monospace;">PKR ${prevDues.toLocaleString()}</strong></div>
+              <div class="sum-row" style="font-weight:800;border-top:1px solid #CBD5E1;padding-top:4px;"><span>= Total Payable Amount:</span><span style="font-family:monospace;">PKR ${grandPay.toLocaleString()}</span></div>
+              <div class="sum-row" style="color:#059669;font-weight:800;"><span>- ${isSale ? 'Received' : 'Paid'} Today (${doc.payment_method}):</span><span style="font-family:monospace;">PKR ${recToday.toLocaleString()}</span></div>
+              <div class="sum-row total"><span>${isSale ? 'Net Closing Khata:' : 'Net Closing Payable:'}</span><span style="font-family:monospace;">PKR ${closingBal.toLocaleString()}</span></div>
+            </div>
+          </div>
+
+          <div class="wave-sig-wrap">
+            <svg viewBox="0 0 800 120" style="position:absolute;inset:0;width:100%;height:120px;z-index:1;pointer-events:none;" preserveAspectRatio="none">
+              <path d="M 10 95 C 240 15, 520 20, 790 75" stroke="#005B66" stroke-opacity="0.16" stroke-width="18" fill="none" stroke-linecap="round" />
+              <path d="M 10 108 C 260 32, 540 35, 790 88" stroke="#FF6B3D" stroke-opacity="0.28" stroke-width="8" fill="none" stroke-linecap="round" />
+              <path d="M 30 116 C 280 48, 550 48, 790 102" stroke="#005B66" stroke-opacity="0.24" stroke-width="5" stroke-dasharray="14 12" fill="none" stroke-linecap="round" />
+              <circle cx="180" cy="65" r="5" fill="#FF6B3D" />
+              <circle cx="320" cy="46" r="4" fill="#005B66" />
+              <circle cx="450" cy="52" r="6" fill="#FF6B3D" />
+            </svg>
+            <div class="sig-box">
+              <div class="sig-script">${sigInfo.signatureText}</div>
+              <div class="sig-line">Authorized Signature • ${sigInfo.fullName}</div>
+              <div style="font-size:10px;color:#64748B;font-family:monospace;">Verified By: ${sigInfo.roleLabel}</div>
+            </div>
+          </div>
+
+          <div class="ftr">
+            <div class="thank-you">Thank you</div>
+            <div>
+              <div style="font-weight:800;color:#FF6B3D;font-size:12px;text-transform:uppercase;">TERMS & CONDITIONS</div>
+              <div style="font-size:11px;color:#334155;margin-top:2px;">100% Whole-PKR Audited Trade Bill • Smoother Ride | Better Protection | Longer Life</div>
+              <div style="font-size:11px;color:#334155;">Please quote Invoice # ${refNo} on all settlements to ATH Lubricants (Awan Trade Hub).</div>
+            </div>
           </div>
           <script>window.onload = () => { window.print(); };</script>
         </body>
@@ -2611,40 +3424,416 @@ export default function App() {
     );
   }, [suppliers, partySearch]);
 
-  const pendingSales = sales.filter(s => s.receivable_amount > 0 && s.doc_type !== 'ESTIMATE');
-  const pendingPurchases = purchases.filter(p => p.payable_amount > 0);
+  const pendingSales = useMemo(() => {
+    const source = allSales.length > 0 ? allSales : (allPendingSales.length > 0 ? allPendingSales : sales);
+    return source.filter(s => pkr(s.receivable_amount) > 0 && (s.doc_type || 'SALE') !== 'ESTIMATE');
+  }, [allSales, allPendingSales, sales]);
 
-  // ==================== LOGIN SCREEN (OFFICIAL AWAN TRADE HUB — PETROL TEAL & CORAL ORANGE) ====================
+  const pendingPurchases = useMemo(() => {
+    const source = allPurchases.length > 0 ? allPurchases : (allPendingPurchases.length > 0 ? allPendingPurchases : purchases);
+    return source.filter(p => pkr(p.payable_amount) > 0);
+  }, [allPurchases, allPendingPurchases, purchases]);
+
+  // ==================== MULTI-FACTOR IDENTITY MATCHING & CONSOLIDATED KHATA ENGINE ====================
+  // Detect possible existing Customer matches when typing a name in the Sale form without auto-merging
+  const possibleSaleCustomerMatches = useMemo(() => {
+    if (saleCustomerId > 0 || saleForceNewCustomer) return [];
+    const typedName = normalizeIdentityText(saleCustomerName);
+    const typedCnic = normalizeCnic(saleCustomerCnic);
+    const typedPhone = normalizePhone(saleCustomerPhone);
+    if (!typedName && !typedCnic && !typedPhone) return [];
+
+    return customers.filter(c => {
+      const cCnic = normalizeCnic(c.cnic);
+      const cPhone = normalizePhone(c.phone);
+      const cName = normalizeIdentityText(c.name);
+      if (typedCnic && cCnic && typedCnic === cCnic) return true;
+      if (typedPhone && cPhone && typedPhone.length >= 10 && typedPhone === cPhone) return true;
+      if (typedName.length >= 3 && (cName === typedName || cName.includes(typedName) || typedName.includes(cName))) {
+        return true;
+      }
+      return false;
+    });
+  }, [customers, saleCustomerId, saleCustomerName, saleCustomerCnic, saleCustomerPhone, saleForceNewCustomer]);
+
+  // Detect possible existing Supplier matches when typing a name in the Purchase form without auto-merging
+  const possiblePurSupplierMatches = useMemo(() => {
+    if (purSupplierId > 0 || purForceNewSupplier) return [];
+    const typedName = normalizeIdentityText(purSupplierName);
+    const typedCnic = normalizeCnic(purSupplierCnic);
+    const typedPhone = normalizePhone(purSupplierPhone);
+    if (!typedName && !typedCnic && !typedPhone) return [];
+
+    return suppliers.filter(s => {
+      const sCnic = normalizeCnic(s.cnic);
+      const sPhone = normalizePhone(s.phone);
+      const sName = normalizeIdentityText(s.name);
+      if (typedCnic && sCnic && typedCnic === sCnic) return true;
+      if (typedPhone && sPhone && typedPhone.length >= 10 && typedPhone === sPhone) return true;
+      if (typedName.length >= 3 && (sName === typedName || sName.includes(typedName) || typedName.includes(sName))) {
+        return true;
+      }
+      return false;
+    });
+  }, [suppliers, purSupplierId, purSupplierName, purSupplierCnic, purSupplierPhone, purForceNewSupplier]);
+
+  // Consolidate multiple unpaid Sale bills by unique verified Customer identity
+  const consolidatedCustomerDues = useMemo(() => {
+    const groupsMap = new Map<
+      string,
+      {
+        groupKey: string;
+        customer_id: number;
+        customer_name: string;
+        customer_code: string;
+        city: string;
+        phone: string;
+        cnic: string;
+        group_name: string;
+        total_original: number;
+        total_paid: number;
+        total_remaining: number;
+        bills: SaleRecord[];
+      }
+    >();
+
+    for (const s of pendingSales) {
+      const custObj = customers.find(c => c.id === s.customer_id);
+      const cnicNorm = normalizeCnic(custObj?.cnic || s.customer_cnic);
+      const phoneNorm = normalizePhone(custObj?.phone || s.customer_phone);
+      const nameNorm = normalizeIdentityText(custObj?.name || s.customer_name);
+      const cityNorm = normalizeIdentityText(custObj?.city || s.customer_city || 'local');
+      const grpNorm = normalizeIdentityText(custObj?.group_name || s.customer_group || 'general market');
+
+      // Multi-factor key: never merge two records by name alone if ID, CNIC, Phone, or City differ
+      let identityKey = `CUS-ID-${s.customer_id}`;
+      if (cnicNorm.length >= 13) {
+        identityKey = `CUS-CNIC-${cnicNorm}`;
+      } else if (!s.customer_id && phoneNorm.length >= 10) {
+        identityKey = `CUS-PH-${nameNorm}-${phoneNorm}-${cityNorm}`;
+      } else if (!s.customer_id) {
+        identityKey = `CUS-COMPOSITE-${nameNorm}-${cityNorm}-${grpNorm}`;
+      }
+
+      const existing = groupsMap.get(identityKey);
+      const orig = pkr(s.total_amount);
+      const paid = pkr(s.received_amount);
+      const rem = pkr(s.receivable_amount);
+
+      if (existing) {
+        existing.total_original = pkr(existing.total_original + orig);
+        existing.total_paid = pkr(existing.total_paid + paid);
+        existing.total_remaining = pkr(existing.total_remaining + rem);
+        existing.bills.push(s);
+      } else {
+        groupsMap.set(identityKey, {
+          groupKey: identityKey,
+          customer_id: s.customer_id,
+          customer_name: custObj?.name || s.customer_name || 'Customer',
+          customer_code: custObj?.code || `CUS-${s.customer_id}`,
+          city: custObj?.city || s.customer_city || 'Local',
+          phone: custObj?.phone || s.customer_phone || '',
+          cnic: custObj?.cnic || s.customer_cnic || '',
+          group_name: custObj?.group_name || s.customer_group || 'General Market',
+          total_original: orig,
+          total_paid: paid,
+          total_remaining: rem,
+          bills: [s]
+        });
+      }
+    }
+
+    const list = Array.from(groupsMap.values());
+    for (const grp of list) {
+      grp.bills.sort((a, b) => a.id - b.id);
+    }
+    return list.sort((a, b) => b.total_remaining - a.total_remaining);
+  }, [pendingSales, customers]);
+
+  // Consolidate multiple unpaid Purchase bills by unique verified Supplier identity
+  const consolidatedSupplierDues = useMemo(() => {
+    const groupsMap = new Map<
+      string,
+      {
+        groupKey: string;
+        supplier_id: number;
+        supplier_name: string;
+        supplier_code: string;
+        city: string;
+        phone: string;
+        cnic: string;
+        group_name: string;
+        total_original: number;
+        total_paid: number;
+        total_remaining: number;
+        bills: PurchaseRecord[];
+      }
+    >();
+
+    for (const p of pendingPurchases) {
+      const supObj = suppliers.find(s => s.id === p.supplier_id);
+      const cnicNorm = normalizeCnic(supObj?.cnic || p.supplier_cnic);
+      const phoneNorm = normalizePhone(supObj?.phone || p.supplier_phone);
+      const nameNorm = normalizeIdentityText(supObj?.name || p.supplier_name);
+      const cityNorm = normalizeIdentityText(supObj?.city || p.supplier_city || 'local');
+      const grpNorm = normalizeIdentityText(supObj?.group_name || p.supplier_group || 'general suppliers');
+
+      let identityKey = `SUP-ID-${p.supplier_id}`;
+      if (cnicNorm.length >= 13) {
+        identityKey = `SUP-CNIC-${cnicNorm}`;
+      } else if (!p.supplier_id && phoneNorm.length >= 10) {
+        identityKey = `SUP-PH-${nameNorm}-${phoneNorm}-${cityNorm}`;
+      } else if (!p.supplier_id) {
+        identityKey = `SUP-COMPOSITE-${nameNorm}-${cityNorm}-${grpNorm}`;
+      }
+
+      const existing = groupsMap.get(identityKey);
+      const orig = pkr(p.total_amount);
+      const paid = pkr(p.paid_amount);
+      const rem = pkr(p.payable_amount);
+
+      if (existing) {
+        existing.total_original = pkr(existing.total_original + orig);
+        existing.total_paid = pkr(existing.total_paid + paid);
+        existing.total_remaining = pkr(existing.total_remaining + rem);
+        existing.bills.push(p);
+      } else {
+        groupsMap.set(identityKey, {
+          groupKey: identityKey,
+          supplier_id: p.supplier_id,
+          supplier_name: supObj?.name || p.supplier_name || 'Supplier',
+          supplier_code: supObj?.code || `SUP-${p.supplier_id}`,
+          city: supObj?.city || p.supplier_city || 'Local',
+          phone: supObj?.phone || p.supplier_phone || '',
+          cnic: supObj?.cnic || p.supplier_cnic || '',
+          group_name: supObj?.group_name || p.supplier_group || 'General Suppliers',
+          total_original: orig,
+          total_paid: paid,
+          total_remaining: rem,
+          bills: [p]
+        });
+      }
+    }
+
+    const list = Array.from(groupsMap.values());
+    for (const grp of list) {
+      grp.bills.sort((a, b) => a.id - b.id);
+    }
+    return list.sort((a, b) => b.total_remaining - a.total_remaining);
+  }, [pendingPurchases, suppliers]);
+
+  // Expand/collapse state for consolidated Customer & Supplier cards in Khata Dues
+  const [collapsedKhataKeys, setCollapsedKhataKeys] = useState<Record<string, boolean>>({});
+  const toggleKhataCardExpand = (key: string) => {
+    setCollapsedKhataKeys(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Consolidated Supplier Multi-Bill Payment Allocation Modal State
+  const [supplierAllocationModal, setSupplierAllocationModal] = useState<{
+    supplier_id: number;
+    supplier_name: string;
+    supplier_code: string;
+    city: string;
+    phone: string;
+    cnic: string;
+    group_name: string;
+    total_outstanding: number;
+    bills: PurchaseRecord[];
+  } | null>(null);
+  const [supAllocPaymentInput, setSupAllocPaymentInput] = useState<string>('');
+  const [supAllocPolicy, setSupAllocPolicy] = useState<'OLDEST_FIRST' | 'NEWEST_FIRST'>('OLDEST_FIRST');
+  const [supAllocSelectedMap, setSupAllocSelectedMap] = useState<Record<number, boolean>>({});
+  const [supAllocDraftMap, setSupAllocDraftMap] = useState<Record<number, number>>({});
+  const [supAllocAccountId, setSupAllocAccountId] = useState<number>(1);
+  const [supAllocArrangement, setSupAllocArrangement] = useState<PaymentArrangementType>('WALLET');
+  const [supAllocLenderName, setSupAllocLenderName] = useState<string>('');
+  const [supAllocRemarks, setSupAllocRemarks] = useState<string>('');
+  const [supAllocConfirming, setSupAllocConfirming] = useState<boolean>(false);
+  const [supAllocBusy, setSupAllocBusy] = useState<boolean>(false);
+  const [supAllocError, setSupAllocError] = useState<string>('');
+
+  const computeSupplierDraftAllocations = (
+    bills: PurchaseRecord[],
+    selectedMap: Record<number, boolean>,
+    paymentAmt: number,
+    policy: 'OLDEST_FIRST' | 'NEWEST_FIRST'
+  ): Record<number, number> => {
+    const ordered = [...bills].sort((a, b) => (policy === 'NEWEST_FIRST' ? b.id - a.id : a.id - b.id));
+    let rem = pkr(paymentAmt);
+    const map: Record<number, number> = {};
+    for (const b of bills) map[b.id] = 0;
+    for (const b of ordered) {
+      if (rem <= 0) break;
+      if (selectedMap[b.id] === false) continue;
+      const alloc = pkr(Math.min(pkr(b.payable_amount), rem));
+      map[b.id] = alloc;
+      rem = pkr(rem - alloc);
+    }
+    return map;
+  };
+
+  const openSupplierAllocationModal = (
+    grp: (typeof consolidatedSupplierDues)[number],
+    focusPurchaseId?: number
+  ) => {
+    setSupAllocError('');
+    setSupAllocConfirming(false);
+    const selMap: Record<number, boolean> = {};
+    let defaultPay = 0;
+    for (const b of grp.bills) {
+      const isSelected = focusPurchaseId ? b.id === focusPurchaseId : true;
+      selMap[b.id] = isSelected;
+      if (isSelected) defaultPay = pkr(defaultPay + pkr(b.payable_amount));
+    }
+    setSupplierAllocationModal({
+      supplier_id: grp.supplier_id,
+      supplier_name: grp.supplier_name,
+      supplier_code: grp.supplier_code,
+      city: grp.city,
+      phone: grp.phone,
+      cnic: grp.cnic,
+      group_name: grp.group_name,
+      total_outstanding: grp.total_remaining,
+      bills: grp.bills
+    });
+    setSupAllocSelectedMap(selMap);
+    setSupAllocPaymentInput(defaultPay > 0 ? String(defaultPay) : '');
+    setSupAllocPolicy('OLDEST_FIRST');
+    setSupAllocArrangement('WALLET');
+    setSupAllocLenderName('');
+    setSupAllocRemarks('');
+    setSupAllocDraftMap(computeSupplierDraftAllocations(grp.bills, selMap, defaultPay, 'OLDEST_FIRST'));
+  };
+
+  const handleSupAllocInputChange = (
+    rawAmt: string,
+    nextPolicy: 'OLDEST_FIRST' | 'NEWEST_FIRST',
+    nextSelMap = supAllocSelectedMap
+  ) => {
+    setSupAllocPaymentInput(rawAmt);
+    setSupAllocPolicy(nextPolicy);
+    setSupAllocConfirming(false);
+    setSupAllocError('');
+    if (!supplierAllocationModal) return;
+    setSupAllocDraftMap(
+      computeSupplierDraftAllocations(supplierAllocationModal.bills, nextSelMap, pkr(rawAmt), nextPolicy)
+    );
+  };
+
+  const handleToggleSupBillSelection = (purchaseId: number) => {
+    if (!supplierAllocationModal) return;
+    const nextSel = { ...supAllocSelectedMap, [purchaseId]: supAllocSelectedMap[purchaseId] === false };
+    setSupAllocSelectedMap(nextSel);
+    const selectedSum = supplierAllocationModal.bills.reduce(
+      (sum, b) => sum + (nextSel[b.id] !== false ? pkr(b.payable_amount) : 0),
+      0
+    );
+    setSupAllocPaymentInput(selectedSum > 0 ? String(selectedSum) : '');
+    setSupAllocDraftMap(
+      computeSupplierDraftAllocations(supplierAllocationModal.bills, nextSel, selectedSum, supAllocPolicy)
+    );
+    setSupAllocConfirming(false);
+    setSupAllocError('');
+  };
+
+  const handleExecuteSupplierConsolidatedPayment = async () => {
+    if (!supplierAllocationModal || supAllocBusy) return;
+    setSupAllocError('');
+    const entries = Object.entries(supAllocDraftMap)
+      .map(([pid, amt]) => ({ purchase_id: Number(pid), amount: pkr(amt) }))
+      .filter(x => x.amount > 0);
+
+    if (entries.length === 0) {
+      setSupAllocError('Please allocate a payment amount to at least one supplier bill.');
+      return;
+    }
+
+    const selAcc = accounts.find(a => a.id === Number(supAllocAccountId));
+    setSupAllocBusy(true);
+    try {
+      for (const item of entries) {
+        await apiSend(`/purchases/${item.purchase_id}/payment`, 'POST', {
+          amount: item.amount,
+          account_id: Number(supAllocAccountId) || null,
+          payment_method: selAcc ? selAcc.type : 'CASH',
+          payment_arrangement: supAllocArrangement,
+          lender_name: supAllocLenderName.trim() || null,
+          remarks:
+            supAllocRemarks.trim() ||
+            `Consolidated Supplier Settlement (${entries.length} bill${entries.length > 1 ? 's' : ''})`
+        });
+      }
+      const totalSettled = entries.reduce((s, x) => s + x.amount, 0);
+      notify(
+        `Settled PKR ${totalSettled.toLocaleString()} across ${entries.length} bill(s) for ${supplierAllocationModal.supplier_name}!`
+      );
+      setSupplierAllocationModal(null);
+      setSupAllocConfirming(false);
+      await fetchData();
+    } catch (err: any) {
+      setSupAllocError(err.message || 'Supplier payment settlement failed.');
+    } finally {
+      setSupAllocBusy(false);
+    }
+  };
+
+  const headerMenuRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [mobileMenuOpen]);
+
+  // ==================== LOGIN SCREEN (OFFICIAL AWAN TRADE HUB — COMMERCIAL ERP PORTAL) ====================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative">
+      <div className="min-h-screen flex items-center justify-center p-4 relative bg-[#00191D]">
         <OilDropletsBackdrop />
-        <div className="max-w-lg w-full glass-panel rounded-3xl overflow-hidden shadow-2xl animate-fade-in relative z-10 border border-[#F7F7F5]/30">
-          <div className="bg-gradient-to-br from-[#00262B] via-[#00464F] to-[#005B66] border-b border-[#FF6B3D]/50 p-6 flex flex-col items-center text-center gap-3">
-            <div className="bg-[#F7F7F5] px-6 py-3.5 rounded-2xl shadow-xl border border-white">
+        <div className="max-w-md w-full glass-panel rounded-xl overflow-hidden shadow-2xl animate-fade-in relative z-10 border border-[#F7F7F5]/20">
+          {/* Top Brand Stripe */}
+          <div className="h-1.5 w-full flex">
+            <div className="w-2/3 bg-[#005B66]" />
+            <div className="w-1/3 bg-[#FF6B3D]" />
+          </div>
+
+          <div className="bg-[#002227] border-b border-[#F7F7F5]/12 p-6 flex flex-col items-center text-center gap-3">
+            <div className="bg-[#F7F7F5] px-5 py-2.5 rounded-lg shadow-sm border border-white">
               <img
                 src="/logo.png"
                 alt="ATH Lubricants Logo"
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                className="h-16 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
             </div>
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
-                Awan Trade Hub • Partner & Role-Based Executive Portal
+                Awan Trade Hub • Enterprise ERP & Khata Suite
               </div>
-              <p className="text-xs text-[#F7F7F5]/90 mt-0.5 font-medium">
+              <p className="text-xs text-[#F7F7F5]/80 mt-0.5 font-medium">
                 Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life
               </p>
             </div>
 
-            {/* Mode Switcher: Sign In vs Admin Gmail Signup */}
-            <div className="grid grid-cols-2 gap-2 w-full mt-2 bg-[#002227]/90 p-1.5 rounded-full border border-[#F7F7F5]/20">
+            {/* Mode Switcher: Partner Sign In vs Admin Registration */}
+            <div className="grid grid-cols-2 gap-1.5 w-full mt-1 bg-[#00171A] p-1 rounded-lg border border-[#F7F7F5]/15">
               <button
                 type="button"
                 onClick={() => { setAuthTab('LOGIN'); setLoginError(''); }}
-                className={`py-2 rounded-full text-xs font-extrabold uppercase transition ${
-                  authTab === 'LOGIN' ? 'bg-[#FF6B3D] text-white shadow' : 'text-[#F7F7F5]/80 hover:text-white'
+                className={`py-2 rounded-md text-xs font-bold uppercase tracking-wider transition ${
+                  authTab === 'LOGIN' ? 'bg-[#FF6B3D] text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
                 }`}
               >
                 Partner Sign In
@@ -2652,53 +3841,57 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => { setAuthTab('SIGNUP'); setLoginError(''); setSignupSuccessMsg(''); }}
-                className={`py-2 rounded-full text-xs font-extrabold uppercase transition ${
-                  authTab === 'SIGNUP' ? 'bg-[#F7F7F5] text-[#00373E] shadow' : 'text-[#F7F7F5]/80 hover:text-white'
+                className={`py-2 rounded-md text-xs font-bold uppercase tracking-wider transition ${
+                  authTab === 'SIGNUP' ? 'bg-[#005B66] text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
                 }`}
               >
-                Admin Gmail Signup
+                Admin Registration
               </button>
             </div>
           </div>
 
           {authTab === 'LOGIN' ? (
-            <form onSubmit={handleAdminLogin} className="p-6 sm:p-8 space-y-5">
-              <div className="flex items-center justify-between gap-2">
+            <form onSubmit={handleAdminLogin} className="p-6 space-y-4">
+              <div className="flex items-center justify-between gap-2 border-b border-[#F7F7F5]/10 pb-3">
                 <div>
-                  <h1 className="text-xl font-extrabold text-[#F7F7F5] tracking-tight samsung-heading">
-                    SIGN IN TO <span className="oil-gradient-text">ATH PORTAL</span>
+                  <h1 className="text-base font-extrabold text-[#F7F7F5] tracking-tight uppercase">
+                    Sign In to <span className="text-[#FF6B3D]">ATH Portal</span>
                   </h1>
-                  <p className="text-xs text-[#F7F7F5]/80">
-                    Auto-timeout after 15 mins inactivity • Enter your approved Gmail or Username
+                  <p className="text-[11px] text-[#F7F7F5]/70">
+                    15-minute inactivity protection • Enter registered credentials
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase text-white bg-[#FF6B3D] px-3 py-1.5 rounded-full shadow">
-                  <Lock className="w-3.5 h-3.5 text-white" /> Secure
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-1 rounded-md">
+                  <Lock className="w-3 h-3" /> Encrypted
                 </span>
               </div>
 
               {signupSuccessMsg && (
-                <div className="p-3.5 rounded-xl bg-emerald-950/90 border border-emerald-400 text-xs text-emerald-200 font-semibold">
+                <div className="p-3 rounded-lg bg-emerald-950/90 border border-emerald-400 text-xs text-emerald-200 font-semibold">
                   {signupSuccessMsg}
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="text-xs font-semibold text-[#F7F7F5]">Approved Gmail Address or Username</label>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">
+                    Email Address or Username
+                  </label>
                   <input
                     type="text"
                     name="username"
                     autoComplete="username"
                     required
-                    placeholder="e.g. malikabuzar411@gmail.com or Admin"
+                    placeholder="Enter your email address or username"
                     value={loginUser}
                     onChange={e => setLoginUser(e.target.value)}
-                    className="mt-1.5 erp-input"
+                    className="erp-input"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#F7F7F5]">Password</label>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">
+                    Password
+                  </label>
                   <input
                     type="password"
                     name="password"
@@ -2707,13 +3900,13 @@ export default function App() {
                     placeholder="Enter your password"
                     value={loginPass}
                     onChange={e => setLoginPass(e.target.value)}
-                    className="mt-1.5 erp-input"
+                    className="erp-input"
                   />
                 </div>
               </div>
 
               {loginError && (
-                <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
+                <div className="p-3 rounded-lg bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
                   {loginError}
                 </div>
               )}
@@ -2721,76 +3914,78 @@ export default function App() {
               <button
                 type="submit"
                 disabled={authBusy}
-                className="w-full btn-primary py-3.5 text-xs uppercase tracking-widest"
+                className="w-full btn-primary py-3 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
               >
-                {authBusy ? 'Signing In...' : 'Sign In to Executive Portal'}
+                {authBusy ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Authenticating Session...
+                  </>
+                ) : (
+                  'Sign In to Executive Portal'
+                )}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleAdminSignup} className="p-6 sm:p-8 space-y-4">
-              <div>
-                <h2 className="text-lg font-extrabold text-[#F7F7F5] samsung-heading">
-                  NEW ADMIN PARTNER REGISTRATION
+            <form onSubmit={handleAdminSignup} className="p-6 space-y-4">
+              <div className="border-b border-[#F7F7F5]/10 pb-2.5">
+                <h2 className="text-sm font-extrabold text-[#F7F7F5] uppercase">
+                  New Partner / Admin Registration
                 </h2>
-                <p className="text-xs text-[#F7F7F5]/80 mt-0.5">
-                  Register once with your Google / Gmail address and set your password. Requires approval from{' '}
-                  <strong className="text-[#FF6B3D]">malikabuzar411@gmail.com</strong>.
+                <p className="text-[11px] text-[#F7F7F5]/75 mt-0.5">
+                  Register with your official email. Accounts require authorization from the{' '}
+                  <strong className="text-[#FF6B3D]">System Administrator</strong>.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-[#F7F7F5]">Full Name (Partner Name)</label>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">Full Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Malik Partner 2"
+                    placeholder="Enter your full name"
                     value={signupFullName}
                     onChange={e => setSignupFullName(e.target.value)}
-                    className="mt-1 erp-input"
+                    className="erp-input"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-[#FF6B3D]">Google / Gmail Address (@gmail.com)</label>
+                  <label className="text-xs font-semibold text-[#FF6B3D] block mb-1">Email Address</label>
                   <input
                     type="email"
                     required
-                    placeholder="yourname@gmail.com"
+                    placeholder="Enter your email address"
                     value={signupEmail}
                     onChange={e => setSignupEmail(e.target.value)}
-                    className="mt-1 erp-input"
+                    className="erp-input"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#F7F7F5]">Choose Username</label>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">Username</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Admin2"
+                    placeholder="Choose username"
                     value={signupUsername}
                     onChange={e => setSignupUsername(e.target.value)}
-                    className="mt-1 erp-input"
+                    className="erp-input"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#F7F7F5]">Set Login Password</label>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">Password</label>
                   <input
                     type="password"
                     required
                     placeholder="Min 6 characters"
                     value={signupPassword}
                     onChange={e => setSignupPassword(e.target.value)}
-                    className="mt-1 erp-input"
+                    className="erp-input"
                   />
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#00262B]/90 border border-[#F7F7F5]/15 text-[11px] text-[#F7F7F5]/85">
-                <strong>Role Architecture:</strong> Registering as <strong>ADMIN (Business Partner)</strong>. Employee roles (<em>Salesman, Production, Warehouse</em>) are supported for future expansion.
-              </div>
-
               {loginError && (
-                <div className="p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
+                <div className="p-3 rounded-lg bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
                   {loginError}
                 </div>
               )}
@@ -2798,9 +3993,15 @@ export default function App() {
               <button
                 type="submit"
                 disabled={authBusy}
-                className="w-full btn-oil py-3.5 text-xs uppercase tracking-widest"
+                className="w-full btn-oil py-3 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
               >
-                {authBusy ? 'Submitting Request...' : 'Submit Admin Signup for Approval'}
+                {authBusy ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Submitting Request...
+                  </>
+                ) : (
+                  'Submit Registration for Approval'
+                )}
               </button>
             </form>
           )}
@@ -2809,83 +4010,160 @@ export default function App() {
     );
   }
 
-  const mainMenuItems: { id: MainSection; label: string }[] = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'accounts', label: 'Sales, Purchases & Accounts' },
-    { id: 'inventory', label: 'Godowns & Stock Transfers' },
-    { id: 'directory', label: `Parties & Khata (${customers.length})` },
-    { id: 'reports', label: 'Business Reports & Backup' }
+  const mainMenuItems: { id: MainSection; label: string; badge?: string | number; icon: React.ReactNode }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+    {
+      id: 'accounts',
+      label: 'Sales, Purchases & Accounts',
+      badge: consolidatedCustomerDues.length + consolidatedSupplierDues.length || undefined,
+      icon: <ShoppingCart className="w-3.5 h-3.5" />
+    },
+    {
+      id: 'inventory',
+      label: 'Godowns & Stock',
+      badge: products.length,
+      icon: <Package className="w-3.5 h-3.5" />
+    },
+    {
+      id: 'directory',
+      label: 'Parties & Khata',
+      badge: customers.length,
+      icon: <Users className="w-3.5 h-3.5" />
+    },
+    {
+      id: 'reports',
+      label: 'Reports & Backup',
+      icon: <FileText className="w-3.5 h-3.5" />
+    }
   ];
 
+  const lowStockProducts = useMemo(
+    () => products.filter(p => p.is_low_stock || p.current_stock_bottles <= p.reorder_level),
+    [products]
+  );
+
   return (
-    <div className="min-h-screen flex flex-col pb-24 lg:pb-10 relative">
+    <div className="min-h-screen flex flex-col bg-[#001D21] text-[#F7F7F5] pb-12 relative">
       <OilDropletsBackdrop />
 
-      {/* ==================== STICKY HEADER WITH ATH OFF-WHITE LOGO BADGE ==================== */}
-      <header className="bg-[#002B31]/95 backdrop-blur-2xl border-b border-[#F7F7F5]/20 sticky top-0 z-40 px-3 sm:px-6 py-2.5 no-print shadow-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          {/* Brand Logo & Title (Clicking returns to Dashboard) */}
-          <button
-            type="button"
-            onClick={() => navigateTo({ main: 'dashboard' })}
-            className="relative flex items-center gap-2.5 text-left group focus:outline-none"
-          >
-            <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-xl border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
-              <img
-                src="/logo.png"
-                alt="ATH Logo"
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                className="h-7 sm:h-9 w-auto object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-sm sm:text-xl font-black tracking-tight text-[#F7F7F5] flex items-center gap-1.5 samsung-heading">
-                ATH <span className="oil-gradient-text">LUBRICANTS</span>
-                <Droplet className="w-3.5 h-3.5 text-[#FF6B3D] fill-[#FF6B3D] oil-badge-drip inline shrink-0" />
-              </h1>
-              <p className="text-[10px] sm:text-[11px] text-[#F7F7F5]/80 font-medium truncate max-w-[170px] sm:max-w-none">
-                Awan Trade Hub • Executive ERP
-              </p>
-            </div>
-          </button>
+      {/* ==================== SINGLE UNIFIED ENTERPRISE TOP NAVIGATION HEADER ==================== */}
+      <header
+        ref={headerMenuRef}
+        className="bg-[#00181C]/95 backdrop-blur-md border-b border-[#F7F7F5]/15 sticky top-0 z-40 no-print shadow-lg"
+      >
+        {/* Primary Top Bar */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+          {/* Left: Brand Logo + Back/Forward History Controls */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigateTo({ main: 'dashboard' })}
+              className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+            >
+              <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
+                <img
+                  src="/logo.png"
+                  alt="ATH Logo"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  className="h-7 sm:h-8 w-auto object-contain"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm sm:text-base font-black tracking-tight text-[#F7F7F5] leading-none">
+                  ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
+                </div>
+                <div className="text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
+                  Awan Trade Hub ERP
+                </div>
+              </div>
+            </button>
 
-          {/* Desktop Primary Navigation */}
-          <nav className="hidden lg:flex items-center gap-1.5 bg-[#00373E] p-1.5 rounded-full border border-[#F7F7F5]/20">
-            {mainMenuItems.map(item => (
+            <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-[#F7F7F5]/15">
               <button
-                key={item.id}
                 type="button"
-                onClick={() => navigateTo({ main: item.id })}
-                className={`px-4 py-2 rounded-full text-xs font-bold tracking-tight transition-all duration-200 ${
-                  currentNav.main === item.id
-                    ? 'bg-[#FF6B3D] text-white shadow-md shadow-[#FF6B3D]/40'
-                    : 'text-[#F7F7F5]/85 hover:text-white hover:bg-white/10'
-                }`}
+                disabled={!canGoBack}
+                onClick={handleBack}
+                className="p-1.5 rounded-md bg-[#00282E] border border-[#F7F7F5]/15 text-white hover:border-[#FF6B3D] disabled:opacity-30 transition"
+                title="Navigate Back"
               >
-                {item.label}
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-            ))}
+              <button
+                type="button"
+                disabled={!canGoForward}
+                onClick={handleForward}
+                className="p-1.5 rounded-md bg-[#00282E] border border-[#F7F7F5]/15 text-white hover:border-[#FF6B3D] disabled:opacity-30 transition"
+                title="Navigate Forward"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Center: Single Authoritative Desktop Top-Menu Navigation */}
+          <nav
+            className="hidden lg:flex items-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15"
+            aria-label="Primary ERP Navigation"
+          >
+            {mainMenuItems.map(item => {
+              const isActive = currentNav.main === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigateTo({ main: item.id })}
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold tracking-tight transition flex items-center gap-2 whitespace-nowrap ${
+                    isActive
+                      ? 'bg-[#FF6B3D] text-white shadow-sm'
+                      : 'text-[#F7F7F5]/85 hover:text-white hover:bg-[#00343C]'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  {item.badge !== undefined && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-extrabold ${
+                        isActive ? 'bg-black/25 text-white' : 'bg-[#00181C] text-[#FF6B3D]'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* Right Action Cluster: Backup DB + Executive Admin Capsule & Sign Out + Mobile Menu Trigger */}
-          <div className="flex items-center gap-2">
+          {/* Right: Sync + Backup + Authenticated Partner Profile + Mobile Menu Toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={fetchData}
+              className="btn-secondary px-2.5 py-1.5 text-xs"
+              title="Synchronize Live Database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#FF6B3D]' : ''}`} />
+              <span className="hidden xl:inline">Sync</span>
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadBackupJson}
-              className="hidden md:inline-flex items-center gap-1.5 btn-oil px-3.5 py-2 text-xs"
-              title="1-Click Save Full Database Backup"
+              className="hidden md:inline-flex items-center gap-1.5 btn-oil px-3 py-1.5 text-xs"
+              title="1-Click Download Full Database Backup"
             >
-              <Download className="w-3.5 h-3.5" /> Backup DB
+              <Download className="w-3.5 h-3.5" />
+              <span>Backup DB</span>
             </button>
 
-            {/* Executive Admin Session Badge + Sleek Sign Out Button (Desktop/Tablet) */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-[#002227]/90 pl-2.5 pr-1.5 py-1 rounded-full border border-[#F7F7F5]/20 shadow-inner">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF6B3D] to-[#005B66] text-white font-black text-[11px] flex items-center justify-center shadow-sm shrink-0">
+            {/* Authenticated User Capsule & Sign Out */}
+            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
+              <div className="w-6 h-6 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                 {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
               </div>
               <div className="hidden xl:block pr-1 text-left">
-                <div className="text-[11px] font-extrabold text-white leading-tight truncate max-w-[115px]">
-                  {currentAdmin?.username || 'Admin'}
+                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[120px]">
+                  {currentAdmin?.full_name || currentAdmin?.username || 'Admin'}
                 </div>
                 <div className="text-[9px] font-mono uppercase text-[#FF6B3D] leading-tight">
                   {currentAdmin?.role || 'PARTNER'}
@@ -2894,141 +4172,157 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn-signout px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1"
                 title="End Executive Session"
               >
-                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" />
+                <LogOut className="w-3 h-3 text-[#FF6B3D]" />
                 <span>Sign Out</span>
               </button>
             </div>
 
-            {/* Mobile Quick Sign Out + Full Menu Drawer Button */}
+            {/* Mobile & Tablet Menu Button */}
             <button
               type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-[#FF6B3D] to-[#E85325] rounded-full shadow-md border border-white/25"
-              aria-label="Toggle Menu"
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#00282E] hover:bg-[#00373E] rounded-lg border border-[#F7F7F5]/25 transition"
+              aria-expanded={mobileMenuOpen}
+              aria-label="Toggle Navigation Menu"
             >
-              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 text-[#FF6B3D]" /> : <Menu className="w-4 h-4 text-[#FF6B3D]" />}
               <span>Menu</span>
             </button>
           </div>
         </div>
 
-        {/* Sub-Navigation Bar (Touch Scrollable on Mobile/Tablet) */}
+        {/* Second-Tier Contextual Module Sub-Navigation Bar */}
         {currentNav.main !== 'dashboard' && (
-          <div className="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-[#F7F7F5]/15 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            {currentNav.main === 'accounts' &&
-              ([
-                { id: 'sales', label: 'Customer Sales' },
-                { id: 'purchases', label: 'Supplier Purchases' },
-                { id: 'partials', label: `Khata Dues (${pendingSales.length + pendingPurchases.length})` },
-                { id: 'expenses', label: 'Expenses' },
-                { id: 'wallets', label: `Cash & Wallets (${loans.filter(l => l.current_balance > 0).length})` },
-                { id: 'ledger', label: 'Cashflow Ledger' }
-              ] as { id: AccountsSubTab; label: string }[]).map(sub => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => navigateTo({ main: 'accounts', accSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                    currentNav.accSub === sub.id
-                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
-                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
-                  }`}
-                >
-                  {sub.label}
-                </button>
-              ))}
+          <div className="bg-[#001418] border-t border-[#F7F7F5]/10 px-3 sm:px-6 py-2">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {currentNav.main === 'accounts' &&
+                  ([
+                    { id: 'sales', label: 'Customer Sales' },
+                    { id: 'purchases', label: 'Supplier Purchases' },
+                    {
+                      id: 'partials',
+                      label: `Khata Dues (${consolidatedCustomerDues.length} Cust • ${consolidatedSupplierDues.length} Sup)`
+                    },
+                    { id: 'expenses', label: 'Operating Expenses' },
+                    { id: 'wallets', label: `Cash & Bank Wallets (${accounts.length})` },
+                    { id: 'ledger', label: 'Cashflow Ledger' }
+                  ] as { id: AccountsSubTab; label: string }[]).map(sub => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => navigateTo({ main: 'accounts', accSub: sub.id })}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                        currentNav.accSub === sub.id
+                          ? 'bg-[#005B66] text-white border-b-2 border-[#FF6B3D]'
+                          : 'text-[#F7F7F5]/75 hover:text-white hover:bg-[#00242A]'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
 
-            {currentNav.main === 'inventory' &&
-              ([
-                { id: 'stock_breakdown', label: 'Godown & Carton Breakdown' },
-                { id: 'locations_transfer', label: 'Warehouses & Transfers' }
-              ] as { id: InventorySubTab; label: string }[]).map(sub => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => navigateTo({ main: 'inventory', invSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                    currentNav.invSub === sub.id
-                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
-                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
-                  }`}
-                >
-                  {sub.label}
-                </button>
-              ))}
+                {currentNav.main === 'inventory' &&
+                  ([
+                    { id: 'stock_breakdown', label: 'Godown & Carton Breakdown' },
+                    { id: 'locations_transfer', label: 'Warehouses & Stock Transfers' }
+                  ] as { id: InventorySubTab; label: string }[]).map(sub => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => navigateTo({ main: 'inventory', invSub: sub.id })}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                        currentNav.invSub === sub.id
+                          ? 'bg-[#005B66] text-white border-b-2 border-[#FF6B3D]'
+                          : 'text-[#F7F7F5]/75 hover:text-white hover:bg-[#00242A]'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
 
-            {currentNav.main === 'directory' &&
-              ([
-                { id: 'parties', label: 'Customers, Suppliers & 360° Khata' },
-                { id: 'recycle', label: `Recycle Bin (${stats?.trash_count ?? recycleBin.length})` }
-              ] as { id: DirectorySubTab; label: string }[]).map(sub => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => navigateTo({ main: 'directory', dirSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                    currentNav.dirSub === sub.id
-                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
-                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
-                  }`}
-                >
-                  {sub.label}
-                </button>
-              ))}
+                {currentNav.main === 'directory' &&
+                  ([
+                    { id: 'parties', label: 'Customers, Suppliers & 360° Khata' },
+                    { id: 'recycle', label: `Recycle Bin (${stats?.trash_count ?? recycleBin.length})` }
+                  ] as { id: DirectorySubTab; label: string }[]).map(sub => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => navigateTo({ main: 'directory', dirSub: sub.id })}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                        currentNav.dirSub === sub.id
+                          ? 'bg-[#005B66] text-white border-b-2 border-[#FF6B3D]'
+                          : 'text-[#F7F7F5]/75 hover:text-white hover:bg-[#00242A]'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
 
-            {currentNav.main === 'reports' &&
-              ([
-                { id: 'bill_pnl', label: 'Bill-Wise Profit & Loss' },
-                { id: 'item_profit', label: 'Product Stock & Profit' },
-                { id: 'daybook', label: 'Day Book (Roznamcha)' },
-                { id: 'groups_backup', label: 'Route Groups & Backup' }
-              ] as { id: ReportsSubTab; label: string }[]).map(sub => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => navigateTo({ main: 'reports', repSub: sub.id })}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                    currentNav.repSub === sub.id
-                      ? 'bg-[#F7F7F5] text-[#00373E] shadow-md font-extrabold'
-                      : 'bg-[#003B43] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
-                  }`}
-                >
-                  {sub.label}
-                </button>
-              ))}
+                {currentNav.main === 'reports' &&
+                  ([
+                    { id: 'bill_pnl', label: 'Bill-Wise Profit & Loss' },
+                    { id: 'item_profit', label: 'Product Stock & Profit' },
+                    { id: 'daybook', label: 'Day Book (Roznamcha)' },
+                    { id: 'groups_backup', label: 'Route Groups & Backup Vault' }
+                  ] as { id: ReportsSubTab; label: string }[]).map(sub => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => navigateTo({ main: 'reports', repSub: sub.id })}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition shrink-0 ${
+                        currentNav.repSub === sub.id
+                          ? 'bg-[#005B66] text-white border-b-2 border-[#FF6B3D]'
+                          : 'text-[#F7F7F5]/75 hover:text-white hover:bg-[#00242A]'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+              </div>
+
+              <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-300 shrink-0">
+                ● PKT {pktClock.time12}
+              </span>
+            </div>
           </div>
         )}
 
-        {/* Comprehensive Mobile & Tablet Executive Navigation Drawer */}
+        {/* Responsive Mobile & Tablet Top-Menu Dropdown Panel */}
         {mobileMenuOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t border-[#F7F7F5]/20 space-y-3 animate-fade-in max-h-[80vh] overflow-y-auto pb-2">
-            {/* Active Admin Profile Card */}
-            <div className="bg-[#002227]/95 p-3 rounded-2xl border border-[#F7F7F5]/15 flex items-center justify-between gap-2">
+          <div className="lg:hidden bg-[#00181C] border-t border-[#F7F7F5]/15 px-3 sm:px-6 py-3 space-y-3 max-h-[82vh] overflow-y-auto shadow-2xl">
+            {/* Active User Row */}
+            <div className="bg-[#00242A] p-3 rounded-lg border border-[#F7F7F5]/15 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF6B3D] to-[#005B66] text-white font-black text-sm flex items-center justify-center shrink-0 shadow">
+                <div className="w-8 h-8 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-xs flex items-center justify-center shrink-0">
                   {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-extrabold text-white truncate">
-                    {currentAdmin?.full_name || 'Malik Abuzar'}
+                    {currentAdmin?.full_name || currentAdmin?.username || 'Authorized Partner'}
                   </div>
                   <div className="text-[10px] font-mono text-[#FF6B3D] truncate">
-                    {currentAdmin?.email || 'malikabuzar411@gmail.com'}
+                    {currentAdmin?.username || 'Admin'} • {currentAdmin?.role || 'ADMIN'}
                   </div>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold shrink-0">
-                {currentAdmin?.role || 'ADMIN'}
-              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="btn-signout px-3 py-1.5 text-xs font-bold flex items-center gap-1 shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" /> Sign Out
+              </button>
             </div>
 
-            {/* Primary Sections */}
-            <div className="space-y-1.5">
+            {/* Primary Modules */}
+            <div className="space-y-1">
               <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#FF6B3D] px-1">
-                Main Modules
+                Primary Modules
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {mainMenuItems.map(item => (
@@ -3036,113 +4330,105 @@ export default function App() {
                     key={item.id}
                     type="button"
                     onClick={() => navigateTo({ main: item.id })}
-                    className={`py-2.5 px-3.5 rounded-xl text-xs font-bold text-left flex items-center justify-between transition ${
+                    className={`py-2.5 px-3 rounded-lg text-xs font-bold text-left flex items-center justify-between transition ${
                       currentNav.main === item.id
-                        ? 'bg-[#FF6B3D] text-white shadow-md'
-                        : 'bg-[#003B43]/90 text-[#F7F7F5] border border-white/10'
+                        ? 'bg-[#FF6B3D] text-white'
+                        : 'bg-[#00242A] text-[#F7F7F5] border border-white/10'
                     }`}
                   >
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-2">
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </span>
                     <ChevronRight className="w-4 h-4 opacity-80" />
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Quick Sub-Module Shortcuts for 1-Tap Mobile Access */}
-            <div className="space-y-1.5">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#FF6B3D] px-1">
-                Quick Operations & Sub-Menus
+            {/* Direct Module Shortcuts */}
+            <div className="space-y-1 pt-1 border-t border-white/10">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#F7F7F5]/60 px-1">
+                Direct Sub-Modules & Actions
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-emerald-300 border border-white/10"
                 >
-                  + Sale Invoice
+                  Customer Sales
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-[#FF6B3D] border border-white/10"
                 >
-                  + Stock Purchase
+                  Supplier Purchases
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'partials' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-yellow-300 border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-amber-300 border border-white/10"
                 >
-                  Khata Collections ({pendingSales.length + pendingPurchases.length})
+                  Khata Dues ({consolidatedCustomerDues.length + consolidatedSupplierDues.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-emerald-300 border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-white border border-white/10"
                 >
-                  Cash & Bank Wallets
+                  Cash & Wallets
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'expenses' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-white border border-white/10"
                 >
-                  Operating Expenses
+                  Expenses
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'accounts', accSub: 'ledger' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-white border border-white/10"
                 >
                   Cashflow Ledger
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'inventory', invSub: 'locations_transfer' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-white border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-white border border-white/10"
                 >
                   Stock Transfers
                 </button>
                 <button
                   type="button"
                   onClick={() => navigateTo({ main: 'directory', dirSub: 'recycle' })}
-                  className="py-2 px-3 rounded-xl text-[11px] font-bold text-left bg-[#00262B] text-rose-300 border border-white/10"
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#00242A] text-rose-300 border border-white/10"
                 >
                   Recycle Bin ({stats?.trash_count ?? recycleBin.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleDownloadBackupJson();
+                  }}
+                  className="py-2 px-3 rounded-lg text-[11px] font-bold text-left bg-[#F7F7F5] text-[#00262B] col-span-2 sm:col-span-1"
+                >
+                  ↓ Backup Database
+                </button>
               </div>
-            </div>
-
-            {/* Bottom Utility Row: Backup & Executive Sign Out */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F7F7F5]/15">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  handleDownloadBackupJson();
-                }}
-                className="py-2.5 px-3 rounded-xl text-xs font-extrabold bg-[#F7F7F5] text-[#00373E] flex items-center justify-center gap-1.5 shadow"
-              >
-                <Download className="w-3.5 h-3.5" /> Backup DB
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="btn-signout py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5"
-              >
-                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" /> Sign Out
-              </button>
             </div>
           </div>
         )}
       </header>
 
       {/* ==================== MAIN CONTENT CONTAINER ==================== */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-5 space-y-6 relative z-10 no-print">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-5 space-y-5 relative z-10 no-print">
         {toast && (
           <div
-            className={`glass-panel px-4 py-3 rounded-xl text-xs font-bold flex justify-between items-center animate-fade-in ${
+            className={`glass-panel px-4 py-3 rounded-lg text-xs font-bold flex justify-between items-center ${
               toast.isError
                 ? 'border-rose-500 bg-rose-950/95 text-white'
                 : 'border-emerald-400 bg-emerald-950/95 text-white'
@@ -3157,18 +4443,26 @@ export default function App() {
         )}
 
         {/* =========================================================================
-            SECTION 1: EXECUTIVE DASHBOARD (100% WHOLE PKR)
+            SECTION 1: ENTERPRISE EXECUTIVE DASHBOARD (100% WHOLE PKR)
            ========================================================================= */}
+        {currentNav.main === 'dashboard' && !stats && (
+          <div className="glass-panel p-8 rounded-xl text-center space-y-2">
+            <RefreshCw className="w-6 h-6 text-[#FF6B3D] animate-spin mx-auto" />
+            <div className="text-sm font-extrabold text-white">Syncing Live Executive ERP Database...</div>
+            <div className="text-xs text-slate-300">Loading Sales, Purchases, Godown Stock & Partner Ledgers</div>
+          </div>
+        )}
+
         {currentNav.main === 'dashboard' && stats && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Super Admin Approval Requests Bar (Visible to malikabuzar411@gmail.com) */}
-            {(currentAdmin?.email?.toLowerCase() === 'malikabuzar411@gmail.com' || currentAdmin?.is_super_admin || currentAdmin?.username === 'Admin') &&
+          <div className="space-y-5 animate-fade-in">
+            {/* Super Admin Approval Requests Bar */}
+            {(currentAdmin?.is_super_admin || currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.username === 'Admin') &&
               adminsList.some(a => a.approval_status === 'PENDING') && (
-                <div className="glass-panel p-5 rounded-2xl border-2 border-[#FF6B3D] space-y-3">
+                <div className="glass-panel p-4 rounded-xl border-2 border-[#FF6B3D] space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF6B3D] text-white font-extrabold">
-                        Super Admin Authorization Required (malikabuzar411@gmail.com)
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FF6B3D] text-white font-extrabold">
+                        Super Administrator Authorization Required
                       </span>
                       <h3 className="text-sm font-black text-white mt-1">
                         PENDING ADMIN REGISTRATION REQUESTS ({adminsList.filter(a => a.approval_status === 'PENDING').length})
@@ -3181,12 +4475,12 @@ export default function App() {
                       .map(req => (
                         <div
                           key={req.id}
-                          className="bg-[#00262B]/90 p-3.5 rounded-xl border border-[#F7F7F5]/20 flex flex-wrap items-center justify-between gap-3 text-xs"
+                          className="bg-[#001D21] p-3 rounded-lg border border-[#F7F7F5]/15 flex flex-wrap items-center justify-between gap-3 text-xs"
                         >
                           <div>
                             <div className="font-extrabold text-white text-sm">{req.full_name}</div>
                             <div className="text-[#FF6B3D] font-mono">
-                              Gmail: {req.email} • Username: {req.username} • Role: {req.role}
+                              Email: {req.email} • Username: {req.username} • Role: {req.role}
                             </div>
                             <div className="text-[11px] text-slate-300">Requested At: {req.created_at}</div>
                           </div>
@@ -3194,16 +4488,16 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleAdminApprovalDecision(req.id, 'APPROVED')}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-full text-xs transition shadow"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3.5 py-1.5 rounded-md text-xs transition"
                             >
                               ✓ Approve
                             </button>
                             <button
                               type="button"
                               onClick={() => handleAdminApprovalDecision(req.id, 'NOT_APPROVED')}
-                              className="btn-danger px-4 py-2 text-xs"
+                              className="btn-danger px-3.5 py-1.5 text-xs"
                             >
-                              ✕ Not Approved
+                              ✕ Decline
                             </button>
                           </div>
                         </div>
@@ -3212,23 +4506,433 @@ export default function App() {
                 </div>
               )}
 
-            {/* Timeframe + Specific Date Picker Bar */}
-            <div className="glass-panel p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-[#FF6B3D]/20 border border-[#FF6B3D]/50 text-[#FF6B3D]">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
-                    EXECUTIVE REPORTING TIMEFRAME & SPECIFIC DATE FILTER
-                  </h2>
-                  <p className="text-xs text-[#F7F7F5]/80 mt-0.5">
-                    Logged in as: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Malik Abuzar (Super Admin)'}</strong> ({currentAdmin?.email || 'malikabuzar411@gmail.com'})
-                  </p>
-                </div>
+            {/* Executive Reporting Filter & PKT Status Bar */}
+            <div className="glass-panel p-3.5 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-2.5 py-1 rounded-md bg-[#00181C] border border-[#005B66] text-[11px] font-mono font-bold text-emerald-300">
+                  ● PKT {pktClock.time12}
+                </span>
+                <span className="text-xs sm:text-sm font-extrabold text-white">
+                  {activeDateRangeInfo.fullLabel}
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { id: 'daily', label: 'Today' },
+                  { id: 'weekly', label: 'Last 7 Days' },
+                  { id: 'monthly', label: 'This Month' },
+                  { id: 'all', label: 'All-Time' }
+                ] as const).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setCustomDate('');
+                      setCustomDateTo('');
+                      setPeriod(p.id);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
+                      !customDate && period === p.id
+                        ? 'bg-[#FF6B3D] text-white'
+                        : 'bg-[#00181C] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+
+                <div className="flex items-center gap-1.5 bg-[#00181C] px-2.5 py-1 rounded-md border border-[#F7F7F5]/20 text-xs">
+                  <span className="text-[11px] text-slate-300 font-semibold">From:</span>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={e => {
+                      setCustomDate(e.target.value);
+                      if (!customDateTo || customDateTo < e.target.value) {
+                        setCustomDateTo(e.target.value);
+                      }
+                    }}
+                    className="bg-transparent text-xs font-mono text-white outline-none"
+                  />
+                  <span className="text-slate-400">–</span>
+                  <input
+                    type="date"
+                    value={customDateTo || customDate}
+                    min={customDate || undefined}
+                    onChange={e => {
+                      if (!customDate) setCustomDate(e.target.value);
+                      setCustomDateTo(e.target.value);
+                    }}
+                    className="bg-transparent text-xs font-mono text-white outline-none"
+                  />
+                  {customDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomDate('');
+                        setCustomDateTo('');
+                      }}
+                      className="text-rose-400 font-bold px-1"
+                      title="Clear Custom Date"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 5 Structured Executive Financial KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              <div
+                onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
+                className="kpi-card p-4 rounded-xl cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
+                  <span>Sales Revenue</span>
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                  PKR {pkr(stats.total_sales_revenue).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-emerald-300 font-semibold">Collected: PKR {pkr(stats.sales_collected).toLocaleString()}</span>
+                  <span className="text-slate-300">{stats.sales_count} Bills</span>
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
+                className="kpi-card p-4 rounded-xl cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
+                  <span>Stock Purchases</span>
+                  <ShoppingCart className="w-4 h-4 text-[#FF6B3D]" />
+                </div>
+                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                  PKR {pkr(stats.total_purchases_cost).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-[#FF6B3D] font-semibold">Paid: PKR {pkr(stats.purchases_paid).toLocaleString()}</span>
+                  <span className="text-slate-300">{stats.purchases_count} Bills</span>
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigateTo({ main: 'accounts', accSub: 'partials' })}
+                className="kpi-card p-4 rounded-xl cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
+                  <span>Market Khata Dues</span>
+                  <Users className="w-4 h-4 text-amber-300" />
+                </div>
+                <div className="mt-2 text-xl sm:text-2xl font-black text-amber-300 tabular-nums">
+                  PKR {pkr(stats.total_receivable).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-slate-300">{consolidatedCustomerDues.length} Cust</span>
+                  <span className="text-rose-300 font-bold">Payable: PKR {pkr(stats.total_payable).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
+                className="kpi-card p-4 rounded-xl cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
+                  <span>Cash & Bank Wallets</span>
+                  <Wallet className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div className="mt-2 text-xl sm:text-2xl font-black text-emerald-300 tabular-nums">
+                  PKR {pkr(stats.total_cash_bank).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-slate-300">Net P&L: PKR {pkr(stats.net_profit).toLocaleString()}</span>
+                  <span className="text-rose-300">Exp: PKR {pkr(stats.total_expenses).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigateTo({ main: 'inventory', invSub: 'stock_breakdown' })}
+                className="kpi-card p-4 rounded-xl cursor-pointer"
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
+                  <span>Live Stock Value</span>
+                  <Package className="w-4 h-4 text-[#FF6B3D]" />
+                </div>
+                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                  PKR {pkr(stats.total_stock_value).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-slate-200 font-semibold">{pkr(stats.total_stock_bottles).toLocaleString()} Bottles</span>
+                  <span className={lowStockProducts.length > 0 ? 'text-amber-300 font-bold' : 'text-emerald-300'}>
+                    {lowStockProducts.length > 0 ? `${lowStockProducts.length} Low Stock` : 'Stock Healthy'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Brand Operations Command Panel (Left 2 Cols) + Financial Accounts & Godown Summary (Right 1 Col) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+              <div className="lg:col-span-2 space-y-5">
+                <AthFracturedCurrentHero onNavigate={navigateTo} />
+
+                {/* Recent Business Transactions Table */}
+                <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wide">
+                        Recent Business Transactions ({accountHistory.length})
+                      </h3>
+                      <p className="text-[11px] text-slate-300">
+                        Audited inflows, outflows, and Khata settlements for the active period
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo({ main: 'accounts', accSub: 'ledger' })}
+                      className="text-xs font-bold text-[#FF6B3D] hover:underline"
+                    >
+                      Open Full Cashflow Ledger →
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs erp-table">
+                      <thead>
+                        <tr>
+                          <th>Date & Time</th>
+                          <th>Type</th>
+                          <th>Ref #</th>
+                          <th>Party</th>
+                          <th className="text-right">Cash In (+)</th>
+                          <th className="text-right">Cash Out (-)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {accountHistory.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-6 text-slate-400">
+                              No transactions recorded in this date range.
+                            </td>
+                          </tr>
+                        ) : (
+                          accountHistory.slice(0, 7).map(h => (
+                            <tr key={h.id}>
+                              <td className="font-mono text-slate-300 whitespace-nowrap">{formatRecordDateTimePkt(h.date)}</td>
+                              <td className="font-bold text-white whitespace-nowrap">{h.type}</td>
+                              <td className="font-mono text-[#FF6B3D] font-bold whitespace-nowrap">{h.reference}</td>
+                              <td className="text-slate-100 font-semibold truncate max-w-[160px]">{h.party}</td>
+                              <td className="text-right font-mono font-bold text-emerald-300 tabular-nums whitespace-nowrap">
+                                {h.cash_in > 0 ? `+PKR ${pkr(h.cash_in).toLocaleString()}` : '—'}
+                              </td>
+                              <td className="text-right font-mono font-bold text-rose-300 tabular-nums whitespace-nowrap">
+                                {h.cash_out > 0 ? `-PKR ${pkr(h.cash_out).toLocaleString()}` : '—'}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Financial Accounts + Godown Stock Summary */}
+              <div className="space-y-5">
+                <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase flex items-center gap-2">
+                      <Landmark className="w-4 h-4 text-[#FF6B3D]" /> Cash & Bank Accounts
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
+                      className="text-xs text-[#FF6B3D] hover:underline font-bold"
+                    >
+                      Manage →
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {accounts.map(acc => (
+                      <div
+                        key={acc.id}
+                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-white">{acc.name}</div>
+                          <div className="text-[10px] text-[#FF6B3D] font-mono">
+                            {acc.type} • {acc.account_number || 'Active'}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs sm:text-sm font-extrabold text-emerald-300 tabular-nums font-mono">
+                            PKR {pkr(acc.current_balance).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {pkr(stats.total_loan_payable) > 0 && (
+                      <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-400/40 flex justify-between items-center text-xs">
+                        <span className="font-bold text-rose-200">Arranged Loans Payable:</span>
+                        <span className="font-mono font-extrabold text-rose-300">
+                          PKR {pkr(stats.total_loan_payable).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Godown Stock Summary Card */}
+                <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+                    <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#FF6B3D]" /> Godowns & Warehouses
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo({ main: 'inventory', invSub: 'stock_breakdown' })}
+                      className="text-xs text-[#FF6B3D] hover:underline font-bold"
+                    >
+                      Stock Details →
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {enrichedLocations.map(loc => (
+                      <div
+                        key={loc.id}
+                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-white">{loc.name}</div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {loc.location_type} • {loc.safeItems.length} Active SKUs
+                          </div>
+                        </div>
+                        <div className="text-right font-mono font-extrabold text-amber-300 tabular-nums">
+                          {loc.total_bottles.toLocaleString()} Btls
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 3: Partner & Admin Operational Transparency */}
+            <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F7F7F5]/10 pb-3">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wide">
+                    Partner & Admin Operational Transparency ({activeDateRangeInfo.badge})
+                  </h3>
+                  <p className="text-[11px] text-[#F7F7F5]/75">
+                    Side-by-side audit of Sales, Purchases, Cash Collections, and Expenses recorded by each authorized partner
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDashboardPartnerView('ALL')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold ${
+                      dashboardPartnerView === 'ALL' ? 'bg-[#FF6B3D] text-white' : 'bg-[#001D21] text-[#F7F7F5] border border-white/15'
+                    }`}
+                  >
+                    All Partners ({partnerTransparency.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDashboardPartnerView('MINE')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold ${
+                      dashboardPartnerView === 'MINE' ? 'bg-[#F7F7F5] text-[#00262B]' : 'bg-[#001D21] text-[#F7F7F5] border border-white/15'
+                    }`}
+                  >
+                    My Activity ({currentAdmin?.username || 'Admin'})
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {partnerTransparency
+                  .filter(pt =>
+                    dashboardPartnerView === 'ALL'
+                      ? true
+                      : pt.admin_id === (currentAdmin?.id || 1) ||
+                        (Boolean(currentAdmin?.email) && pt.email.toLowerCase() === currentAdmin!.email.toLowerCase())
+                  )
+                  .map((pt, idx) => (
+                    <div
+                      key={pt.admin_id}
+                      className="bg-[#001D21] p-4 rounded-xl border border-[#F7F7F5]/15 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#F7F7F5]/10 pb-2.5">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#005B66] text-white font-bold">
+                            Partner #{idx + 1} • {pt.role}
+                          </span>
+                          <h4 className="text-sm font-black text-white mt-1">{pt.full_name}</h4>
+                          <div className="text-[11px] text-[#F7F7F5]/70 font-mono">
+                            Username: {pt.username}
+                          </div>
+                        </div>
+                        {pt.admin_id === (currentAdmin?.id || 1) && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold">
+                            ● Active Session
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
+                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Sales Billed</div>
+                          <div className="text-xs font-extrabold text-emerald-300 mt-0.5 font-mono">
+                            PKR {pkr(pt.sales_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{pt.sales_count} Bills</div>
+                        </div>
+                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Purchases</div>
+                          <div className="text-xs font-extrabold text-[#FF6B3D] mt-0.5 font-mono">
+                            PKR {pkr(pt.purchases_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{pt.purchases_count} Bills</div>
+                        </div>
+                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Cash Inflow</div>
+                          <div className="text-xs font-extrabold text-[#F7F7F5] mt-0.5 font-mono">
+                            PKR {pkr(pt.deposits_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{pt.deposits_count} Entries</div>
+                        </div>
+                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                          <div className="text-[10px] text-slate-300 uppercase">Expenses</div>
+                          <div className="text-xs font-extrabold text-rose-300 mt-0.5 font-mono">
+                            PKR {pkr(pt.expenses_total).toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{pt.expenses_count} Vouchers</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            SECTION 2: BILLING & ACCOUNTS (VYAPAR MULTI-ITEM + PREVIOUS KHATA)
+           ========================================================================= */}
+        {currentNav.main === 'accounts' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="glass-panel p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Calendar className="w-4 h-4 text-[#FF6B3D]" />
+                <span className="text-xs font-extrabold text-white uppercase tracking-wide">
+                  Active Records Filter: <span className="text-[#FF6B3D]">{customDate || period.toUpperCase()}</span>
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
                 {([
                   { id: 'daily', label: 'Today (Daily)' },
                   { id: 'weekly', label: 'Last 7 Days' },
@@ -3242,18 +4946,17 @@ export default function App() {
                       setCustomDate('');
                       setPeriod(p.id);
                     }}
-                    className={`px-4 py-2 rounded-full text-xs font-bold transition ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
                       !customDate && period === p.id
-                        ? 'bg-[#FF6B3D] text-white shadow-lg'
+                        ? 'bg-[#FF6B3D] text-white shadow'
                         : 'bg-[#002B31] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
                     }`}
                   >
                     {p.label}
                   </button>
                 ))}
-
                 <div className="flex items-center gap-1.5 bg-[#002B31] px-3 py-1 rounded-full border border-[#F7F7F5]/25">
-                  <span className="text-[11px] font-bold text-[#FF6B3D]">Specific Date:</span>
+                  <span className="text-[11px] font-bold text-[#FF6B3D]">Date:</span>
                   <input
                     type="date"
                     value={customDate}
@@ -3273,266 +4976,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* 5 Core Company-Wide KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="kpi-card p-5 rounded-2xl">
-                <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Sales ({customDate || period})</span>
-                  <span className="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
-                    <TrendingUp className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="mt-3 text-2xl font-black text-emerald-300 tabular-nums">
-                  PKR {pkr(stats.total_sales_revenue).toLocaleString()}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
-                  <span>Collected: PKR {pkr(stats.sales_collected).toLocaleString()}</span>
-                  <span className="text-[#FF6B3D] font-bold">Khata: PKR {pkr(stats.sales_pending).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="kpi-card p-5 rounded-2xl">
-                <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Purchases ({customDate || period})</span>
-                  <span className="p-2 rounded-lg bg-[#FF6B3D]/20 text-[#FF6B3D] border border-[#FF6B3D]/40">
-                    <ShoppingCart className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="mt-3 text-2xl font-black text-[#FF6B3D] tabular-nums">
-                  PKR {pkr(stats.total_purchases_cost).toLocaleString()}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
-                  <span>Paid: PKR {pkr(stats.purchases_paid).toLocaleString()}</span>
-                  <span className="text-rose-300 font-bold">Payable: PKR {pkr(stats.purchases_pending).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="kpi-card p-5 rounded-2xl">
-                <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Net Profit ({customDate || period})</span>
-                  <span className="p-2 rounded-lg bg-white/15 text-white border border-white/25">
-                    <BarChart3 className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className={`mt-3 text-2xl font-black tabular-nums ${pkr(stats.net_profit) >= 0 ? 'text-white' : 'text-rose-400'}`}>
-                  PKR {pkr(stats.net_profit).toLocaleString()}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
-                  <span>Gross: PKR {pkr(stats.estimated_gross_profit).toLocaleString()}</span>
-                  <span className="text-rose-300 font-bold">Exp: PKR {pkr(stats.total_expenses).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="kpi-card p-5 rounded-2xl">
-                <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Liquid Cash & Wallets</span>
-                  <span className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono text-[11px] font-bold flex items-center gap-1">
-                    <Wallet className="w-3.5 h-3.5" /> PKR
-                  </span>
-                </div>
-                <div className="mt-3 text-2xl font-black text-emerald-300 tabular-nums">
-                  PKR {pkr(stats.total_cash_bank).toLocaleString()}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
-                  <span>Receivable: PKR {pkr(stats.total_receivable).toLocaleString()}</span>
-                  <span className="text-rose-300 font-bold">Payable: PKR {pkr(stats.total_payable).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="kpi-card p-5 rounded-2xl">
-                <div className="flex items-center justify-between text-white text-xs font-bold uppercase">
-                  <span>Live Stock Value</span>
-                  <span className="p-2 rounded-lg bg-[#FF6B3D]/20 text-[#FF6B3D] border border-[#FF6B3D]/40">
-                    <Package className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="mt-3 text-2xl font-black text-[#F7F7F5] tabular-nums">
-                  PKR {pkr(stats.total_stock_value).toLocaleString()}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-200 border-t border-white/15 pt-2 tabular-nums">
-                  <span>Total Stock: {pkr(stats.total_stock_bottles).toLocaleString()} Btls</span>
-                  <span className="text-emerald-300 font-bold">Live Valuation</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 100% Transparent Business Partners Activity & Individual Admin Dashboard */}
-            <div className="glass-panel rounded-2xl p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F7F7F5]/15 pb-3">
-                <div>
-                  <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
-                    100% TRANSPARENT PARTNER DASHBOARDS — INDIVIDUAL & COMBINED ADMIN ACTIVITIES ({customDate || period.toUpperCase()})
-                  </h3>
-                  <p className="text-xs text-[#F7F7F5]/80">
-                    Every Admin partner can view their own individual dashboard as well as full side-by-side Sales, Purchases, Deposits & Expenses of all other Admins.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDashboardPartnerView('ALL')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${
-                      dashboardPartnerView === 'ALL' ? 'bg-[#FF6B3D] text-white' : 'bg-[#002B31] text-[#F7F7F5]'
-                    }`}
-                  >
-                    All Partners Side-by-Side ({partnerTransparency.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDashboardPartnerView('MINE')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${
-                      dashboardPartnerView === 'MINE' ? 'bg-[#F7F7F5] text-[#00373E]' : 'bg-[#002B31] text-[#F7F7F5]'
-                    }`}
-                  >
-                    My Individual Dashboard ({currentAdmin?.username || 'Admin'})
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {partnerTransparency
-                  .filter(pt =>
-                    dashboardPartnerView === 'ALL'
-                      ? true
-                      : pt.admin_id === (currentAdmin?.id || 1) ||
-                        pt.email.toLowerCase() === (currentAdmin?.email || 'malikabuzar411@gmail.com').toLowerCase()
-                  )
-                  .map((pt, idx) => (
-                    <div
-                      key={pt.admin_id}
-                      className="bg-[#00262B]/85 p-4 rounded-2xl border border-[#F7F7F5]/20 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-[#F7F7F5]/15 pb-2.5">
-                        <div>
-                          <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF6B3D] text-white font-bold">
-                            Admin Partner #{idx + 1} • {pt.role}
-                          </span>
-                          <h4 className="text-base font-black text-white mt-1">{pt.full_name}</h4>
-                          <div className="text-[11px] text-[#F7F7F5]/75 font-mono">
-                            {pt.email} • Username: {pt.username}
-                          </div>
-                        </div>
-                        {pt.admin_id === (currentAdmin?.id || 1) && (
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold">
-                            ● Active Session (You)
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
-                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Sales Generated</div>
-                          <div className="text-sm font-extrabold text-emerald-300 mt-0.5">
-                            PKR {pkr(pt.sales_total).toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-slate-300">{pt.sales_count} Bills</div>
-                        </div>
-                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Purchases Made</div>
-                          <div className="text-sm font-extrabold text-[#FF6B3D] mt-0.5">
-                            PKR {pkr(pt.purchases_total).toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-slate-300">{pt.purchases_count} Bills</div>
-                        </div>
-                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Deposits / Inflow</div>
-                          <div className="text-sm font-extrabold text-[#F7F7F5] mt-0.5">
-                            PKR {pkr(pt.deposits_total).toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-slate-300">{pt.deposits_count} Entries</div>
-                        </div>
-                        <div className="bg-[#00373E]/90 p-2.5 rounded-xl border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Expenses Paid</div>
-                          <div className="text-sm font-extrabold text-rose-300 mt-0.5">
-                            PKR {pkr(pt.expenses_total).toLocaleString()}
-                          </div>
-                          <div className="text-[10px] text-slate-300">{pt.expenses_count} Vouchers</div>
-                        </div>
-                      </div>
-
-                      {pt.recent_activities.length > 0 && (
-                        <div className="space-y-1 pt-1">
-                          <div className="text-[10px] font-bold uppercase text-[#FF6B3D]">
-                            Recent Transactions by {pt.full_name}:
-                          </div>
-                          <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
-                            {pt.recent_activities.slice(0, 5).map((act, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between text-[11px] bg-[#00373E]/60 px-2.5 py-1 rounded-lg font-mono"
-                              >
-                                <span className="truncate">
-                                  <strong className="text-white">{act.type}</strong> • {act.reference} ({act.party})
-                                </span>
-                                <span className="font-bold text-emerald-300 shrink-0 ml-2">
-                                  PKR {pkr(act.amount).toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2">
-                <AthFracturedCurrentHero onNavigate={navigateTo} />
-              </div>
-
-              <div className="glass-panel rounded-2xl p-5 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-extrabold text-white uppercase flex items-center gap-2 samsung-heading heading-reveal">
-                    <Landmark className="w-4 h-4 text-[#FF6B3D]" /> Financial Accounts
-                  </h3>
-                  <button
-                    onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
-                    className="text-xs text-[#FF6B3D] hover:underline font-bold"
-                  >
-                    Manage / Transfer →
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {accounts.map(acc => (
-                    <div
-                      key={acc.id}
-                      className="bg-[#00262B]/85 p-3.5 rounded-xl border border-white/15 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-white">{acc.name}</div>
-                        <div className="text-[11px] text-[#FF6B3D] font-mono">
-                          {acc.type} • {acc.account_number || 'Active'}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-extrabold text-emerald-300 tabular-nums">
-                          PKR {pkr(acc.current_balance).toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-slate-300">Available</div>
-                      </div>
-                    </div>
-                  ))}
-                  {pkr(stats.total_loan_payable) > 0 && (
-                    <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-400/40 flex justify-between items-center text-xs">
-                      <span className="font-bold text-rose-200">Arranged Loans / Capital Payable:</span>
-                      <span className="font-mono font-extrabold text-rose-300">
-                        PKR {pkr(stats.total_loan_payable).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            SECTION 2: BILLING & ACCOUNTS (VYAPAR MULTI-ITEM + PREVIOUS KHATA)
-           ========================================================================= */}
-        {currentNav.main === 'accounts' && (
-          <div className="space-y-6 animate-fade-in">
             {currentNav.accSub === 'sales' && (
               <div className="space-y-6">
                 <div className="glass-panel rounded-2xl p-5 sm:p-6">
@@ -3572,12 +5015,42 @@ export default function App() {
                           value={saleCustomerName}
                           onChange={e => {
                             setSaleCustomerName(e.target.value);
-                            const match = customers.find(c => c.name.toLowerCase() === e.target.value.trim().toLowerCase());
-                            if (match) handleSelectSaleCustomer(match);
-                            else setSaleCustomerId(0);
+                            setSaleCustomerId(0);
+                            setSaleForceNewCustomer(false);
                           }}
                           className="erp-input"
                         />
+                        {possibleSaleCustomerMatches.length > 0 && (
+                          <div className="p-2.5 rounded-xl bg-amber-950/95 border border-yellow-400/70 space-y-1.5 text-[11px] animate-fade-in">
+                            <div className="font-extrabold text-yellow-300 flex items-center justify-between">
+                              <span>Possible Existing Customer Match ({possibleSaleCustomerMatches.length}) — Confirm Identity:</span>
+                              <button
+                                type="button"
+                                onClick={() => setSaleForceNewCustomer(true)}
+                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-0.5 rounded border border-white/20"
+                              >
+                                + Keep as Separate New Customer
+                              </button>
+                            </div>
+                            {possibleSaleCustomerMatches.slice(0, 3).map(m => (
+                              <div
+                                key={m.id}
+                                className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-white/10"
+                              >
+                                <div className="text-white">
+                                  <strong>{m.name}</strong> ({m.city}) • Group: <span className="text-yellow-300">{m.group_name}</span> • Phone: <span className="font-mono">{m.phone || 'N/A'}</span> • CNIC: <span className="font-mono">{m.cnic || 'N/A'}</span> • Khata: <strong className="text-rose-300">PKR {pkr(m.current_receivable).toLocaleString()}</strong>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectSaleCustomer(m)}
+                                  className="btn-oil px-2.5 py-1 text-[10px]"
+                                >
+                                  ✓ Select This Customer (ID #{m.id})
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <select
                           value={saleCustomerId}
                           onChange={e => {
@@ -3690,7 +5163,7 @@ export default function App() {
                                 onChange={e => setSaleIncludePrevDues(e.target.checked)}
                                 className="w-4 h-4 accent-yellow-400"
                               />
-                              Display Previous Balance on Invoice Printout
+                              Settle Previous Bill First (FIFO) & Include Old Khata on Invoice
                             </label>
                           )}
                           <button
@@ -4044,9 +5517,9 @@ export default function App() {
                           <span>Total Due (New + Old): <strong className="text-white">PKR {pkr(computedSaleTotal + customerPreviousDues).toLocaleString()}</strong></span>
                           <span>
                             Total Received Today: <strong className="text-emerald-300">PKR {computedSaleReceived.toLocaleString()}</strong>
-                            {computedAppliedToPrev > 0 && (
+                            {computedSaleReceived > 0 && (
                               <span className="ml-1.5 text-[11px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-0.5 rounded-full">
-                                Auto-settles PKR {computedAppliedToPrev.toLocaleString()} of Old Khata
+                                Prev Bill Settled: PKR {computedAppliedToPrev.toLocaleString()} • This Bill Paid: PKR {computedAllocatedToNewBill.toLocaleString()} (Rem New Bill: PKR {pkr(computedSaleTotal - computedAllocatedToNewBill).toLocaleString()})
                               </span>
                             )}
                           </span>
@@ -4055,10 +5528,24 @@ export default function App() {
                       </div>
                       <button
                         type="submit"
-                        disabled={isSaleStockInsufficient}
-                        className="btn-primary py-3 px-6 text-xs uppercase"
+                        disabled={isSaleStockInsufficient || saleSubmitting}
+                        className={`py-3 px-6 text-xs uppercase rounded-full font-extrabold flex items-center gap-2 ${
+                          isSaleStockInsufficient || saleSubmitting
+                            ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'btn-primary'
+                        }`}
                       >
-                        {isSaleStockInsufficient ? 'Stock Unavailable in Selected Location' : `Confirm & Post ${saleDocType === 'SALE' ? 'Sale Invoice' : saleDocType}`} <ArrowRight className="w-4 h-4" />
+                        {saleSubmitting ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" /> Posting Invoice... Please Wait
+                          </>
+                        ) : isSaleStockInsufficient ? (
+                          'Stock Unavailable in Selected Location'
+                        ) : (
+                          <>
+                            Confirm & Post {saleDocType === 'SALE' ? 'Sale Invoice' : saleDocType} <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -4180,11 +5667,13 @@ export default function App() {
                               </td>
                               <td className="text-slate-200 font-mono">{s.invoice_date}</td>
                               <td>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  s.admin_name === currentAdmin?.full_name || s.admin_name === currentAdmin?.username
-                                    ? 'bg-[#FF6B3D] text-white'
-                                    : 'bg-[#00373E] text-[#F7F7F5] border border-white/20'
-                                }`}>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    s.admin_name === currentAdmin?.full_name || s.admin_name === currentAdmin?.username
+                                      ? 'bg-[#FF6B3D] text-white'
+                                      : 'bg-[#00373E] text-[#F7F7F5] border border-white/20'
+                                  }`}
+                                >
                                   {s.admin_name || 'Admin'}
                                 </span>
                               </td>
@@ -4196,17 +5685,36 @@ export default function App() {
                                 >
                                   {s.customer_name}
                                 </button>
-                                <div className="text-[10px] text-slate-300">{s.customer_city} • {s.customer_group}</div>
+                                <div className="text-[10px] text-slate-300">
+                                  {s.customer_city} • {s.customer_group}
+                                </div>
                               </td>
                               <td className="text-yellow-300 font-semibold">{s.location_summary}</td>
                               <td className="text-slate-100 max-w-xs">{s.items_summary}</td>
-                              <td className="font-bold text-white tabular-nums">PKR {pkr(s.total_amount).toLocaleString()}</td>
+                              <td className="font-bold text-white tabular-nums">
+                                PKR {pkr(s.total_amount).toLocaleString()}
+                              </td>
                               <td className="text-emerald-300 font-bold tabular-nums">
-                                PKR {pkr(s.received_amount).toLocaleString()}
+                                {(() => {
+                                  const billPart = pkr(s.received_amount) > pkr(s.total_amount) ? pkr(s.total_amount) : pkr(s.received_amount);
+                                  const oldPart = pkr(s.applied_to_previous);
+                                  return (
+                                    <>
+                                      PKR {pkr(billPart + oldPart).toLocaleString()}
+                                      {oldPart > 0 && (
+                                        <div className="text-[10px] font-mono text-emerald-200">
+                                          (Bill: {billPart.toLocaleString()} + Old: {oldPart.toLocaleString()})
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td className="font-bold text-rose-300 tabular-nums">
-                                PKR {pkr(s.receivable_amount).toLocaleString()}
-                                <div className="text-[10px] font-mono text-slate-300">{s.payment_status}</div>
+                                <div>Bill: PKR {pkr(s.receivable_amount).toLocaleString()}</div>
+                                <div className="text-[10px] font-mono text-[#FF6B3D]">
+                                  Khata: PKR {pkr(s.closing_receivable ?? s.receivable_amount).toLocaleString()} ({s.payment_status})
+                                </div>
                               </td>
                               <td className="text-right space-x-1.5 whitespace-nowrap">
                                 <button
@@ -4278,9 +5786,48 @@ export default function App() {
                           onChange={e => {
                             setPurSupplierName(e.target.value);
                             setPurSupplierId(0);
+                            setPurForceNewSupplier(false);
                           }}
                           className="erp-input"
                         />
+                        {possiblePurSupplierMatches.length > 0 && (
+                          <div className="p-2.5 rounded-xl bg-amber-950/95 border border-yellow-400/70 space-y-1.5 text-[11px] animate-fade-in">
+                            <div className="font-extrabold text-yellow-300 flex items-center justify-between">
+                              <span>Possible Existing Supplier Match ({possiblePurSupplierMatches.length}):</span>
+                              <button
+                                type="button"
+                                onClick={() => setPurForceNewSupplier(true)}
+                                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-0.5 rounded border border-white/20"
+                              >
+                                + Keep as Separate New Supplier
+                              </button>
+                            </div>
+                            {possiblePurSupplierMatches.slice(0, 3).map(s => (
+                              <div
+                                key={s.id}
+                                className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-white/10"
+                              >
+                                <div className="text-white">
+                                  <strong>{s.name}</strong> ({s.city}) • Phone: <span className="font-mono">{s.phone || 'N/A'}</span> • CNIC: <span className="font-mono">{s.cnic || 'N/A'}</span> • Payable: <strong className="text-rose-300">PKR {pkr(s.current_payable).toLocaleString()}</strong>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPurSupplierId(s.id);
+                                    setPurSupplierName(s.name);
+                                    setPurSupplierCity(s.city);
+                                    setPurSupplierPhone(s.phone || '');
+                                    setPurSupplierCnic(s.cnic || '');
+                                    setPurSupplierGroup(s.group_name || 'General Suppliers');
+                                  }}
+                                  className="btn-oil px-2.5 py-1 text-[10px]"
+                                >
+                                  ✓ Select This Supplier (ID #{s.id})
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <select
                           value={purSupplierId}
                           onChange={e => {
@@ -4355,7 +5902,7 @@ export default function App() {
 
                     {/* Supplier Outstanding Ledger & Previous Khata Banner */}
                     {activePurSupplier && (
-                      <div className="p-3.5 rounded-xl bg-slate-900/95 border border-[#FF6B3D]/50 flex flex-wrap items-center justify-between gap-3 text-xs animate-fade-in">
+                      <div className="p-3.5 rounded-xl bg-[#00262B]/95 border border-[#FF6B3D]/50 flex flex-wrap items-center justify-between gap-3 text-xs animate-fade-in">
                         <div className="space-y-0.5">
                           <div className="font-bold text-white">
                             Selected Supplier: <span className="text-[#FF6B3D]">{activePurSupplier.name}</span> ({activePurSupplier.city})
@@ -4369,8 +5916,8 @@ export default function App() {
                         </div>
                         <div className="text-right tabular-nums">
                           <span className="text-[11px] text-slate-300 block">Projected Total Payable to Supplier (Old + New):</span>
-                          <span className="text-sm font-black text-rose-300">
-                            PKR {pkr(supplierPreviousDues + Math.max(0, computedPurTotal - computedPurPaid)).toLocaleString()}
+                          <span className="text-sm font-black text-[#FF6B3D]">
+                            PKR {pkr(Math.max(0, supplierPreviousDues + computedPurTotal - computedPurPaid)).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -4608,20 +6155,35 @@ export default function App() {
 
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/15">
                       <div className="flex flex-wrap gap-4 text-xs text-white tabular-nums">
-                        <span>Current Bill: <strong className="text-yellow-300">PKR {computedPurTotal.toLocaleString()}</strong></span>
+                        <span>Current Bill: <strong className="text-[#FF6B3D]">PKR {computedPurTotal.toLocaleString()}</strong></span>
                         <span>Previous Supplier Payable: <strong className="text-rose-300">PKR {supplierPreviousDues.toLocaleString()}</strong></span>
-                        <span>Paid Today: <strong className="text-emerald-300">PKR {computedPurPaid.toLocaleString()}</strong></span>
-                        <span>This Bill Remaining: <strong className="text-rose-300">PKR {Math.max(0, computedPurTotal - computedPurPaid).toLocaleString()}</strong></span>
-                        <span>Total Closing Supplier Payable: <strong className="text-rose-400">PKR {pkr(supplierPreviousDues + Math.max(0, computedPurTotal - computedPurPaid)).toLocaleString()}</strong></span>
+                        <span>Total Due (Old + New): <strong className="text-white">PKR {pkr(supplierPreviousDues + computedPurTotal).toLocaleString()}</strong></span>
+                        <span>
+                          Paid Today: <strong className="text-emerald-300">PKR {computedPurPaid.toLocaleString()}</strong>
+                          {computedPurPaid > computedPurTotal && supplierPreviousDues > 0 && (
+                            <span className="ml-1.5 text-[11px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 px-2 py-0.5 rounded-full">
+                              Auto-settles PKR {pkr(Math.min(supplierPreviousDues, computedPurPaid - computedPurTotal)).toLocaleString()} of Old Dues
+                            </span>
+                          )}
+                        </span>
+                        <span>Total Closing Supplier Payable: <strong className="text-rose-400">PKR {pkr(Math.max(0, supplierPreviousDues + computedPurTotal - computedPurPaid)).toLocaleString()}</strong></span>
                       </div>
                       <button
                         type="submit"
-                        disabled={Boolean(isPurWalletInsufficient)}
-                        className={`py-3 px-6 text-xs uppercase rounded-xl font-bold ${
-                          isPurWalletInsufficient ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'btn-oil'
+                        disabled={Boolean(isPurWalletInsufficient) || purSubmitting}
+                        className={`py-3 px-6 text-xs uppercase rounded-xl font-bold flex items-center gap-2 ${
+                          isPurWalletInsufficient || purSubmitting
+                            ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'btn-oil'
                         }`}
                       >
-                        Save Purchase & Update Stock
+                        {purSubmitting ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" /> Saving Purchase Bill... Please Wait
+                          </>
+                        ) : (
+                          'Save Purchase & Update Stock'
+                        )}
                       </button>
                     </div>
                   </form>
@@ -4631,7 +6193,7 @@ export default function App() {
                 <div className="glass-panel rounded-2xl p-5">
                   <h3 className="text-sm font-extrabold text-white mb-4 samsung-heading heading-reveal">PURCHASE BILLS REGISTER</h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs erp-table min-w-[820px]">
+                    <table className="w-full text-left text-xs erp-table min-w-[860px]">
                       <thead>
                         <tr>
                           <th>Bill #</th>
@@ -4640,20 +6202,32 @@ export default function App() {
                           <th>Items & Carton Breakdown</th>
                           <th>Total Bill</th>
                           <th>Paid</th>
-                          <th>Payable</th>
+                          <th>Bill Payable / Closing</th>
                           <th className="text-right">Bill / Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {purchases.map(p => (
                           <tr key={p.id}>
-                            <td className="font-mono font-bold text-yellow-300">{p.purchase_number}</td>
+                            <td className="font-mono font-bold text-[#FF6B3D]">{p.purchase_number}</td>
                             <td className="text-slate-200 font-mono">{p.invoice_date}</td>
                             <td className="font-bold text-white">{p.supplier_name}</td>
                             <td className="text-slate-100 max-w-xs">{p.items_summary}</td>
                             <td className="font-bold text-white tabular-nums">PKR {pkr(p.total_amount).toLocaleString()}</td>
-                            <td className="text-emerald-300 font-bold tabular-nums">PKR {pkr(p.paid_amount).toLocaleString()}</td>
-                            <td className="font-bold text-rose-300 tabular-nums">PKR {pkr(p.payable_amount).toLocaleString()}</td>
+                            <td className="text-emerald-300 font-bold tabular-nums">
+                              PKR {pkr(p.paid_amount + (p.applied_to_previous || 0)).toLocaleString()}
+                              {pkr(p.applied_to_previous) > 0 && (
+                                <div className="text-[10px] font-mono text-emerald-200">
+                                  (Bill: {pkr(p.paid_amount).toLocaleString()} + Old: {pkr(p.applied_to_previous).toLocaleString()})
+                                </div>
+                              )}
+                            </td>
+                            <td className="font-bold text-rose-300 tabular-nums">
+                              <div>Bill: PKR {pkr(p.payable_amount).toLocaleString()}</div>
+                              <div className="text-[10px] font-mono text-[#FF6B3D]">
+                                Total Supplier Due: PKR {pkr(p.closing_payable ?? p.payable_amount).toLocaleString()} ({p.payment_status})
+                              </div>
+                            </td>
                             <td className="text-right space-x-1.5 whitespace-nowrap">
                               <button
                                 onClick={() => setInvoiceModal({ kind: 'PURCHASE', purchase: p })}
@@ -4695,84 +6269,423 @@ export default function App() {
               </div>
             )}
 
-            {/* PARTIAL PAYMENTS TAB */}
+            {/* PARTIAL PAYMENTS & CONSOLIDATED KHATA DUES TAB */}
             {currentNav.accSub === 'partials' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="glass-panel rounded-2xl p-5 space-y-4">
-                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
-                    <Clock className="w-4 h-4 text-emerald-400" /> CUSTOMER PENDING KHATA INVOICES ({pendingSales.length})
-                  </h3>
-                  {pendingSales.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-300">No pending customer invoices.</div>
-                  ) : (
-                    pendingSales.map(s => (
-                      <div key={s.id} className="bg-slate-800/90 p-4 rounded-xl border border-white/15 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="font-mono text-xs font-bold text-yellow-300">{s.invoice_number}</span>
-                            <div className="text-sm font-bold text-white">{s.customer_name}</div>
-                            <div className="text-[11px] text-slate-200">{s.items_summary}</div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openCustomerAllocationModal(s.customer_id)}
-                              className="btn-primary px-3 py-1.5 text-xs"
-                            >
-                              Allocate & Receive Payment
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between text-[11px] pt-2 border-t border-white/15 tabular-nums">
-                          <span>Bill: PKR {pkr(s.total_amount).toLocaleString()}</span>
-                          <span className="text-emerald-300">Received: PKR {pkr(s.received_amount).toLocaleString()}</span>
-                          <span className="text-yellow-300 font-bold">Pending: PKR {pkr(s.receivable_amount).toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
+              <div className="space-y-6">
+                {/* Top Summary KPI Banner for Unique People vs Individual Bills */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="glass-panel p-4 rounded-2xl border border-emerald-400/30">
+                    <div className="text-[11px] font-bold uppercase text-emerald-300">Unique Customers With Dues</div>
+                    <div className="text-2xl font-black text-white mt-1 tabular-nums">
+                      {consolidatedCustomerDues.length} {consolidatedCustomerDues.length === 1 ? 'Customer' : 'Customers'}
+                    </div>
+                    <div className="text-xs text-slate-300 mt-0.5">
+                      Across {pendingSales.length} Unpaid Sale {pendingSales.length === 1 ? 'Bill' : 'Bills'}
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-2xl border border-emerald-400/30">
+                    <div className="text-[11px] font-bold uppercase text-emerald-300">Total Customer Khata Receivable</div>
+                    <div className="text-2xl font-black text-emerald-300 mt-1 tabular-nums">
+                      PKR {consolidatedCustomerDues.reduce((s, g) => s + pkr(g.total_remaining), 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-300 mt-0.5">Consolidated by CNIC, Phone, Name & Route</div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-2xl border border-[#FF6B3D]/40">
+                    <div className="text-[11px] font-bold uppercase text-[#FF6B3D]">Unique Suppliers With Dues</div>
+                    <div className="text-2xl font-black text-white mt-1 tabular-nums">
+                      {consolidatedSupplierDues.length} {consolidatedSupplierDues.length === 1 ? 'Supplier' : 'Suppliers'}
+                    </div>
+                    <div className="text-xs text-slate-300 mt-0.5">
+                      Across {pendingPurchases.length} Unpaid Purchase {pendingPurchases.length === 1 ? 'Bill' : 'Bills'}
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-2xl border border-[#FF6B3D]/40">
+                    <div className="text-[11px] font-bold uppercase text-[#FF6B3D]">Total Supplier Khata Payable</div>
+                    <div className="text-2xl font-black text-rose-300 mt-1 tabular-nums">
+                      PKR {consolidatedSupplierDues.reduce((s, g) => s + pkr(g.total_remaining), 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-300 mt-0.5">Consolidated by CNIC, Phone, Name & City</div>
+                  </div>
                 </div>
 
-                <div className="glass-panel rounded-2xl p-5 space-y-4">
-                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
-                    <Clock className="w-4 h-4 text-yellow-400" /> SUPPLIER PENDING BILLS ({pendingPurchases.length})
-                  </h3>
-                  {pendingPurchases.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-300">No pending supplier bills.</div>
-                  ) : (
-                    pendingPurchases.map(p => (
-                      <div key={p.id} className="bg-slate-800/90 p-4 rounded-xl border border-white/15 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="font-mono text-xs font-bold text-yellow-300">{p.purchase_number}</span>
-                            <div className="text-sm font-bold text-white">{p.supplier_name}</div>
-                            <div className="text-[11px] text-slate-200">{p.items_summary}</div>
-                          </div>
-                          <button
-                            onClick={() =>
-                              setPartialModal({
-                                kind: 'PURCHASE',
-                                id: p.id,
-                                refNumber: p.purchase_number,
-                                partyName: p.supplier_name,
-                                totalAmount: pkr(p.total_amount),
-                                alreadyPaid: pkr(p.paid_amount),
-                                remainingBalance: pkr(p.payable_amount)
-                              })
-                            }
-                            className="btn-oil px-3 py-1.5 text-xs"
-                          >
-                            + Pay PKR
-                          </button>
-                        </div>
-                        <div className="flex justify-between text-[11px] pt-2 border-t border-white/15 tabular-nums">
-                          <span>Bill: PKR {pkr(p.total_amount).toLocaleString()}</span>
-                          <span className="text-emerald-300">Paid: PKR {pkr(p.paid_amount).toLocaleString()}</span>
-                          <span className="text-rose-300 font-bold">Payable: PKR {pkr(p.payable_amount).toLocaleString()}</span>
-                        </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {/* LEFT COLUMN: CONSOLIDATED CUSTOMERS & INDIVIDUAL BILLS */}
+                  <div className="glass-panel rounded-2xl p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
+                      <div>
+                        <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
+                          <Users className="w-4 h-4 text-emerald-400" /> CONSOLIDATED CUSTOMER KHATA ({consolidatedCustomerDues.length} UNIQUE {consolidatedCustomerDues.length === 1 ? 'CUSTOMER' : 'CUSTOMERS'})
+                        </h3>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          Multiple bills for the same verified customer are grouped together. Click any customer to inspect individual bills or clear all dues at once.
+                        </p>
                       </div>
-                    ))
-                  )}
+                    </div>
+
+                    {consolidatedCustomerDues.length === 0 ? (
+                      <div className="py-10 text-center text-xs text-slate-300">
+                        No outstanding customer bills. All customer accounts are settled!
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {consolidatedCustomerDues.map(grp => {
+                          const isCollapsed = Boolean(collapsedKhataKeys[grp.groupKey]);
+                          return (
+                            <div
+                              key={grp.groupKey}
+                              className="bg-[#002227]/95 rounded-2xl border border-emerald-400/35 overflow-hidden shadow-lg"
+                            >
+                              {/* Consolidated Customer Header Banner */}
+                              <div className="p-4 bg-gradient-to-r from-[#002B31] to-[#003B43] border-b border-white/15 flex flex-wrap items-center justify-between gap-3">
+                                <div
+                                  className="cursor-pointer space-y-1"
+                                  onClick={() => toggleKhataCardExpand(grp.groupKey)}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-base font-black text-white hover:text-yellow-300 underline">
+                                      {grp.customer_name}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#FF6B3D] text-white">
+                                      {grp.bills.length} Outstanding {grp.bills.length === 1 ? 'Bill' : 'Bills'}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                                      Total Due: PKR {pkr(grp.total_remaining).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-200 font-mono flex flex-wrap gap-x-3 gap-y-0.5">
+                                    <span>ID: {grp.customer_code}</span>
+                                    <span>• City: <strong className="text-white">{grp.city}</strong></span>
+                                    <span>• Group: <strong className="text-yellow-300">{grp.group_name}</strong></span>
+                                    {grp.phone && <span>• Ph: {grp.phone}</span>}
+                                    {grp.cnic && <span>• CNIC: {grp.cnic}</span>}
+                                  </div>
+                                </div>
+
+                                {/* Consolidated Customer Action Menu */}
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openCustomerAllocationModal(grp.customer_id, grp.total_remaining)}
+                                    className="btn-primary px-3.5 py-2 text-xs"
+                                    title="Clear all or selected bills for this customer in one payment"
+                                  >
+                                    Clear All / Select Bills (PKR {pkr(grp.total_remaining).toLocaleString()})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openCustomer360(grp.customer_id)}
+                                    className="btn-secondary px-2.5 py-2 text-[11px]"
+                                    title="View 360° Customer Statement & Payment History"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" /> 360° History
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleKhataCardExpand(grp.groupKey)}
+                                    className="bg-slate-800 hover:bg-slate-700 text-yellow-300 px-2.5 py-2 rounded-xl text-[11px] font-bold border border-white/15"
+                                  >
+                                    {isCollapsed ? `Show ${grp.bills.length} Bills ▼` : 'Hide Bills ▲'}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Individual Bills List for This Customer */}
+                              {!isCollapsed && (
+                                <div className="p-3.5 space-y-2.5 bg-slate-950/50">
+                                  {grp.bills.map((b, idx) => (
+                                    <div
+                                      key={b.id}
+                                      className="bg-slate-900/95 p-3.5 rounded-xl border border-white/15 space-y-2.5"
+                                    >
+                                      <div className="flex flex-wrap items-start justify-between gap-2">
+                                        <div className="space-y-0.5">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-[11px] font-extrabold text-slate-400">
+                                              Bill #{idx + 1}:
+                                            </span>
+                                            <span className="font-mono text-xs font-black text-yellow-300">
+                                              {b.invoice_number}
+                                            </span>
+                                            <span className="text-[11px] font-mono text-slate-300">
+                                              • Date: {formatRecordDateTimePkt(b.invoice_date)}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                              {b.payment_status}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-slate-200">{b.items_summary}</div>
+                                          {b.remarks && (
+                                            <div className="text-[11px] font-mono text-emerald-300/90">
+                                              History / Note: {b.remarks}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Per-Bill Options Toolbar */}
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setPartialModal({
+                                                kind: 'SALE',
+                                                id: b.id,
+                                                refNumber: b.invoice_number,
+                                                partyName: grp.customer_name,
+                                                totalAmount: pkr(b.total_amount),
+                                                alreadyPaid: pkr(b.received_amount),
+                                                remainingBalance: pkr(b.receivable_amount)
+                                              })
+                                            }
+                                            className="btn-oil px-2.5 py-1 text-[11px]"
+                                            title="Record Partial Installment on This Bill"
+                                          >
+                                            Partial Payment
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPartialAmount(String(pkr(b.receivable_amount)));
+                                              setPartialModal({
+                                                kind: 'SALE',
+                                                id: b.id,
+                                                refNumber: b.invoice_number,
+                                                partyName: grp.customer_name,
+                                                totalAmount: pkr(b.total_amount),
+                                                alreadyPaid: pkr(b.received_amount),
+                                                remainingBalance: pkr(b.receivable_amount)
+                                              });
+                                            }}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow"
+                                            title="Clear This Single Bill in Full"
+                                          >
+                                            ✓ Clear Bill (PKR {pkr(b.receivable_amount).toLocaleString()})
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setInvoiceModal({ kind: 'SALE', sale: b })}
+                                            className="btn-secondary px-2.5 py-1 text-[11px]"
+                                            title="View, Print or Download Invoice"
+                                          >
+                                            <Printer className="w-3 h-3" /> View / Print Bill
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-[11px] tabular-nums">
+                                        <div>
+                                          <span className="text-slate-400">Original Bill:</span>{' '}
+                                          <strong className="text-white">PKR {pkr(b.total_amount).toLocaleString()}</strong>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">Already Paid:</span>{' '}
+                                          <strong className="text-emerald-300">PKR {pkr(b.received_amount).toLocaleString()}</strong>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-slate-400">Remaining Due:</span>{' '}
+                                          <strong className="text-rose-400 text-xs">PKR {pkr(b.receivable_amount).toLocaleString()}</strong>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RIGHT COLUMN: CONSOLIDATED SUPPLIERS & INDIVIDUAL BILLS */}
+                  <div className="glass-panel rounded-2xl p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
+                      <div>
+                        <h3 className="text-sm font-extrabold text-white flex items-center gap-2 samsung-heading heading-reveal">
+                          <Truck className="w-4 h-4 text-[#FF6B3D]" /> CONSOLIDATED SUPPLIER PAYABLES ({consolidatedSupplierDues.length} UNIQUE {consolidatedSupplierDues.length === 1 ? 'SUPPLIER' : 'SUPPLIERS'})
+                        </h3>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          Multiple unpaid purchase bills for the same supplier are grouped together. Settle a single bill or clear all supplier bills in one payment.
+                        </p>
+                      </div>
+                    </div>
+
+                    {consolidatedSupplierDues.length === 0 ? (
+                      <div className="py-10 text-center text-xs text-slate-300">
+                        No pending supplier bills. All supplier payables are settled!
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {consolidatedSupplierDues.map(grp => {
+                          const isCollapsed = Boolean(collapsedKhataKeys[grp.groupKey]);
+                          return (
+                            <div
+                              key={grp.groupKey}
+                              className="bg-[#002227]/95 rounded-2xl border border-[#FF6B3D]/40 overflow-hidden shadow-lg"
+                            >
+                              {/* Consolidated Supplier Header Banner */}
+                              <div className="p-4 bg-gradient-to-r from-[#002B31] to-[#003B43] border-b border-white/15 flex flex-wrap items-center justify-between gap-3">
+                                <div
+                                  className="cursor-pointer space-y-1"
+                                  onClick={() => toggleKhataCardExpand(grp.groupKey)}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-base font-black text-white hover:text-yellow-300 underline">
+                                      {grp.supplier_name}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#FF6B3D] text-white">
+                                      {grp.bills.length} Outstanding {grp.bills.length === 1 ? 'Bill' : 'Bills'}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-400/40">
+                                      Total Payable: PKR {pkr(grp.total_remaining).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-200 font-mono flex flex-wrap gap-x-3 gap-y-0.5">
+                                    <span>ID: {grp.supplier_code}</span>
+                                    <span>• City: <strong className="text-white">{grp.city}</strong></span>
+                                    <span>• Group: <strong className="text-yellow-300">{grp.group_name}</strong></span>
+                                    {grp.phone && <span>• Ph: {grp.phone}</span>}
+                                    {grp.cnic && <span>• CNIC: {grp.cnic}</span>}
+                                  </div>
+                                </div>
+
+                                {/* Consolidated Supplier Action Menu */}
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openSupplierAllocationModal(grp)}
+                                    className="btn-oil px-3.5 py-2 text-xs"
+                                    title="Clear all or selected bills for this supplier in one consolidated payment"
+                                  >
+                                    Clear All / Select Bills (PKR {pkr(grp.total_remaining).toLocaleString()})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openSupplier360(grp.supplier_id)}
+                                    className="btn-secondary px-2.5 py-2 text-[11px]"
+                                    title="View Supplier 360° Bills & History"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" /> Bills History
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleKhataCardExpand(grp.groupKey)}
+                                    className="bg-slate-800 hover:bg-slate-700 text-yellow-300 px-2.5 py-2 rounded-xl text-[11px] font-bold border border-white/15"
+                                  >
+                                    {isCollapsed ? `Show ${grp.bills.length} Bills ▼` : 'Hide Bills ▲'}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Individual Bills List for This Supplier */}
+                              {!isCollapsed && (
+                                <div className="p-3.5 space-y-2.5 bg-slate-950/50">
+                                  {grp.bills.map((b, idx) => (
+                                    <div
+                                      key={b.id}
+                                      className="bg-slate-900/95 p-3.5 rounded-xl border border-white/15 space-y-2.5"
+                                    >
+                                      <div className="flex flex-wrap items-start justify-between gap-2">
+                                        <div className="space-y-0.5">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-[11px] font-extrabold text-slate-400">
+                                              Bill #{idx + 1}:
+                                            </span>
+                                            <span className="font-mono text-xs font-black text-[#FF6B3D]">
+                                              {b.purchase_number}
+                                            </span>
+                                            <span className="text-[11px] font-mono text-slate-300">
+                                              • Date: {formatRecordDateTimePkt(b.invoice_date)}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                              {b.payment_status}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-slate-200">{b.items_summary}</div>
+                                          {b.remarks && (
+                                            <div className="text-[11px] font-mono text-emerald-300/90">
+                                              History / Note: {b.remarks}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Per-Bill Options Toolbar */}
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPartialAmount('');
+                                              setPartialModal({
+                                                kind: 'PURCHASE',
+                                                id: b.id,
+                                                refNumber: b.purchase_number,
+                                                partyName: grp.supplier_name,
+                                                totalAmount: pkr(b.total_amount),
+                                                alreadyPaid: pkr(b.paid_amount),
+                                                remainingBalance: pkr(b.payable_amount)
+                                              });
+                                            }}
+                                            className="btn-oil px-2.5 py-1 text-[11px]"
+                                            title="Record Partial Installment on This Purchase Bill"
+                                          >
+                                            Partial Payment
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPartialAmount(String(pkr(b.payable_amount)));
+                                              setPartialModal({
+                                                kind: 'PURCHASE',
+                                                id: b.id,
+                                                refNumber: b.purchase_number,
+                                                partyName: grp.supplier_name,
+                                                totalAmount: pkr(b.total_amount),
+                                                alreadyPaid: pkr(b.paid_amount),
+                                                remainingBalance: pkr(b.payable_amount)
+                                              });
+                                            }}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow"
+                                            title="Clear This Single Purchase Bill in Full"
+                                          >
+                                            ✓ Clear Bill (PKR {pkr(b.payable_amount).toLocaleString()})
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setInvoiceModal({ kind: 'PURCHASE', purchase: b })}
+                                            className="btn-secondary px-2.5 py-1 text-[11px]"
+                                            title="View, Print or Download Purchase Bill"
+                                          >
+                                            <Printer className="w-3 h-3" /> View / Print Bill
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-[11px] tabular-nums">
+                                        <div>
+                                          <span className="text-slate-400">Original Bill:</span>{' '}
+                                          <strong className="text-white">PKR {pkr(b.total_amount).toLocaleString()}</strong>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">Already Paid:</span>{' '}
+                                          <strong className="text-emerald-300">PKR {pkr(b.paid_amount).toLocaleString()}</strong>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-slate-400">Remaining Payable:</span>{' '}
+                                          <strong className="text-rose-400 text-xs">PKR {pkr(b.payable_amount).toLocaleString()}</strong>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -5980,174 +7893,346 @@ export default function App() {
         )}
       </main>
 
-      {/* ==================== MODAL 1: PROFESSIONAL VYAPAR INVOICE (IMAGE, PDF & PRINT) ==================== */}
+      {/* ==================== MODAL 1: PROFESSIONAL WHITE ATH LUBRICANTS INVOICE (IMAGE, PDF & PRINT) ==================== */}
       {invoiceModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white text-slate-900 max-w-3xl w-full rounded-2xl shadow-2xl overflow-hidden animate-modal my-auto">
-            {/* Top Action Toolbar */}
-            <div className="bg-[#1E232D] px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b-4 border-rose-600 no-print">
-              <span className="text-xs font-extrabold text-yellow-300 uppercase">
-                Vyapar Digital Invoice Preview
-              </span>
+        <div className="fixed inset-0 z-50 bg-[#00181C]/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
+          <div className="max-w-4xl w-full rounded-2xl shadow-2xl overflow-hidden animate-modal my-auto border-2 border-[#005B66] bg-white">
+            {/* Top Action Toolbar (Official ATH Petrol Teal & Coral Orange Theme) */}
+            <div className="bg-gradient-to-r from-[#002227] via-[#00373E] to-[#005B66] px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-[#FF6B3D] no-print">
+              <div className="flex items-center gap-2">
+                <Droplet className="w-4 h-4 text-[#FF6B3D] fill-[#FF6B3D]" />
+                <span className="text-xs font-extrabold text-[#F7F7F5] uppercase tracking-wider">
+                  ATH Lubricants Official Trade Invoice
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => downloadOrShareInvoiceImage('DOWNLOAD')}
-                  className="bg-yellow-400 hover:bg-yellow-300 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5"
+                  className="btn-oil px-3 py-1.5 text-xs"
                 >
                   <Download className="w-3.5 h-3.5" /> Save Image (PNG)
                 </button>
                 <button
+                  type="button"
                   onClick={() => downloadOrShareInvoiceImage('SHARE')}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow"
                 >
-                  <Share2 className="w-3.5 h-3.5" /> Share on WhatsApp
+                  <Share2 className="w-3.5 h-3.5" /> Share WhatsApp
                 </button>
                 <button
+                  type="button"
                   onClick={() => printSingleInvoicePdf(false)}
-                  className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="btn-primary px-3 py-1.5 text-xs"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print / Save PDF (A4)
+                  <Printer className="w-3.5 h-3.5" /> Print / PDF (A4)
                 </button>
                 <button
+                  type="button"
                   onClick={() => printSingleInvoicePdf(true)}
-                  className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
+                  className="btn-secondary px-3 py-1.5 text-xs"
                 >
                   Thermal 80mm
                 </button>
-                <button onClick={() => setInvoiceModal(null)} className="text-slate-300 hover:text-white p-1">
-                  <X className="w-5 h-5" />
+                <button
+                  type="button"
+                  onClick={() => setInvoiceModal(null)}
+                  className="p-1.5 rounded-full bg-[#00262B] text-[#F7F7F5] hover:bg-[#FF6B3D] transition"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Printable Invoice Body */}
+            {/* Crisp White Business Invoice Sheet with ATH "Fractured Current" Stripes & Real User Signature */}
             {(() => {
               const isSale = invoiceModal.kind === 'SALE';
               const doc = isSale ? invoiceModal.sale! : invoiceModal.purchase!;
               const refNo = isSale ? (doc as SaleRecord).invoice_number : (doc as PurchaseRecord).purchase_number;
+              const docType = (doc as any).doc_type || invoiceModal.kind;
               const partyName = isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name;
               const partyCity = isSale ? (doc as SaleRecord).customer_city : (doc as PurchaseRecord).supplier_city;
               const partyPhone = isSale ? (doc as SaleRecord).customer_phone : (doc as PurchaseRecord).supplier_phone;
               const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
               const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
+              const locSummary = (doc as any).location_summary || (isSale ? 'Shop Display' : 'Main Warehouse');
               const items = (doc.items || []) as any[];
+              const sigInfo = resolveInvoiceAuthorizerSignature(doc);
+
               const sDoc = doc as SaleRecord;
-              const prevDues = isSale ? pkr(sDoc.previous_dues) : 0;
-              const grandPay = isSale ? pkr(sDoc.grand_payable || sDoc.total_amount + prevDues) : pkr(doc.total_amount);
-              const recToday = isSale ? pkr(sDoc.received_amount + (sDoc.applied_to_previous || 0)) : pkr((doc as PurchaseRecord).paid_amount);
-              const closingBal = isSale ? pkr(sDoc.closing_receivable ?? sDoc.receivable_amount) : pkr((doc as PurchaseRecord).payable_amount);
+              const pDoc = doc as PurchaseRecord;
+
+              const currentBillTotal = pkr(doc.total_amount);
+              const prevDues = isSale ? pkr(sDoc.previous_dues) : pkr(pDoc.previous_dues);
+              const grandPay = pkr(currentBillTotal + prevDues);
+
+              const appliedPrev = isSale ? pkr(sDoc.applied_to_previous) : pkr(pDoc.applied_to_previous);
+              const rawPaidField = isSale ? pkr(sDoc.received_amount) : pkr(pDoc.paid_amount);
+              const billPortionPaid = rawPaidField > currentBillTotal ? currentBillTotal : rawPaidField;
+              const recToday = pkr(billPortionPaid + appliedPrev);
+
+              const closingBal = isSale
+                ? pkr(sDoc.closing_receivable ?? Math.max(0, grandPay - recToday))
+                : pkr(pDoc.closing_payable ?? Math.max(0, grandPay - recToday));
 
               return (
-                <div className="p-6 space-y-5">
-                  <div className="flex flex-wrap justify-between items-center gap-4 border-b-2 border-slate-200 pb-4">
-                    <div className="flex items-center gap-3">
+                <div className="bg-white text-slate-900 p-6 sm:p-10 space-y-6 relative overflow-hidden">
+                  {/* Top ATH Petrol Teal & Coral Orange Brand Ribbon */}
+                  <div className="h-2.5 w-full rounded-full overflow-hidden flex -mt-2 mb-2">
+                    <div className="w-3/5 bg-[#005B66]" />
+                    <div className="w-2/5 bg-[#FF6B3D]" />
+                  </div>
+
+                  {/* Row 1: Bold INVOICE Title + Company Identity (Left) & Official ATH Logo (Right) */}
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[#00262B] leading-none">
+                        INVOICE
+                      </h1>
+                      <div className="mt-2 text-sm font-extrabold text-[#005B66] uppercase tracking-wide">
+                        ATH Lubricants • Awan Trade Hub
+                      </div>
+                      <div className="text-xs text-slate-600 font-medium">
+                        Gold 4T Series (M2 / M4 SAE 20W-40 API SL) — Smoother Ride | Better Protection | Longer Life
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 bg-[#F7F7F5] px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm">
                       <img
                         src="/logo.png"
                         alt="ATH Lubricants"
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="h-14 w-14 object-contain"
+                        className="h-12 sm:h-14 w-auto object-contain"
                       />
-                      <div>
-                        <h2 className="text-xl font-black text-slate-900">ATH LUBRICANTS</h2>
-                        <p className="text-xs text-slate-600 font-semibold">Precision Motor Oil Distribution & Trade Invoice</p>
+                    </div>
+                  </div>
+
+                  {/* Row 2: 3-Column Structured Meta Info (BILL TO | SHIP/DISPATCH TO | INVOICE DETAILS) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2 text-xs">
+                    <div className="space-y-1">
+                      <div className="text-xs font-black uppercase tracking-wider text-[#00262B]">
+                        {isSale ? 'BILL TO' : 'SUPPLIER / VENDOR'}
+                      </div>
+                      <div className="text-base font-extrabold text-slate-950">
+                        {partyName}
+                      </div>
+                      <div className="text-slate-700 font-medium">
+                        City / Village: <strong className="text-slate-900">{partyCity || 'Local'}</strong>
+                      </div>
+                      <div className="text-slate-700">
+                        Route / Group: <strong className="text-[#005B66]">{partyGroup || 'General'}</strong>
+                      </div>
+                      <div className="text-slate-600 font-mono">
+                        Phone: {partyPhone || 'N/A'}
+                      </div>
+                      <div className="text-slate-600 font-mono">
+                        CNIC: {partyCnic || 'N/A'}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-black text-rose-600 font-mono">{refNo}</div>
-                      <div className="text-xs text-slate-600 font-mono">Date: {doc.invoice_date}</div>
-                      <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                        {(doc as any).doc_type || invoiceModal.kind} • {doc.payment_status}
-                      </span>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-black uppercase tracking-wider text-[#00262B]">
+                        {isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING GODOWN'}
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-950">
+                        {locSummary}
+                      </div>
+                      <div className="text-slate-700">
+                        Payment Channel: <strong className="text-slate-900">{doc.payment_method}</strong>
+                      </div>
+                      <div className="text-slate-700">
+                        Document Type: <strong className="text-[#005B66]">{docType}</strong>
+                      </div>
+                      <div className="text-slate-600">
+                        Remarks: {doc.remarks || 'Standard Trade Bill'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 sm:text-right">
+                      <div className="flex sm:justify-end justify-between gap-4">
+                        <span className="font-black uppercase text-[#00262B]">INVOICE #</span>
+                        <span className="font-mono font-extrabold text-[#FF6B3D] text-sm">{refNo}</span>
+                      </div>
+                      <div className="flex sm:justify-end justify-between gap-4">
+                        <span className="font-black uppercase text-[#00262B]">INVOICE DATE</span>
+                        <span className="font-mono text-slate-800 font-semibold">{formatRecordDateTimePkt(doc.invoice_date)}</span>
+                      </div>
+                      <div className="flex sm:justify-end justify-between gap-4">
+                        <span className="font-black uppercase text-[#00262B]">STATUS</span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          {doc.payment_status}
+                        </span>
+                      </div>
+                      <div className="flex sm:justify-end justify-between gap-4">
+                        <span className="font-black uppercase text-[#00262B]">AUTHORIZED BY</span>
+                        <span className="font-bold text-[#005B66]">{sigInfo.fullName}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-300 text-xs flex flex-wrap justify-between gap-2">
-                    <div>
-                      <span className="text-slate-500 font-bold uppercase block">{isSale ? 'Billed To Customer:' : 'Supplier:'}</span>
-                      <strong className="text-sm text-slate-900">{partyName} ({partyCity || 'Local'})</strong>
+                  {/* Row 3: Star Divider + Coral-Orange Bordered Table */}
+                  <div className="pt-1">
+                    <div
+                      className="text-[11px] text-[#005B66] tracking-[0.28em] overflow-hidden whitespace-nowrap font-bold select-none mb-1.5"
+                      aria-hidden="true"
+                    >
+                      ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-bold block">Phone & CNIC:</span>
-                      <span className="font-semibold text-slate-800">{partyPhone || 'N/A'} • CNIC: {partyCnic || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-bold block">Route / Group:</span>
-                      <span className="font-semibold text-slate-800">{partyGroup || 'General'}</span>
-                    </div>
-                  </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border border-slate-300">
-                      <thead className="bg-slate-900 text-yellow-300">
-                        <tr>
-                          <th className="p-2.5">#</th>
-                          <th className="p-2.5">Product & Size</th>
-                          <th className="p-2.5">Qty & Carton Breakdown</th>
-                          <th className="p-2.5 text-right">Rate (PKR)</th>
-                          <th className="p-2.5 text-right">Total (PKR)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((it, idx) => (
-                          <tr key={idx} className="border-t border-slate-200">
-                            <td className="p-2.5 font-bold">{idx + 1}</td>
-                            <td className="p-2.5">
-                              <div className="font-bold text-slate-900">{it.product_name} ({it.pack_size || '700 ML'})</div>
-                              <div className="text-[11px] text-slate-500">{it.company_name} • {it.location_name}</div>
-                            </td>
-                            <td className="p-2.5 font-mono">
-                              {it.quantity} {it.unit_type} ({it.base_quantity} Btls = {it.cartons} Ctn + {it.loose_bottles} Btl)
-                            </td>
-                            <td className="p-2.5 text-right font-mono">PKR {pkr(it.unit_rate).toLocaleString()}</td>
-                            <td className="p-2.5 text-right font-mono font-bold">PKR {pkr(it.line_total).toLocaleString()}</td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-y-2 border-[#FF6B3D] text-[#00262B] font-black uppercase tracking-wider">
+                            <th className="py-2.5 px-3 w-28">QTY</th>
+                            <th className="py-2.5 px-3">DESCRIPTION & PACK SIZE</th>
+                            <th className="py-2.5 px-3 text-right w-36">UNIT PRICE</th>
+                            <th className="py-2.5 px-3 text-right w-40">AMOUNT</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {items.map((it, idx) => (
+                            <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white'}>
+                              <td className="py-3 px-3 font-mono font-extrabold text-slate-900">
+                                {it.quantity} {it.unit_type}
+                              </td>
+                              <td className="py-3 px-3">
+                                <div className="font-extrabold text-[#00262B] text-sm">
+                                  {idx + 1}. {it.product_name} ({it.pack_size || '700 ML'})
+                                </div>
+                                <div className="text-[11px] text-slate-600 font-medium">
+                                  {it.company_name || 'ATH Oils'} • {it.base_quantity} Bottles ({it.cartons} Ctn + {it.loose_bottles} Btl) • {it.location_name}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 text-right font-mono text-slate-800 font-semibold tabular-nums">
+                                PKR {pkr(it.unit_rate).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-3 text-right font-mono font-extrabold text-slate-950 text-sm tabular-nums">
+                                PKR {pkr(it.line_total).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-2">
-                    <div className="text-xs text-slate-600 space-y-1">
-                      <div><strong>Payment Channel:</strong> {doc.payment_method}</div>
-                      <div><strong>Remarks:</strong> {doc.remarks || 'Standard Trade Bill'}</div>
+                  {/* Row 4: Right-Aligned Financial Totals */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-2">
+                    <div className="text-xs text-slate-600 space-y-1 max-w-sm">
+                      {appliedPrev > 0 && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-mono text-[11px]">
+                          <strong>Payment Allocation Breakdown:</strong> PKR {billPortionPaid.toLocaleString()} allocated to this bill + PKR {appliedPrev.toLocaleString()} settled on Previous Khata bills.
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full sm:w-80 bg-slate-100 p-4 rounded-xl border border-slate-300 space-y-1.5 text-xs tabular-nums">
-                      <div className="flex justify-between font-bold text-slate-900 text-sm">
-                        <span>Current Bill Total:</span>
-                        <span>PKR {pkr(doc.total_amount).toLocaleString()}</span>
+
+                    <div className="w-full sm:w-96 space-y-2 text-xs tabular-nums">
+                      <div className="flex justify-between text-slate-800 font-bold text-sm">
+                        <span>Current Bill Total</span>
+                        <span className="font-mono">PKR {currentBillTotal.toLocaleString()}</span>
                       </div>
-                      {isSale && (
-                        <>
-                          <div className="flex justify-between text-amber-700 font-semibold">
-                            <span>+ Previous Balance (Old Khata):</span>
-                            <span>PKR {prevDues.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between font-extrabold text-slate-900 border-t border-slate-300 pt-1">
-                            <span>= Total Payable Amount:</span>
-                            <span>PKR {grandPay.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-emerald-700 font-bold">
-                            <span>- Received Today ({doc.payment_method}):</span>
-                            <span>PKR {recToday.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-rose-600 font-black text-sm border-t border-slate-300 pt-1.5">
-                            <span>Net Closing Khata Balance:</span>
-                            <span>PKR {closingBal.toLocaleString()}</span>
-                          </div>
-                        </>
-                      )}
-                      {!isSale && (
-                        <>
-                          <div className="flex justify-between text-emerald-700 font-bold">
-                            <span>Paid Today ({doc.payment_method}):</span>
-                            <span>PKR {recToday.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-rose-600 font-black text-sm border-t border-slate-300 pt-1.5">
-                            <span>Remaining Payable:</span>
-                            <span>PKR {closingBal.toLocaleString()}</span>
-                          </div>
-                        </>
-                      )}
+                      <div className="flex justify-between text-amber-700 font-semibold">
+                        <span>+ Previous Balance (Old Khata)</span>
+                        <span className="font-mono">PKR {prevDues.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-[#00262B] font-extrabold border-t border-slate-300 pt-1.5 text-sm">
+                        <span>= Total Payable Amount</span>
+                        <span className="font-mono">PKR {grandPay.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-extrabold">
+                        <span>- {isSale ? 'Received Today' : 'Paid Today'} ({doc.payment_method})</span>
+                        <span className="font-mono">PKR {recToday.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline text-[#FF6B3D] font-black text-lg border-t-2 border-[#00262B] pt-2">
+                        <span className="text-[#00262B] text-sm uppercase tracking-wide">
+                          {isSale ? 'Net Closing Khata' : 'Net Closing Payable'}
+                        </span>
+                        <span className="font-mono">PKR {closingBal.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 5: ATH "Fractured Current" Flowing Stripes Watermark + Authenticated User Cursive Signature */}
+                  <div className="relative pt-6 pb-2 min-h-[135px] flex items-end justify-end">
+                    {/* ATH Fractured Current SVG Pattern (Petrol Teal #005B66, Coral Orange #FF6B3D & Dynamic Oil Droplets) */}
+                    <svg
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      viewBox="0 0 800 140"
+                      fill="none"
+                      preserveAspectRatio="none"
+                    >
+                      <path
+                        d="M -10 115 C 220 25, 480 20, 810 85"
+                        stroke="#005B66"
+                        strokeOpacity="0.14"
+                        strokeWidth="24"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M 10 128 C 250 42, 510 38, 810 100"
+                        stroke="#FF6B3D"
+                        strokeOpacity="0.28"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M 40 136 C 280 58, 540 52, 810 114"
+                        stroke="#005B66"
+                        strokeOpacity="0.25"
+                        strokeWidth="5"
+                        strokeDasharray="16 14"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M -10 95 C 200 10, 460 12, 810 68"
+                        stroke="#FF6B3D"
+                        strokeOpacity="0.16"
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="150" cy="74" r="6" fill="#FF6B3D" fillOpacity="0.75" />
+                      <circle cx="285" cy="52" r="4.5" fill="#005B66" fillOpacity="0.7" />
+                      <circle cx="420" cy="58" r="7" fill="#FF6B3D" fillOpacity="0.75" />
+                      <circle cx="545" cy="48" r="5" fill="#005B66" fillOpacity="0.7" />
+                    </svg>
+
+                    {/* Authenticated User Handwritten Signature Block */}
+                    <div className="relative z-10 w-64 sm:w-72 text-center ml-auto pr-2">
+                      <div
+                        className="text-2xl sm:text-3xl font-bold italic text-[#00262B] select-none leading-tight"
+                        style={{
+                          fontFamily: '"Segoe Script", "Brush Script MT", "Lucida Handwriting", Georgia, cursive'
+                        }}
+                      >
+                        {sigInfo.signatureText}
+                      </div>
+                      <div className="border-t-2 border-[#005B66] mt-1 pt-1 text-[11px] font-black uppercase tracking-wider text-[#005B66]">
+                        Authorized Signature • {sigInfo.fullName}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500">
+                        Verified By: {sigInfo.roleLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 6: Footer ("Thank you" | TERMS & CONDITIONS) */}
+                  <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+                    <div
+                      className="text-3xl sm:text-4xl font-bold italic text-[#00262B] sm:border-r-2 sm:border-[#005B66] sm:pr-6 shrink-0"
+                      style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+                    >
+                      Thank you
+                    </div>
+                    <div className="space-y-0.5 text-xs">
+                      <div className="font-black uppercase tracking-wider text-[#FF6B3D]">
+                        TERMS & CONDITIONS
+                      </div>
+                      <div className="text-slate-700 font-medium">
+                        100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life
+                      </div>
+                      <div className="text-slate-500 text-[11px]">
+                        Please quote Invoice # <strong className="text-slate-800 font-mono">{refNo}</strong> on all payments and correspondence with ATH Lubricants (Awan Trade Hub).
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -6755,6 +8840,291 @@ export default function App() {
         </div>
       )}
 
+      {/* ==================== MODAL: CONSOLIDATED SUPPLIER MULTI-BILL PAYMENT ALLOCATION ==================== */}
+      {supplierAllocationModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="glass-panel max-w-5xl w-full rounded-2xl p-5 sm:p-6 space-y-5 border border-[#FF6B3D]/60 animate-modal my-auto max-h-[92vh] overflow-y-auto">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF6B3D] text-white font-extrabold">
+                  Consolidated Supplier Multi-Bill Settlement
+                </span>
+                <h3 className="text-lg font-black text-white mt-1">
+                  {supplierAllocationModal.supplier_name} ({supplierAllocationModal.city}) —{' '}
+                  <span className="text-yellow-300 font-mono">{supplierAllocationModal.supplier_code}</span>
+                </h3>
+                <p className="text-xs text-slate-200">
+                  Group: {supplierAllocationModal.group_name} • Phone: {supplierAllocationModal.phone || 'N/A'} • CNIC: {supplierAllocationModal.cnic || 'N/A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSupplierAllocationModal(null);
+                  setSupAllocConfirming(false);
+                  setSupAllocError('');
+                }}
+                className="btn-secondary px-3 py-1.5 text-xs"
+              >
+                <X className="w-4 h-4" /> Close Window
+              </button>
+            </div>
+
+            {(() => {
+              const bills = supplierAllocationModal.bills || [];
+              const totalOutBefore = pkr(supplierAllocationModal.total_outstanding);
+              const enteredPay = pkr(supAllocPaymentInput);
+              const totalAllocatedNow = bills.reduce((s, b) => s + pkr(supAllocDraftMap[b.id] || 0), 0);
+              const projectedRemAfter = pkr(Math.max(0, totalOutBefore - totalAllocatedNow));
+
+              return (
+                <div className="space-y-4">
+                  {/* Top Summary Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="bg-slate-900/90 p-3.5 rounded-xl border border-white/15">
+                      <div className="text-slate-300 font-semibold">Total Payable Before</div>
+                      <div className="text-xl font-black text-rose-400 tabular-nums mt-1">
+                        PKR {totalOutBefore.toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-slate-400">{bills.length} Unpaid Purchase Bill(s)</div>
+                    </div>
+                    <div className="bg-slate-900/90 p-3.5 rounded-xl border border-yellow-400/40">
+                      <div className="text-yellow-300 font-semibold">Payment Amount</div>
+                      <div className="text-xl font-black text-yellow-300 tabular-nums mt-1">
+                        PKR {enteredPay.toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-slate-300">Selected Bills Settlement</div>
+                    </div>
+                    <div className="bg-slate-900/90 p-3.5 rounded-xl border border-emerald-400/40">
+                      <div className="text-emerald-300 font-semibold">Allocated Across Bills</div>
+                      <div className="text-xl font-black text-emerald-300 tabular-nums mt-1">
+                        PKR {totalAllocatedNow.toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-slate-300">
+                        {bills.filter(b => pkr(supAllocDraftMap[b.id] || 0) > 0).length} Bill(s) Being Settled
+                      </div>
+                    </div>
+                    <div className="bg-slate-900/90 p-3.5 rounded-xl border border-white/20">
+                      <div className="text-white font-semibold">Remaining Payable After</div>
+                      <div className="text-xl font-black text-white tabular-nums mt-1">
+                        PKR {projectedRemAfter.toLocaleString()}
+                      </div>
+                      <div className="text-[11px] text-amber-300 font-bold">
+                        PKR {projectedRemAfter.toLocaleString()} will remain payable
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="bg-slate-900/90 p-4 rounded-xl border border-white/15 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-xs text-yellow-300 font-bold">1. Total Payment to Supplier (PKR)</label>
+                        <input
+                          type="number"
+                          placeholder="Enter PKR amount"
+                          value={supAllocPaymentInput}
+                          onChange={e => handleSupAllocInputChange(e.target.value, supAllocPolicy)}
+                          className="mt-1 erp-input font-extrabold text-emerald-300"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-white font-semibold">2. Allocation Rule</label>
+                        <select
+                          value={supAllocPolicy}
+                          onChange={e =>
+                            handleSupAllocInputChange(
+                              supAllocPaymentInput,
+                              e.target.value as 'OLDEST_FIRST' | 'NEWEST_FIRST'
+                            )
+                          }
+                          className="mt-1 erp-input font-bold text-yellow-300"
+                        >
+                          <option value="OLDEST_FIRST">Oldest Bill First (FIFO)</option>
+                          <option value="NEWEST_FIRST">Newest Bill First</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-white font-semibold">3. Payment Account</label>
+                        <select
+                          value={supAllocAccountId}
+                          onChange={e => setSupAllocAccountId(Number(e.target.value))}
+                          className="mt-1 erp-input"
+                        >
+                          {accounts.map(a => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({a.type}) — PKR {pkr(a.current_balance).toLocaleString()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-white font-semibold">4. Payment Arrangement</label>
+                        <select
+                          value={supAllocArrangement}
+                          onChange={e => setSupAllocArrangement(e.target.value as PaymentArrangementType)}
+                          className="mt-1 erp-input font-bold text-yellow-300"
+                        >
+                          <option value="WALLET">Deduct from Account</option>
+                          <option value="OWNER_CAPITAL">Owner Pocket / Capital</option>
+                          <option value="MARKET_LOAN">Market Loan / Udhaar</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {supAllocArrangement !== 'WALLET' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Lender / Owner Name (e.g. Owner Pocket Capital)"
+                          value={supAllocLenderName}
+                          onChange={e => setSupAllocLenderName(e.target.value)}
+                          className="erp-input"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Payment Remarks / Reference"
+                          value={supAllocRemarks}
+                          onChange={e => setSupAllocRemarks(e.target.value)}
+                          className="erp-input"
+                        />
+                      </div>
+                    )}
+
+                    {/* Bill Selection & Allocation Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs erp-table">
+                        <thead>
+                          <tr>
+                            <th>Select</th>
+                            <th>Purchase Bill #</th>
+                            <th>Date</th>
+                            <th className="text-right">Original Bill</th>
+                            <th className="text-right">Already Paid</th>
+                            <th className="text-right">Payable Before</th>
+                            <th className="text-right">Allocated Now (PKR)</th>
+                            <th className="text-right">Remaining After</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bills.map(b => {
+                            const allocVal = pkr(supAllocDraftMap[b.id] || 0);
+                            const remAfter = pkr(Math.max(0, pkr(b.payable_amount) - allocVal));
+                            const isChecked = supAllocSelectedMap[b.id] !== false;
+                            return (
+                              <tr key={b.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleSupBillSelection(b.id)}
+                                    className="w-4 h-4 accent-yellow-400 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="font-mono font-bold text-[#FF6B3D]">
+                                  {b.purchase_number}
+                                  <div className="text-[10px] text-slate-300 font-sans">{b.items_summary}</div>
+                                </td>
+                                <td className="font-mono text-slate-200">{formatRecordDateTimePkt(b.invoice_date)}</td>
+                                <td className="text-right font-mono">PKR {pkr(b.total_amount).toLocaleString()}</td>
+                                <td className="text-right font-mono text-emerald-300">PKR {pkr(b.paid_amount).toLocaleString()}</td>
+                                <td className="text-right font-mono font-bold text-rose-300">PKR {pkr(b.payable_amount).toLocaleString()}</td>
+                                <td className="text-right w-44">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={pkr(b.payable_amount)}
+                                    value={allocVal}
+                                    onChange={e => {
+                                      const val = Math.max(0, Math.min(pkr(b.payable_amount), pkr(e.target.value)));
+                                      const nextMap = { ...supAllocDraftMap, [b.id]: val };
+                                      setSupAllocDraftMap(nextMap);
+                                      const newSum = Object.values(nextMap).reduce((s, v) => s + pkr(v), 0);
+                                      setSupAllocPaymentInput(String(newSum));
+                                      setSupAllocConfirming(false);
+                                    }}
+                                    className="erp-input py-1 px-2 text-right font-mono font-extrabold text-yellow-300"
+                                  />
+                                </td>
+                                <td className="text-right font-mono font-extrabold text-white">
+                                  PKR {remAfter.toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {supAllocError && (
+                      <div className="p-3 rounded-xl bg-rose-950 border border-rose-500 text-xs text-rose-200 font-bold">
+                        {supAllocError}
+                      </div>
+                    )}
+
+                    {!supAllocConfirming ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <div className="text-xs text-slate-200">
+                          Allocating <strong className="text-emerald-300">PKR {totalAllocatedNow.toLocaleString()}</strong> across selected bills.{' '}
+                          <strong className="text-yellow-300">PKR {projectedRemAfter.toLocaleString()}</strong> will remain payable afterward.
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSupplierAllocationModal(null)}
+                            className="btn-secondary px-4 py-2 text-xs"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={totalAllocatedNow <= 0}
+                            onClick={() => setSupAllocConfirming(true)}
+                            className="btn-primary px-5 py-2.5 text-xs uppercase"
+                          >
+                            Review & Confirm Supplier Payment →
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-emerald-950/90 border-2 border-emerald-400 space-y-3 animate-fade-in">
+                        <div className="text-xs font-extrabold text-emerald-300 uppercase">
+                          Confirm Consolidated Supplier Settlement
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-white">
+                          <div>Supplier: <strong>{supplierAllocationModal.supplier_name}</strong></div>
+                          <div>Total Paying Now: <strong className="text-emerald-300">PKR {totalAllocatedNow.toLocaleString()}</strong></div>
+                          <div>Remaining Payable After: <strong className="text-rose-300">PKR {projectedRemAfter.toLocaleString()}</strong></div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            disabled={supAllocBusy}
+                            onClick={() => setSupAllocConfirming(false)}
+                            className="btn-secondary px-4 py-2 text-xs"
+                          >
+                            Back / Edit
+                          </button>
+                          <button
+                            type="button"
+                            disabled={supAllocBusy}
+                            onClick={handleExecuteSupplierConsolidatedPayment}
+                            className="btn-oil px-6 py-2.5 text-xs uppercase"
+                          >
+                            {supAllocBusy ? 'Posting Payments...' : 'Confirm & Settle Selected Bills'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* ==================== MODAL: SUPPLIER 360° BILLS PROFILE ==================== */}
       {supplierProfileModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
@@ -7139,3 +9509,6 @@ export default function App() {
     </div>
   );
 }
+
+
+

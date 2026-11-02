@@ -274,8 +274,11 @@ export interface PurchaseRecord {
   discount_amount?: number;
   freight_amount?: number;
   total_amount: number;
+  previous_dues?: number;
   paid_amount: number;
+  applied_to_previous?: number;
   payable_amount: number;
+  closing_payable?: number;
   payment_status: string;
   payment_method: string;
   payment_arrangement?: PaymentArrangementType;
@@ -287,7 +290,6 @@ export interface PurchaseRecord {
   items_summary: string;
   items?: PurchaseItemDetail[];
 }
-
 export interface Expense {
   id: number;
   expense_number: string;

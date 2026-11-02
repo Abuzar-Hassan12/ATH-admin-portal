@@ -1,10 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean,
     DateTime, ForeignKey, Text
 )
 from sqlalchemy.orm import relationship
 from .database import Base
+
+
+def now_pkt() -> datetime:
+    """Returns current wall-clock time in Pakistan Standard Time (UTC+5)."""
+    return datetime.utcnow() + timedelta(hours=5)
 
 
 class AdminUser(Base):
@@ -18,7 +23,7 @@ class AdminUser(Base):
     role = Column(String(40), default="ADMIN")  # SUPER_ADMIN, ADMIN, SALESMAN, PRODUCTION
     approval_status = Column(String(30), default="PENDING")  # APPROVED, PENDING, NOT_APPROVED
     approved_by = Column(String(150), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_pkt)
     last_login_at = Column(DateTime, nullable=True)
 
 
@@ -95,7 +100,7 @@ class PartyGroup(Base):
     city = Column(String(100), nullable=True)
     description = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_pkt)
 
 
 class Supplier(Base):
@@ -150,15 +155,19 @@ class Purchase(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     purchase_number = Column(String(50), unique=True, index=True, nullable=False)
+    idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
     doc_type = Column(String(30), default="PURCHASE")  # PURCHASE or PURCHASE_RETURN
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
-    invoice_date = Column(DateTime, default=datetime.utcnow)
+    invoice_date = Column(DateTime, default=now_pkt)
     subtotal_amount = Column(Float, default=0.0)
     discount_amount = Column(Float, default=0.0)
     freight_amount = Column(Float, default=0.0)
     total_amount = Column(Float, nullable=False)
+    previous_dues = Column(Float, default=0.0)
     paid_amount = Column(Float, default=0.0)
+    applied_to_previous = Column(Float, default=0.0)
     payable_amount = Column(Float, default=0.0)
+    closing_payable = Column(Float, default=0.0)
     payment_status = Column(String(20), default="UNPAID")
     payment_arrangement = Column(String(40), default="WALLET")
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
@@ -194,9 +203,10 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_number = Column(String(50), unique=True, index=True, nullable=False)
+    idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
     doc_type = Column(String(30), default="SALE")  # SALE, SALE_RETURN, ESTIMATE
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-    invoice_date = Column(DateTime, default=datetime.utcnow)
+    invoice_date = Column(DateTime, default=now_pkt)
     subtotal_amount = Column(Float, default=0.0)
     discount_amount = Column(Float, default=0.0)
     freight_amount = Column(Float, default=0.0)
@@ -243,7 +253,7 @@ class StockMovement(Base):
     __tablename__ = "stock_movements"
 
     id = Column(Integer, primary_key=True, index=True)
-    movement_date = Column(DateTime, default=datetime.utcnow)
+    movement_date = Column(DateTime, default=now_pkt)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     movement_type = Column(String(40), nullable=False)
     reference_number = Column(String(50), nullable=True)
@@ -269,7 +279,7 @@ class AccountTransaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tx_number = Column(String(50), unique=True, index=True, nullable=False)
-    tx_date = Column(DateTime, default=datetime.utcnow)
+    tx_date = Column(DateTime, default=now_pkt)
     tx_type = Column(String(50), nullable=False)
     account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
     to_account_id = Column(Integer, ForeignKey("financial_accounts.id"), nullable=True)
@@ -294,7 +304,7 @@ class LoanAccount(Base):
     total_repaid = Column(Float, default=0.0)
     current_balance = Column(Float, default=0.0)
     notes = Column(String(255), nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=now_pkt)
 
 
 class Expense(Base):
@@ -302,7 +312,7 @@ class Expense(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     expense_number = Column(String(50), unique=True, index=True, nullable=False)
-    expense_date = Column(DateTime, default=datetime.utcnow)
+    expense_date = Column(DateTime, default=now_pkt)
     category = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     payment_method = Column(String(50), default="CASH")
@@ -322,7 +332,7 @@ class CustomerPayment(Base):
     payment_number = Column(String(50), unique=True, index=True, nullable=False)
     idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
-    payment_date = Column(DateTime, default=datetime.utcnow)
+    payment_date = Column(DateTime, default=now_pkt)
     payment_amount = Column(Float, nullable=False)
     allocated_amount = Column(Float, default=0.0)
     unallocated_credit = Column(Float, default=0.0)
@@ -352,7 +362,7 @@ class CustomerPaymentAllocation(Base):
     outstanding_before = Column(Float, nullable=False)
     allocated_amount = Column(Float, nullable=False)
     remaining_after = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=now_pkt)
 
     payment = relationship("CustomerPayment", back_populates="allocations")
     sale = relationship("Sale")
@@ -369,4 +379,4 @@ class RecycleBin(Base):
     summary = Column(Text, nullable=True)
     amount = Column(Float, default=0.0)
     payload_json = Column(Text, nullable=False)
-    deleted_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, default=now_pkt)

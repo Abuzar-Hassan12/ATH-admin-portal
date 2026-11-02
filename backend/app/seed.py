@@ -16,26 +16,30 @@ def upgrade_database_schema():
         "products": [
             ("carton_purchase_rate", "FLOAT DEFAULT 0.0"),
             ("carton_sale_rate", "FLOAT DEFAULT 0.0"),
-            ("is_favorite", "BOOLEAN DEFAULT 0"),
+            ("is_favorite", "BOOLEAN DEFAULT FALSE"),
         ],
         "customers": [
             ("cnic", "VARCHAR(30)"),
             ("group_id", "INTEGER"),
             ("group_name", "VARCHAR(100) DEFAULT 'General Market'"),
             ("advance_credit", "FLOAT DEFAULT 0.0"),
-            ("is_favorite", "BOOLEAN DEFAULT 0"),
+            ("is_favorite", "BOOLEAN DEFAULT FALSE"),
         ],
         "suppliers": [
             ("cnic", "VARCHAR(30)"),
             ("group_id", "INTEGER"),
             ("group_name", "VARCHAR(100) DEFAULT 'General Suppliers'"),
-            ("is_favorite", "BOOLEAN DEFAULT 0"),
+            ("is_favorite", "BOOLEAN DEFAULT FALSE"),
         ],
         "purchases": [
+            ("idempotency_key", "VARCHAR(100)"),
             ("doc_type", "VARCHAR(30) DEFAULT 'PURCHASE'"),
             ("subtotal_amount", "FLOAT DEFAULT 0.0"),
             ("discount_amount", "FLOAT DEFAULT 0.0"),
             ("freight_amount", "FLOAT DEFAULT 0.0"),
+            ("previous_dues", "FLOAT DEFAULT 0.0"),
+            ("applied_to_previous", "FLOAT DEFAULT 0.0"),
+            ("closing_payable", "FLOAT DEFAULT 0.0"),
             ("payment_arrangement", "VARCHAR(40) DEFAULT 'WALLET'"),
             ("account_id", "INTEGER"),
             ("admin_id", "INTEGER"),
@@ -45,12 +49,13 @@ def upgrade_database_schema():
             ("location_id", "INTEGER"),
         ],
         "sales": [
+            ("idempotency_key", "VARCHAR(100)"),
             ("doc_type", "VARCHAR(30) DEFAULT 'SALE'"),
             ("subtotal_amount", "FLOAT DEFAULT 0.0"),
             ("discount_amount", "FLOAT DEFAULT 0.0"),
             ("freight_amount", "FLOAT DEFAULT 0.0"),
             ("previous_dues", "FLOAT DEFAULT 0.0"),
-            ("include_previous_dues", "BOOLEAN DEFAULT 0"),
+            ("include_previous_dues", "BOOLEAN DEFAULT FALSE"),
             ("grand_payable", "FLOAT DEFAULT 0.0"),
             ("applied_to_previous", "FLOAT DEFAULT 0.0"),
             ("closing_receivable", "FLOAT DEFAULT 0.0"),
@@ -86,18 +91,35 @@ def upgrade_database_schema():
                 continue
             try:
                 existing_cols = [c["name"] for c in inspector.get_columns(table_name)]
-                for col_name, col_def in cols_to_add:
-                    if col_name not in existing_cols:
+            except Exception:
+                conn.rollback()
+                continue
+            for col_name, col_def in cols_to_add:
+                if col_name not in existing_cols:
+                    try:
                         conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}"))
                         conn.commit()
-            except Exception:
-                pass
+                    except Exception:
+                        conn.rollback()
 
 
 def seed_database():
+    db = SessionLocal()
+    try:
+        # Check if latest schema migration ('idempotency_key' on 'purchases') is already present
+        pur_cols = [c["name"] for c in inspect(engine).get_columns("purchases")]
+        if "idempotency_key" not in pur_cols:
+            upgrade_database_schema()
+        existing_admin = db.query(AdminUser).filter(AdminUser.email.ilike("malikabuzar411@gmail.com")).first()
+        existing_loc = db.query(StorageLocation).first()
+        if existing_admin and existing_loc:
+            db.close()
+            return
+    except Exception:
+        db.rollback()
+
     Base.metadata.create_all(bind=engine)
     upgrade_database_schema()
-    db = SessionLocal()
 
     for exp_code in ["EXP-001", "EXP-002", "EXP-003", "EXP-004"]:
         old_exp = db.query(Expense).filter(Expense.expense_number == exp_code).first()
