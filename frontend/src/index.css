@@ -465,17 +465,42 @@ button:disabled {
 
 @media (max-width: 640px) {
   .glass-panel {
-    padding: 0.85rem !important;
+    padding: 0.75rem !important;
+    border-radius: 0.6rem !important;
   }
 
   .kpi-card {
-    padding: 0.9rem !important;
+    padding: 0.75rem !important;
   }
 
   .erp-table th,
   .erp-table td {
-    padding: 0.55rem 0.45rem;
-    font-size: 0.71rem;
+    padding: 0.5rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  /* Make horizontal table containers fully touch-swipeable on mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Ensure buttons in mobile tables have comfortable touch targets */
+  .erp-table button {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.7rem !important;
+    min-height: 32px !important;
+  }
+}
+
+/* Prevent zoom distortion and ensure 44px+ touch targets on mobile viewports */
+@media (hover: none) and (pointer: coarse) {
+  button, select, input[type="checkbox"], input[type="date"] {
+    min-height: 40px;
+  }
+  
+  .erp-input {
+    font-size: 16px !important; /* Disables iOS Safari automatic form zoom */
   }
 }
 

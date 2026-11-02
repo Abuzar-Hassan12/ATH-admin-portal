@@ -3772,6 +3772,35 @@ def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(
         raise HTTPException(status_code=400, detail="Transaction amount must be greater than PKR 0.")
     prev_bal = pkr(acc.current_balance)
     op = (payload.operation or "DEPOSIT").strip().upper()
+    tx_now = now_pkt()
+
+    # 8-second duplicate guard against accidental double-clicks or network retries
+    expected_tx_type = "CASH DEPOSIT" if op == "DEPOSIT" else "CASH WITHDRAWAL"
+    recent_cutoff = tx_now - timedelta(seconds=8)
+    recent_dup = (
+        db.query(AccountTransaction)
+        .filter(
+            AccountTransaction.account_id == acc.id,
+            AccountTransaction.tx_type == expected_tx_type,
+            AccountTransaction.cash_in == (amt if op == "DEPOSIT" else 0.0),
+            AccountTransaction.cash_out == (0.0 if op == "DEPOSIT" else amt),
+            AccountTransaction.tx_date >= recent_cutoff
+        )
+        .order_by(AccountTransaction.id.desc())
+        .first()
+    )
+    if recent_dup:
+        return {
+            "status": "COMPLETED",
+            "duplicate_prevented": True,
+            "tx_number": recent_dup.tx_number,
+            "message": f"[COMPLETED] Transaction {recent_dup.tx_number} already processed. Current Balance in {acc.name}: PKR {prev_bal:,.0f}.",
+            "account_id": acc.id,
+            "new_balance": prev_bal,
+            "accounts": list_financial_accounts(db=db),
+            "account_history": get_accounts_history(period="all", channel="ALL", db=db),
+            "snapshot": export_full_snapshot(db)
+        }
 
     if op == "WITHDRAW" and prev_bal < amt:
         raise HTTPException(
@@ -3779,7 +3808,6 @@ def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(
             detail=f"Insufficient funds in {acc.name}. Available Balance: PKR {prev_bal:,.0f}, Requested Withdrawal: PKR {amt:,.0f}."
         )
 
-    tx_now = now_pkt()
     if op == "DEPOSIT":
         tx_no = f"DEP-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
         new_bal = pkr(prev_bal + amt)
@@ -3849,6 +3877,34 @@ def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Dep
         raise HTTPException(status_code=400, detail="Transfer amount must be greater than PKR 0.")
     from_prev = pkr(from_acc.current_balance)
     to_prev = pkr(to_acc.current_balance)
+    tx_now = now_pkt()
+
+    # 8-second duplicate guard against accidental double-clicks or network retries
+    recent_cutoff = tx_now - timedelta(seconds=8)
+    recent_dup = (
+        db.query(AccountTransaction)
+        .filter(
+            AccountTransaction.account_id == from_acc.id,
+            AccountTransaction.to_account_id == to_acc.id,
+            AccountTransaction.tx_type == "ACCOUNT TRANSFER",
+            AccountTransaction.cash_in == amt,
+            AccountTransaction.cash_out == amt,
+            AccountTransaction.tx_date >= recent_cutoff
+        )
+        .order_by(AccountTransaction.id.desc())
+        .first()
+    )
+    if recent_dup:
+        return {
+            "status": "COMPLETED",
+            "duplicate_prevented": True,
+            "tx_number": recent_dup.tx_number,
+            "message": f"[COMPLETED] Transfer {recent_dup.tx_number} already processed.",
+            "accounts": list_financial_accounts(db=db),
+            "account_history": get_accounts_history(period="all", channel="ALL", db=db),
+            "snapshot": export_full_snapshot(db)
+        }
+
     if from_prev < amt:
         raise HTTPException(
             status_code=400,
@@ -3857,8 +3913,6 @@ def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Dep
 
     from_acc.current_balance = pkr(from_prev - amt)
     to_acc.current_balance = pkr(to_prev + amt)
-
-    tx_now = now_pkt()
     tx_no = f"ATRF-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     db.add(AccountTransaction(
         tx_number=tx_no,
@@ -5267,8 +5321,6 @@ def get_accounts_history(
         if getattr(s, "doc_type", "SALE") == "ESTIMATE":
             continue
         pay_channel, clean_rem = extract_channel_and_remarks(s.remarks, "CASH")
-        if channel != "ALL" and pay_channel != channel:
-            continue
         dtype = getattr(s, "doc_type", "SALE")
         # Separate initial payment on s.invoice_date from any later CPAY/RCV settlements
         later_settled = get_sale_later_settled_amount(db, s.id, s.invoice_number)
@@ -5278,12 +5330,25 @@ def get_accounts_history(
             s.invoice_number in (t.description or "") and t.tx_type == "PREVIOUS KHATA COLLECTION"
             for t in tx_rows
         )
-        # If an older sale (like INV-20261031-4020) settled previous bills before PREVIOUS KHATA COLLECTION ATX existed,
-        # include app_prev in its cash_in so the full PKR 100,000 (60,000 + 40,000) is shown!
         effective_cash_in = pkr(initial_direct + (0.0 if has_cpay_atx else app_prev))
-        desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({s.payment_status})"]
-        if app_prev > 0 and not has_cpay_atx:
-            desc_parts.append(f"[Bill: PKR {initial_direct:,.0f} + Old Khata Settled: PKR {app_prev:,.0f}]")
+        is_unpaid_credit_bill = (effective_cash_in <= 0 and dtype == "SALE")
+        effective_channel = "KHATA" if is_unpaid_credit_bill else pay_channel
+
+        if channel != "ALL" and effective_channel != channel:
+            continue
+
+        if is_unpaid_credit_bill:
+            tx_label = "CREDIT SALE (KHATA)"
+            status_desc = (
+                f"Credit Bill PKR {pkr(s.total_amount):,.0f} added to Khata (Unpaid: PKR {pkr(s.receivable_amount):,.0f})"
+                + (f" | {clean_rem}" if clean_rem else "")
+            )
+        else:
+            tx_label = "SALE RETURN" if dtype == "SALE_RETURN" else "SALE INFLOW"
+            desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({s.payment_status}) - Bill Total: PKR {pkr(s.total_amount):,.0f}"]
+            if app_prev > 0 and not has_cpay_atx:
+                desc_parts.append(f"[Bill: PKR {initial_direct:,.0f} + Old Khata Settled: PKR {app_prev:,.0f}]")
+            status_desc = " ".join(desc_parts)
 
         ledger.append({
             "id": f"SALE-{s.id}",
@@ -5291,13 +5356,13 @@ def get_accounts_history(
             "entity_id": s.id,
             "date": s.invoice_date.strftime("%Y-%m-%d %H:%M"),
             "timestamp": s.invoice_date.isoformat(),
-            "type": "SALE RETURN" if dtype == "SALE_RETURN" else "SALE INFLOW",
+            "type": tx_label,
             "reference": s.invoice_number,
             "party": s.customer.name if s.customer else "Customer",
-            "channel": pay_channel,
+            "channel": effective_channel,
             "admin_id": getattr(s, "admin_id", None),
             "admin_name": getattr(s, "admin_name", "Admin") or "Admin",
-            "description": " ".join(desc_parts),
+            "description": status_desc,
             "total_bill": pkr(s.total_amount),
             "cash_in": 0.0 if dtype == "SALE_RETURN" else effective_cash_in,
             "cash_out": effective_cash_in if dtype == "SALE_RETURN" else 0.0
@@ -5305,9 +5370,8 @@ def get_accounts_history(
 
     for p in purchases_q.all():
         pay_channel, clean_rem = extract_channel_and_remarks(p.remarks, "CASH")
-        if channel != "ALL" and pay_channel != channel:
-            continue
         dtype = getattr(p, "doc_type", "PURCHASE")
+        pur_arr = (getattr(p, "payment_arrangement", "WALLET") or "WALLET").upper()
         later_pur_paid = get_purchase_later_settled_amount(db, p.id)
         initial_pur_paid = pkr(max(0.0, pkr(p.paid_amount) - later_pur_paid))
         app_prev_pur = pkr(getattr(p, "applied_to_previous", 0.0))
@@ -5315,10 +5379,30 @@ def get_accounts_history(
             p.purchase_number in (t.description or "") and t.tx_type == "SUPPLIER KHATA PAYMENT"
             for t in tx_rows
         )
-        effective_cash_out = pkr(initial_pur_paid + (0.0 if has_ppay_atx else app_prev_pur))
-        desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({p.payment_status})"]
-        if app_prev_pur > 0 and not has_ppay_atx:
-            desc_parts.append(f"[Bill: PKR {initial_pur_paid:,.0f} + Old Dues Settled: PKR {app_prev_pur:,.0f}]")
+        # If paid via OWNER_CAPITAL or MARKET_LOAN, the cash inflow/outflow is already logged in AccountTransaction (ARR- / OUT-)
+        raw_pur_cash = pkr(initial_pur_paid + (0.0 if has_ppay_atx else app_prev_pur))
+        effective_cash_out = 0.0 if pur_arr in ("OWNER_CAPITAL", "MARKET_LOAN") else raw_pur_cash
+        is_unpaid_credit_pur = (raw_pur_cash <= 0 and dtype == "PURCHASE")
+        effective_channel = "KHATA" if is_unpaid_credit_pur else (pur_arr if pur_arr in ("OWNER_CAPITAL", "MARKET_LOAN") else pay_channel)
+
+        if channel != "ALL" and effective_channel != channel:
+            continue
+
+        if is_unpaid_credit_pur:
+            tx_label = "CREDIT PURCHASE (KHATA)"
+            status_desc = (
+                f"Supplier Credit Bill PKR {pkr(p.total_amount):,.0f} (Payable: PKR {pkr(p.payable_amount):,.0f})"
+                + (f" | {clean_rem}" if clean_rem else "")
+            )
+        elif pur_arr in ("OWNER_CAPITAL", "MARKET_LOAN"):
+            tx_label = f"PURCHASE ({pur_arr.replace('_', ' ')})"
+            status_desc = f"Bill PKR {pkr(p.total_amount):,.0f} arranged via {pur_arr.replace('_', ' ')}" + (f" | {clean_rem}" if clean_rem else "")
+        else:
+            tx_label = "PURCHASE RETURN" if dtype == "PURCHASE_RETURN" else "PURCHASE OUTFLOW"
+            desc_parts = [clean_rem] if clean_rem else [f"{dtype} ({p.payment_status}) - Bill Total: PKR {pkr(p.total_amount):,.0f}"]
+            if app_prev_pur > 0 and not has_ppay_atx:
+                desc_parts.append(f"[Bill: PKR {initial_pur_paid:,.0f} + Old Dues Settled: PKR {app_prev_pur:,.0f}]")
+            status_desc = " ".join(desc_parts)
 
         ledger.append({
             "id": f"PUR-{p.id}",
@@ -5326,37 +5410,40 @@ def get_accounts_history(
             "entity_id": p.id,
             "date": p.invoice_date.strftime("%Y-%m-%d %H:%M"),
             "timestamp": p.invoice_date.isoformat(),
-            "type": "PURCHASE RETURN" if dtype == "PURCHASE_RETURN" else "PURCHASE OUTFLOW",
+            "type": tx_label,
             "reference": p.purchase_number,
             "party": p.supplier.name if p.supplier else "Supplier",
-            "channel": pay_channel,
+            "channel": effective_channel,
             "admin_id": getattr(p, "admin_id", None),
             "admin_name": getattr(p, "admin_name", "Admin") or "Admin",
-            "description": " ".join(desc_parts),
+            "description": status_desc,
             "total_bill": pkr(p.total_amount),
             "cash_in": effective_cash_out if dtype == "PURCHASE_RETURN" else 0.0,
             "cash_out": 0.0 if dtype == "PURCHASE_RETURN" else effective_cash_out
         })
 
     for e in expenses_q.all():
-        if channel != "ALL" and e.payment_method != channel:
+        exp_arr = (getattr(e, "payment_arrangement", "WALLET") or "WALLET").upper()
+        effective_exp_channel = exp_arr if exp_arr in ("OWNER_CAPITAL", "MARKET_LOAN") else e.payment_method
+        if channel != "ALL" and effective_exp_channel != channel:
             continue
+        effective_exp_out = 0.0 if exp_arr in ("OWNER_CAPITAL", "MARKET_LOAN") else pkr(e.amount)
         ledger.append({
             "id": f"EXP-{e.id}",
             "entity_type": "EXPENSE",
             "entity_id": e.id,
             "date": e.expense_date.strftime("%Y-%m-%d %H:%M"),
             "timestamp": e.expense_date.isoformat(),
-            "type": "EXPENSE OUTFLOW",
+            "type": f"EXPENSE ({exp_arr.replace('_', ' ')})" if exp_arr in ("OWNER_CAPITAL", "MARKET_LOAN") else "EXPENSE OUTFLOW",
             "reference": e.expense_number,
             "party": e.paid_to or e.category,
-            "channel": e.payment_method,
+            "channel": effective_exp_channel,
             "admin_id": getattr(e, "admin_id", None),
             "admin_name": getattr(e, "admin_name", "Admin") or "Admin",
             "description": f"{e.category} - {e.description or ''}",
             "total_bill": pkr(e.amount),
             "cash_in": 0.0,
-            "cash_out": pkr(e.amount)
+            "cash_out": effective_exp_out
         })
 
     for t in tx_rows:
@@ -5512,6 +5599,18 @@ def get_vyapar_reports(
 
 # ==================== PASSWORD-PROTECTED REVERSE & RECYCLE BIN ====================
 
+def pur_no_matches_atx(pur_row: Purchase, atx_desc: str) -> bool:
+    if not pur_row:
+        return False
+    if not atx_desc:
+        return True
+    if pur_row.purchase_number in atx_desc:
+        return True
+    if "Paid installment against" in atx_desc:
+        return True
+    return False
+
+
 @app.post("/api/security/reverse/{entity_type}/{entity_id}")
 def reverse_and_move_to_trash(
     entity_type: str,
@@ -5650,15 +5749,14 @@ def reverse_and_move_to_trash(
             ))
             db.flush()
 
-            # Expunge ORM instances before raw SQL DELETE so SQLAlchemy never raises ObjectDeletedError
-            for it_obj in list(sale.items):
-                db.expunge(it_obj)
+            db.query(AccountTransaction).filter(
+                AccountTransaction.reference_id == sale_id_val,
+                AccountTransaction.tx_type == "CUSTOMER KHATA COLLECTION"
+            ).delete(synchronize_session=False)
+            db.query(StockMovement).filter(StockMovement.reference_number == sale_inv_no).delete(synchronize_session=False)
+            db.query(SaleItem).filter(SaleItem.sale_id == sale_id_val).delete(synchronize_session=False)
             db.expunge(sale)
-            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :sid AND tx_type = 'CUSTOMER KHATA COLLECTION'"), {"sid": sale_id_val})
-            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale_inv_no})
-            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale_inv_no})
-            db.execute(text("DELETE FROM sale_items WHERE sale_id = :sid"), {"sid": sale_id_val})
-            db.execute(text("DELETE FROM sales WHERE id = :sid"), {"sid": sale_id_val})
+            db.query(Sale).filter(Sale.id == sale_id_val).delete(synchronize_session=False)
             db.flush()
 
             if cust_obj and dtype != "ESTIMATE":
@@ -5675,6 +5773,8 @@ def reverse_and_move_to_trash(
 
             pur_id_val = pur.id
             pur_no_val = pur.purchase_number
+            pur_sup_id = pur.supplier_id
+            pur_arr = (getattr(pur, "payment_arrangement", "WALLET") or "WALLET").upper()
             channel, _ = extract_channel_and_remarks(pur.remarks, "CASH")
             dtype = getattr(pur, "doc_type", "PURCHASE") or "PURCHASE"
             sup_obj = pur.supplier
@@ -5698,30 +5798,75 @@ def reverse_and_move_to_trash(
                     ).first()
                     if loc_stock:
                         if dtype == "PURCHASE_RETURN":
-                            loc_stock.stock_bottles += item.base_quantity
+                            loc_stock.stock_bottles += int(item.base_quantity or 0)
                         else:
-                            loc_stock.stock_bottles = max(0, loc_stock.stock_bottles - item.base_quantity)
+                            loc_stock.stock_bottles = max(0, int(loc_stock.stock_bottles or 0) - int(item.base_quantity or 0))
                     db.flush()
                     all_ls = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == item.product_id).all()
-                    item.product.current_stock = sum(x.stock_bottles for x in all_ls)
+                    item.product.current_stock = sum(max(0, int(x.stock_bottles or 0)) for x in all_ls)
 
-            total_pur_cash = pkr(pur.paid_amount + getattr(pur, "applied_to_previous", 0.0))
-            if total_pur_cash > 0 and getattr(pur, "payment_arrangement", "WALLET") == "WALLET":
-                acc = resolve_financial_account(db, getattr(pur, "account_id", None), channel)
-                if acc:
-                    if dtype == "PURCHASE_RETURN":
-                        acc.current_balance = pkr(max(0.0, acc.current_balance - total_pur_cash))
-                    else:
-                        acc.current_balance = pkr(acc.current_balance + total_pur_cash)
+            # 1. If this Purchase auto-settled older supplier bills via applied_to_previous, restore those older bills
+            app_prev_pur = pkr(getattr(pur, "applied_to_previous", 0.0))
+            if app_prev_pur > 0 and pur_sup_id:
+                rem_to_restore = app_prev_pur
+                older_purs = (
+                    db.query(Purchase)
+                    .filter(
+                        Purchase.supplier_id == pur_sup_id,
+                        Purchase.id != pur_id_val,
+                        Purchase.doc_type == "PURCHASE",
+                        Purchase.paid_amount > 0
+                    )
+                    .order_by(Purchase.id.desc())
+                    .all()
+                )
+                for old_p in older_purs:
+                    if rem_to_restore <= 0:
+                        break
+                    restore_amt = pkr(min(pkr(old_p.paid_amount), rem_to_restore))
+                    if restore_amt > 0:
+                        old_p.paid_amount = pkr(max(0.0, old_p.paid_amount - restore_amt))
+                        old_p.payable_amount = pkr(max(0.0, old_p.total_amount - old_p.paid_amount))
+                        old_p.payment_status = "PAID" if old_p.payable_amount <= 0 else ("PARTIAL" if old_p.paid_amount > 0 else "UNPAID")
+                        rem_to_restore = pkr(rem_to_restore - restore_amt)
+                db.query(AccountTransaction).filter(
+                    AccountTransaction.tx_type == "SUPPLIER KHATA PAYMENT",
+                    AccountTransaction.description.ilike(f"%{pur_no_val}%")
+                ).delete(synchronize_session=False)
+
+            # 2. Refund wallet or reverse arranged LoanAccount balance
+            total_pur_cash = pkr(pur.paid_amount + app_prev_pur)
+            if total_pur_cash > 0:
+                if pur_arr == "WALLET":
+                    acc = resolve_financial_account(db, getattr(pur, "account_id", None), channel)
+                    if acc:
+                        if dtype == "PURCHASE_RETURN":
+                            acc.current_balance = pkr(max(0.0, acc.current_balance - total_pur_cash))
+                        else:
+                            acc.current_balance = pkr(acc.current_balance + total_pur_cash)
+                elif pur_arr in ("OWNER_CAPITAL", "MARKET_LOAN"):
+                    arr_txs = db.query(AccountTransaction).filter(
+                        AccountTransaction.description.ilike(f"%{pur_no_val}%")
+                    ).all()
+                    for atx_row in arr_txs:
+                        if atx_row.tx_type in ("OWNER CAPITAL INJECTION", "MARKET LOAN INFLOW") and atx_row.reference_id:
+                            ln_obj = db.query(LoanAccount).filter(LoanAccount.id == atx_row.reference_id).first()
+                            if ln_obj:
+                                ln_obj.total_borrowed = pkr(max(0.0, ln_obj.total_borrowed - atx_row.cash_in))
+                                ln_obj.current_balance = pkr(max(0.0, ln_obj.total_borrowed - ln_obj.total_repaid))
+                    db.query(AccountTransaction).filter(
+                        AccountTransaction.description.ilike(f"%{pur_no_val}%")
+                    ).delete(synchronize_session=False)
 
             snapshot = {
                 "purchase_number": pur_no_val,
                 "doc_type": dtype,
-                "supplier_id": pur.supplier_id,
+                "supplier_id": pur_sup_id,
                 "total_amount": pkr(pur.total_amount),
                 "paid_amount": pkr(pur.paid_amount),
                 "payable_amount": pkr(pur.payable_amount),
                 "payment_status": pur.payment_status,
+                "payment_arrangement": pur_arr,
                 "account_id": getattr(pur, "account_id", None),
                 "remarks": pur.remarks,
                 "items": items_data
@@ -5738,14 +5883,14 @@ def reverse_and_move_to_trash(
             ))
             db.flush()
 
-            for it_obj in list(pur.items):
-                db.expunge(it_obj)
+            db.query(AccountTransaction).filter(
+                AccountTransaction.reference_id == pur_id_val,
+                AccountTransaction.tx_type == "SUPPLIER KHATA PAYMENT"
+            ).delete(synchronize_session=False)
+            db.query(StockMovement).filter(StockMovement.reference_number == pur_no_val).delete(synchronize_session=False)
+            db.query(PurchaseItem).filter(PurchaseItem.purchase_id == pur_id_val).delete(synchronize_session=False)
             db.expunge(pur)
-
-            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :pid AND tx_type = 'SUPPLIER KHATA PAYMENT'"), {"pid": pur_id_val})
-            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": pur_no_val})
-            db.execute(text("DELETE FROM purchase_items WHERE purchase_id = :pid"), {"pid": pur_id_val})
-            db.execute(text("DELETE FROM purchases WHERE id = :pid"), {"pid": pur_id_val})
+            db.query(Purchase).filter(Purchase.id == pur_id_val).delete(synchronize_session=False)
             db.flush()
 
             if sup_obj:
@@ -5761,16 +5906,32 @@ def reverse_and_move_to_trash(
                 raise HTTPException(status_code=404, detail="Expense not found")
 
             exp_id_val = exp.id
-            if getattr(exp, "payment_arrangement", "WALLET") == "WALLET":
+            exp_no_val = exp.expense_number
+            exp_arr = (getattr(exp, "payment_arrangement", "WALLET") or "WALLET").upper()
+            if exp_arr == "WALLET":
                 acc = resolve_financial_account(db, getattr(exp, "account_id", None), exp.payment_method)
                 if acc:
                     acc.current_balance = pkr(acc.current_balance + exp.amount)
+            elif exp_arr in ("OWNER_CAPITAL", "MARKET_LOAN"):
+                arr_txs = db.query(AccountTransaction).filter(
+                    AccountTransaction.description.ilike(f"%{exp_no_val}%")
+                ).all()
+                for atx_row in arr_txs:
+                    if atx_row.tx_type in ("OWNER CAPITAL INJECTION", "MARKET LOAN INFLOW") and atx_row.reference_id:
+                        ln_obj = db.query(LoanAccount).filter(LoanAccount.id == atx_row.reference_id).first()
+                        if ln_obj:
+                            ln_obj.total_borrowed = pkr(max(0.0, ln_obj.total_borrowed - atx_row.cash_in))
+                            ln_obj.current_balance = pkr(max(0.0, ln_obj.total_borrowed - ln_obj.total_repaid))
+                db.query(AccountTransaction).filter(
+                    AccountTransaction.description.ilike(f"%{exp_no_val}%")
+                ).delete(synchronize_session=False)
 
             snapshot = {
-                "expense_number": exp.expense_number,
+                "expense_number": exp_no_val,
                 "category": exp.category,
                 "description": exp.description,
                 "payment_method": exp.payment_method,
+                "payment_arrangement": exp_arr,
                 "account_id": getattr(exp, "account_id", None),
                 "amount": pkr(exp.amount),
                 "paid_to": exp.paid_to
@@ -5779,7 +5940,7 @@ def reverse_and_move_to_trash(
             db.add(RecycleBin(
                 entity_type="EXPENSE",
                 entity_id=exp_id_val,
-                reference_code=exp.expense_number,
+                reference_code=exp_no_val,
                 title=f"Expense: {exp.category} ({exp.paid_to or 'General'})",
                 summary=f"Reversed Expense | Refunded PKR {exp.amount:,.0f} to {exp.payment_method}",
                 amount=pkr(exp.amount),
@@ -5787,66 +5948,133 @@ def reverse_and_move_to_trash(
             ))
             db.flush()
             db.expunge(exp)
-
-            db.execute(text("DELETE FROM expenses WHERE id = :eid"), {"eid": exp_id_val})
+            db.query(Expense).filter(Expense.id == exp_id_val).delete(synchronize_session=False)
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Expense {snapshot['expense_number']} reversed & refunded.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "ACCOUNT_TX":
-         atx = db.query(AccountTransaction).filter(AccountTransaction.id == entity_id).first()
-         if not atx:
-             raise HTTPException(status_code=404, detail="Account transaction not found")
+            atx = db.query(AccountTransaction).filter(AccountTransaction.id == entity_id).first()
+            if not atx:
+                raise HTTPException(status_code=404, detail="Account transaction not found or already reversed.")
 
-         atx_id_val = atx.id
-         atx_no_val = atx.tx_number
-         if atx.tx_type in ("CASH DEPOSIT", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION", "CUSTOMER PAYMENT ALLOCATION") and atx.account_id:
-             acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-             if acc:
-                 acc.current_balance = pkr(max(0.0, acc.current_balance - atx.cash_in))
-         elif atx.tx_type in ("CASH WITHDRAWAL", "SUPPLIER KHATA PAYMENT", "LOAN / CAPITAL REPAYMENT", "ARRANGED PAYMENT OUTFLOW") and atx.account_id:
-             acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-             if acc and atx.tx_type != "ARRANGED PAYMENT OUTFLOW":
-                 acc.current_balance = pkr(acc.current_balance + atx.cash_out)
-         elif atx.tx_type == "ACCOUNT TRANSFER":
-             from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-             to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.to_account_id).first()
-             if from_acc:
-                 from_acc.current_balance = pkr(from_acc.current_balance + atx.cash_out)
-             if to_acc:
-                 to_acc.current_balance = pkr(max(0.0, to_acc.current_balance - atx.cash_in))
+            atx_id_val = atx.id
+            atx_no_val = atx.tx_number
+            atx_type_val = atx.tx_type
+            atx_acc_id = atx.account_id
+            atx_to_acc_id = atx.to_account_id
+            atx_channel = atx.channel or "CASH"
+            atx_party = atx.party or "Account"
+            atx_ref_id = getattr(atx, "reference_id", None)
+            atx_desc = atx.description or atx_type_val
+            atx_in = pkr(atx.cash_in)
+            atx_out = pkr(atx.cash_out)
+            tx_amount = pkr(max(atx_in, atx_out))
 
-         # If this ledger row was a Customer Payment voucher (CPAY/RCV), restore the linked Sale bill balances
-         linked_pm = db.query(CustomerPayment).filter(CustomerPayment.payment_number == atx_no_val).first()
-         if linked_pm and linked_pm.status != "REVERSED":
-             for al in list(linked_pm.allocations):
-                 s_row = db.query(Sale).filter(Sale.id == al.sale_id).first()
-                 if s_row:
-                     s_row.received_amount = pkr(max(0.0, s_row.received_amount - al.allocated_amount))
-                     s_row.receivable_amount = pkr(max(0.0, s_row.total_amount - s_row.received_amount))
-                     s_row.payment_status = "PAID" if s_row.receivable_amount <= 0 else ("PARTIAL" if s_row.received_amount > 0 else "UNPAID")
-             linked_pm.status = "REVERSED"
-             if linked_pm.customer:
-                 db.flush()
-                 recompute_customer_authoritative_receivable(db, linked_pm.customer)
+            if atx_type_val in ("CASH DEPOSIT", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION", "CUSTOMER PAYMENT ALLOCATION"):
+                acc = resolve_financial_account(db, atx_acc_id, atx_channel)
+                if acc:
+                    acc.current_balance = pkr(max(0.0, acc.current_balance - atx_in))
+            elif atx_type_val in ("CASH WITHDRAWAL", "SUPPLIER KHATA PAYMENT", "LOAN / CAPITAL REPAYMENT"):
+                acc = resolve_financial_account(db, atx_acc_id, atx_channel)
+                if acc:
+                    acc.current_balance = pkr(acc.current_balance + atx_out)
+                if atx_type_val == "LOAN / CAPITAL REPAYMENT" and atx_ref_id:
+                    ln_obj = db.query(LoanAccount).filter(LoanAccount.id == atx_ref_id).first()
+                    if ln_obj:
+                        ln_obj.total_repaid = pkr(max(0.0, ln_obj.total_repaid - atx_out))
+                        ln_obj.current_balance = pkr(max(0.0, ln_obj.total_borrowed - ln_obj.total_repaid))
+            elif atx_type_val == "ACCOUNT TRANSFER":
+                from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx_acc_id).first() if atx_acc_id else None
+                to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx_to_acc_id).first() if atx_to_acc_id else None
+                if from_acc:
+                    from_acc.current_balance = pkr(from_acc.current_balance + atx_out)
+                if to_acc:
+                    to_acc.current_balance = pkr(max(0.0, to_acc.current_balance - atx_in))
 
-         # If this ledger row was a Supplier Khata Payment (PPAY) against a specific Purchase bill, restore its payable balance
-         if atx.tx_type == "SUPPLIER KHATA PAYMENT" and atx.reference_id:
-             pur_row = db.query(Purchase).filter(Purchase.id == atx.reference_id).first()
-             if pur_row:
-                 pur_row.paid_amount = pkr(max(0.0, pur_row.paid_amount - atx.cash_out))
-                 pur_row.payable_amount = pkr(max(0.0, pur_row.total_amount - pur_row.paid_amount))
-                 pur_row.payment_status = "PAID" if pur_row.payable_amount <= 0 else ("PARTIAL" if pur_row.paid_amount > 0 else "UNPAID")
-                 if pur_row.supplier:
-                     db.flush()
-                     recompute_supplier_authoritative_payable(db, pur_row.supplier)
+            # If this ledger row was a Customer Payment voucher (CPAY/RCV), restore the linked Sale bill balances
+            linked_pm = db.query(CustomerPayment).filter(CustomerPayment.payment_number == atx_no_val).first()
+            if linked_pm and linked_pm.status != "REVERSED":
+                for al in list(linked_pm.allocations):
+                    s_row = db.query(Sale).filter(Sale.id == al.sale_id).first()
+                    if s_row:
+                        s_row.received_amount = pkr(max(0.0, s_row.received_amount - al.allocated_amount))
+                        s_row.receivable_amount = pkr(max(0.0, s_row.total_amount - s_row.received_amount))
+                        s_row.payment_status = "PAID" if s_row.receivable_amount <= 0 else ("PARTIAL" if s_row.received_amount > 0 else "UNPAID")
+                # If this CPAY was auto-created by a newer Sale (via include_previous_dues), clear applied_to_previous on that Sale
+                if linked_pm.remarks and "Invoice #" in linked_pm.remarks:
+                    trigger_inv_no = linked_pm.remarks.split("Invoice #", 1)[1].strip().split()[0]
+                    trigger_sale = db.query(Sale).filter(Sale.invoice_number == trigger_inv_no).first()
+                    if trigger_sale:
+                        trigger_sale.applied_to_previous = 0.0
+                linked_pm.status = "REVERSED"
+                linked_pm.reversed_at = now_pkt()
+                if linked_pm.customer:
+                    db.flush()
+                    recompute_customer_authoritative_receivable(db, linked_pm.customer)
 
-         db.flush()
-         db.expunge(atx)
-         db.execute(text("DELETE FROM account_transactions WHERE id = :tid"), {"tid": atx_id_val})
-         bump_version()
-         db.commit()
-         return {"status": "reversed", "message": f"Transaction {atx_no_val} reversed and balances restored.", "snapshot": export_full_snapshot(db)}
+            # If this ledger row was a Supplier Khata Payment (PPAY), restore the linked Purchase bill balance(s)
+            if atx_type_val == "SUPPLIER KHATA PAYMENT":
+                pur_row = db.query(Purchase).filter(Purchase.id == atx_ref_id).first() if atx_ref_id else None
+                if pur_row and pur_no_matches_atx(pur_row, atx_desc):
+                    pur_row.paid_amount = pkr(max(0.0, pur_row.paid_amount - atx_out))
+                    pur_row.payable_amount = pkr(max(0.0, pur_row.total_amount - pur_row.paid_amount))
+                    pur_row.payment_status = "PAID" if pur_row.payable_amount <= 0 else ("PARTIAL" if pur_row.paid_amount > 0 else "UNPAID")
+                    if pur_row.supplier:
+                        db.flush()
+                        recompute_supplier_authoritative_payable(db, pur_row.supplier)
+                else:
+                    # Consolidated supplier payment where reference_id is supplier.id
+                    sup_obj = db.query(Supplier).filter(Supplier.id == atx_ref_id).first() if atx_ref_id else None
+                    if not sup_obj and atx_party:
+                        sup_obj = db.query(Supplier).filter(Supplier.name.ilike(atx_party)).first()
+                    if sup_obj:
+                        rem_restore = atx_out
+                        sup_purs = (
+                            db.query(Purchase)
+                            .filter(Purchase.supplier_id == sup_obj.id, Purchase.paid_amount > 0)
+                            .order_by(Purchase.id.desc())
+                            .all()
+                        )
+                        for sp in sup_purs:
+                            if rem_restore <= 0:
+                                break
+                            if sp.purchase_number in atx_desc or len(sup_purs) == 1:
+                                d_amt = pkr(min(pkr(sp.paid_amount), rem_restore))
+                                sp.paid_amount = pkr(max(0.0, sp.paid_amount - d_amt))
+                                sp.payable_amount = pkr(max(0.0, sp.total_amount - sp.paid_amount))
+                                sp.payment_status = "PAID" if sp.payable_amount <= 0 else ("PARTIAL" if sp.paid_amount > 0 else "UNPAID")
+                                rem_restore = pkr(rem_restore - d_amt)
+                        db.flush()
+                        recompute_supplier_authoritative_payable(db, sup_obj)
+
+            atx_snapshot = {
+                "tx_number": atx_no_val,
+                "tx_type": atx_type_val,
+                "account_id": atx_acc_id,
+                "to_account_id": atx_to_acc_id,
+                "channel": atx_channel,
+                "party": atx_party,
+                "reference_id": atx_ref_id,
+                "description": atx_desc,
+                "cash_in": atx_in,
+                "cash_out": atx_out
+            }
+            db.add(RecycleBin(
+                entity_type="ACCOUNT_TX",
+                entity_id=atx_id_val,
+                reference_code=atx_no_val,
+                title=f"{atx_type_val}: {atx_party}",
+                summary=f"Reversed {atx_type_val} | Amount: PKR {tx_amount:,.0f} | {atx_desc}",
+                amount=tx_amount,
+                payload_json=json.dumps(atx_snapshot)
+            ))
+            db.flush()
+            db.expunge(atx)
+            db.query(AccountTransaction).filter(AccountTransaction.id == atx_id_val).delete(synchronize_session=False)
+            bump_version()
+            db.commit()
+            return {"status": "reversed", "message": f"Transaction {atx_no_val} reversed, balances restored, and moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "CUSTOMER_PAYMENT":
             pm = db.query(CustomerPayment).filter(CustomerPayment.id == entity_id).first()
@@ -6214,6 +6442,44 @@ def restore_from_recycle_bin(trash_id: int, db: Session = Depends(get_db)):
             type=data.get("type", "CASH"),
             account_number=data.get("account_number"),
             current_balance=pkr(data.get("current_balance", 0.0))
+        ))
+
+    elif etype == "ACCOUNT_TX":
+        tx_type = data.get("tx_type", "CASH DEPOSIT")
+        cash_in = pkr(data.get("cash_in", 0.0))
+        cash_out = pkr(data.get("cash_out", 0.0))
+        acc_id = data.get("account_id")
+        to_acc_id = data.get("to_account_id")
+        channel = data.get("channel", "CASH")
+
+        if tx_type in ("CASH DEPOSIT", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION", "CUSTOMER PAYMENT ALLOCATION"):
+            acc = resolve_financial_account(db, acc_id, channel)
+            if acc:
+                acc.current_balance = pkr(acc.current_balance + cash_in)
+        elif tx_type in ("CASH WITHDRAWAL", "SUPPLIER KHATA PAYMENT", "LOAN / CAPITAL REPAYMENT"):
+            acc = resolve_financial_account(db, acc_id, channel)
+            if acc:
+                acc.current_balance = pkr(max(0.0, acc.current_balance - cash_out))
+        elif tx_type == "ACCOUNT TRANSFER":
+            from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == acc_id).first() if acc_id else None
+            to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == to_acc_id).first() if to_acc_id else None
+            if from_acc:
+                from_acc.current_balance = pkr(max(0.0, from_acc.current_balance - cash_out))
+            if to_acc:
+                to_acc.current_balance = pkr(to_acc.current_balance + cash_in)
+
+        db.add(AccountTransaction(
+            tx_number=data.get("tx_number") or f"ATX-{now_pkt().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
+            tx_date=now_pkt(),
+            tx_type=tx_type,
+            account_id=acc_id,
+            to_account_id=to_acc_id,
+            channel=channel,
+            party=data.get("party"),
+            reference_id=data.get("reference_id"),
+            description=data.get("description"),
+            cash_in=cash_in,
+            cash_out=cash_out
         ))
 
     elif etype == "SALE":

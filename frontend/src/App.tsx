@@ -2791,21 +2791,14 @@ export default function App() {
         account_id: Number(adjAccountId),
         operation: adjOperation,
         amount: amt,
-        remarks: adjRemarks
+        remarks: adjRemarks.trim()
       });
-      setAccounts(prev =>
-        prev.map(a =>
-          a.id === Number(adjAccountId)
-            ? {
-                ...a,
-                current_balance:
-                  data.new_balance !== undefined
-                    ? pkr(data.new_balance)
-                    : pkr(a.current_balance + (adjOperation === 'DEPOSIT' ? amt : -amt))
-              }
-            : a
-        )
-      );
+      if (Array.isArray(data.accounts)) {
+        setAccounts(data.accounts);
+      }
+      if (Array.isArray(data.account_history)) {
+        setAccountHistory(data.account_history);
+      }
       notify(data.message);
       setAdjAmount('');
       setAdjRemarks('');
@@ -2829,15 +2822,14 @@ export default function App() {
         from_account_id: Number(trfFromAccId),
         to_account_id: Number(trfToAccId),
         amount: amt,
-        remarks: trfAccRemarks
+        remarks: trfAccRemarks.trim()
       });
-      setAccounts(prev =>
-        prev.map(a => {
-          if (a.id === Number(trfFromAccId)) return { ...a, current_balance: pkr(a.current_balance - amt) };
-          if (a.id === Number(trfToAccId)) return { ...a, current_balance: pkr(a.current_balance + amt) };
-          return a;
-        })
-      );
+      if (Array.isArray(data.accounts)) {
+        setAccounts(data.accounts);
+      }
+      if (Array.isArray(data.account_history)) {
+        setAccountHistory(data.account_history);
+      }
       notify(data.message);
       setTrfAccAmount('');
       setTrfAccRemarks('');
@@ -3514,7 +3506,11 @@ export default function App() {
   };
 
   // ==================== PASSWORD-PROTECTED REVERSE & RECYCLE BIN ====================
+  const securityLockRef = useRef<boolean>(false);
+
   const triggerReverse = (entityType: EntityType, entityId: number, title: string) => {
+    securityLockRef.current = false;
+    setSecurityBusy(false);
     setSecurityPassword('');
     setSecurityError('');
     setSecurityModal({
@@ -3529,7 +3525,8 @@ export default function App() {
 
   const handleExecuteSecurityAction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!securityModal) return;
+    if (!securityModal || securityLockRef.current || securityBusy) return;
+    securityLockRef.current = true;
     setSecurityError('');
     setSecurityBusy(true);
     try {
@@ -3547,8 +3544,17 @@ export default function App() {
       setSecurityPassword('');
       await fetchData();
     } catch (err: any) {
-      setSecurityError(err.message || 'Failed to execute action.');
+      const msg = String(err?.message || 'Failed to execute action.');
+      if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already reversed')) {
+        notify('Record was already reversed. Refreshing live ledger...');
+        setSecurityModal(null);
+        setSecurityPassword('');
+        await fetchData();
+      } else {
+        setSecurityError(msg);
+      }
     } finally {
+      securityLockRef.current = false;
       setSecurityBusy(false);
     }
   };
@@ -3943,33 +3949,37 @@ export default function App() {
   const handleExecuteSupplierConsolidatedPayment = async () => {
     if (!supplierAllocationModal || supAllocBusy) return;
     setSupAllocError('');
-    const entries = Object.entries(supAllocDraftMap)
-      .map(([pid, amt]) => ({ purchase_id: Number(pid), amount: pkr(amt) }))
-      .filter(x => x.amount > 0);
+    const allocationsPayload = Object.entries(supAllocDraftMap)
+      .map(([pid, amt]) => ({ purchase_id: Number(pid), allocated_amount: pkr(amt) }))
+      .filter(x => x.allocated_amount > 0);
 
-    if (entries.length === 0) {
+    if (allocationsPayload.length === 0) {
       setSupAllocError('Please allocate a payment amount to at least one supplier bill.');
       return;
     }
 
+    const totalAllocated = allocationsPayload.reduce((s, x) => s + x.allocated_amount, 0);
     const selAcc = accounts.find(a => a.id === Number(supAllocAccountId));
     setSupAllocBusy(true);
     try {
-      for (const item of entries) {
-        await apiSend(`/purchases/${item.purchase_id}/payment`, 'POST', {
-          amount: item.amount,
+      const data = await apiSend(
+        `/suppliers/${supplierAllocationModal.supplier_id}/confirm-payment-allocation`,
+        'POST',
+        {
+          payment_amount: totalAllocated,
           account_id: Number(supAllocAccountId) || null,
           payment_method: selAcc ? selAcc.type : 'CASH',
           payment_arrangement: supAllocArrangement,
           lender_name: supAllocLenderName.trim() || null,
+          allocations: allocationsPayload,
           remarks:
             supAllocRemarks.trim() ||
-            `Consolidated Supplier Settlement (${entries.length} bill${entries.length > 1 ? 's' : ''})`
-        });
-      }
-      const totalSettled = entries.reduce((s, x) => s + x.amount, 0);
+            `Consolidated Supplier Settlement (${allocationsPayload.length} bill${allocationsPayload.length > 1 ? 's' : ''})`
+        }
+      );
       notify(
-        `Settled PKR ${totalSettled.toLocaleString()} across ${entries.length} bill(s) for ${supplierAllocationModal.supplier_name}!`
+        data.message ||
+          `Settled PKR ${totalAllocated.toLocaleString()} across ${allocationsPayload.length} bill(s) for ${supplierAllocationModal.supplier_name}!`
       );
       setSupplierAllocationModal(null);
       setSupAllocConfirming(false);
