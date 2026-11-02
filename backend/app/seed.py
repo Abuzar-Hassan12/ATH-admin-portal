@@ -129,8 +129,7 @@ def seed_database():
 
     if not db.query(StorageLocation).first():
         locations = [
-            StorageLocation(code="LOC-DISPLAY", name="Shop Display Counter", location_type="DISPLAY", address="Main Retail Front"),
-            StorageLocation(code="LOC-WH1", name="Main Warehouse", location_type="WAREHOUSE", address="Primary Storage Room"),
+            StorageLocation(code="LOC-MAIN", name="Main Warehouse", location_type="WAREHOUSE", address="Primary Storage Room"),
         ]
         db.add_all(locations)
         db.commit()

@@ -60,10 +60,141 @@ def pkr(val: Optional[float]) -> float:
 BOOTSTRAP_CACHE: Dict[str, Any] = {}
 
 
+def sync_postgres_sequences(db: Session):
+    """Ensures all PostgreSQL SERIAL primary-key sequences are at least MAX(id) so INSERTs never throw 500 UniqueViolation."""
+    if is_sqlite:
+        return
+    for seq_tbl in [
+        "admin_users", "brands", "storage_locations", "party_groups", "products",
+        "product_location_stocks", "suppliers", "customers", "financial_accounts",
+        "loan_accounts", "account_transactions", "purchases", "purchase_items",
+        "sales", "sale_items", "customer_payments", "customer_payment_allocations",
+        "expenses", "recycle_bin", "stock_movements"
+    ]:
+        try:
+            db.execute(text(
+                f"SELECT setval(pg_get_serial_sequence('{seq_tbl}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM {seq_tbl}), 1), "
+                f"(SELECT COUNT(*) > 0 FROM {seq_tbl}));"
+            ))
+        except Exception:
+            db.rollback()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def consolidate_default_locations(db: Session):
+    """
+    Ensures only ONE default location ('Main Warehouse') exists out of the box by merging
+    the legacy auto-seeded 'Shop Display Counter' (LOC-DISP / LOC-DISPLAY) into 'Main Warehouse'.
+    Any custom locations added by the user are 100% preserved.
+    """
+    try:
+        locs = db.query(StorageLocation).order_by(StorageLocation.id.asc()).all()
+        if not locs:
+            default_loc = StorageLocation(
+                code="LOC-MAIN",
+                name="Main Warehouse",
+                location_type="WAREHOUSE",
+                address="Main Facility"
+            )
+            db.add(default_loc)
+            db.commit()
+            return
+
+        changed = False
+        for loc_row in locs:
+            if (loc_row.location_type or "").upper() == "GODOWN":
+                loc_row.location_type = "WAREHOUSE"
+                changed = True
+
+        disp_loc = next(
+            (
+                l for l in locs
+                if (l.code or "").upper() in ("LOC-DISP", "LOC-DISPLAY")
+                or l.name.strip().lower() in ("shop display counter", "shop display")
+            ),
+            None
+        )
+        main_loc = next(
+            (
+                l for l in locs
+                if l.id != (disp_loc.id if disp_loc else -1)
+                and ((l.code or "").upper() in ("LOC-WH", "LOC-WH1", "LOC-MAIN") or "warehouse" in l.name.lower())
+            ),
+            None
+        )
+        if not main_loc and len(locs) > 1 and disp_loc:
+            main_loc = next((l for l in locs if l.id != disp_loc.id), None)
+
+        if disp_loc and main_loc and disp_loc.id != main_loc.id:
+            disp_id = disp_loc.id
+            main_id = main_loc.id
+
+            disp_stocks = db.query(ProductLocationStock).filter(ProductLocationStock.location_id == disp_id).all()
+            affected_product_ids = set()
+            for ds in disp_stocks:
+                affected_product_ids.add(ds.product_id)
+                qty = int(ds.stock_bottles or 0)
+                if qty > 0:
+                    target_ls = db.query(ProductLocationStock).filter(
+                        ProductLocationStock.product_id == ds.product_id,
+                        ProductLocationStock.location_id == main_id
+                    ).first()
+                    if target_ls:
+                        target_ls.stock_bottles = int(target_ls.stock_bottles or 0) + qty
+                    else:
+                        db.add(ProductLocationStock(
+                            product_id=ds.product_id,
+                            location_id=main_id,
+                            stock_bottles=qty
+                        ))
+            db.flush()
+
+            # Use bulk SQL deletes/updates with synchronize_session=False to avoid cascade conflicts
+            db.query(ProductLocationStock).filter(ProductLocationStock.location_id == disp_id).delete(synchronize_session=False)
+            db.query(SaleItem).filter(SaleItem.location_id == disp_id).update(
+                {SaleItem.location_id: main_id}, synchronize_session=False
+            )
+            db.query(PurchaseItem).filter(PurchaseItem.location_id == disp_id).update(
+                {PurchaseItem.location_id: main_id}, synchronize_session=False
+            )
+            main_loc.name = "Main Warehouse"
+            main_loc.location_type = "WAREHOUSE"
+            db.expunge(disp_loc)
+            db.query(StorageLocation).filter(StorageLocation.id == disp_id).delete(synchronize_session=False)
+            db.flush()
+
+            for pid in affected_product_ids:
+                prod_obj = db.query(Product).filter(Product.id == pid).first()
+                if prod_obj:
+                    all_ls = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == pid).all()
+                    prod_obj.current_stock = sum(max(0, int(x.stock_bottles or 0)) for x in all_ls)
+
+            changed = True
+        elif disp_loc and not main_loc and len(locs) == 1:
+            disp_loc.name = "Main Warehouse"
+            disp_loc.location_type = "WAREHOUSE"
+            disp_loc.code = "LOC-MAIN"
+            changed = True
+
+        if changed:
+            bump_version()
+            db.commit()
+    except Exception as exc:
+        db.rollback()
+        print("Location consolidation note:", exc)
+
+
 @app.on_event("startup")
 def on_startup():
     try:
         seed_database()
+        with Session(engine) as db:
+            consolidate_default_locations(db)
+            sync_postgres_sequences(db)
     except Exception as exc:
         print("Startup schema check warning:", exc)
 
@@ -1625,19 +1756,18 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
 def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
     global SERVER_STATE_VERSION
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    consolidate_default_locations(db)
     if SERVER_STATE_VERSION == 0:
+        sync_postgres_sequences(db)
         ensure_super_admin_exists(db)
         SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+    reconcile_overpaid_bills_and_party_balances(db)
 
     period = payload.period if payload.period in ("daily", "weekly", "monthly", "all") else "monthly"
     custom_date = (getattr(payload, "custom_date", None) or "").strip() or None
     effective_period = custom_date if custom_date else period
     channel = payload.channel or "ALL"
 
-    # Instant in-memory cache hit if no writes have occurred since last fetch for this timeframe
-    cache_key = f"{SERVER_STATE_VERSION}:{effective_period}:{channel}"
-    if cache_key in BOOTSTRAP_CACHE:
-        return BOOTSTRAP_CACHE[cache_key]
 
     # Pre-fetch all sales & purchases once with eager-loaded relationships
     all_sales_serialized = list_sales(
@@ -1698,7 +1828,6 @@ def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
         "partner_transparency": get_partner_transparency_stats(period=effective_period, db=db),
         "snapshot": export_full_snapshot(db)
     }
-    BOOTSTRAP_CACHE[cache_key] = result
     return result
 
 
@@ -2307,21 +2436,30 @@ def list_locations(db: Session = Depends(get_db)):
 @app.post("/api/locations")
 def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    existing = db.query(StorageLocation).filter(StorageLocation.name == payload.name.strip()).first()
+    clean_name = (payload.name or "").strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Please enter a valid Location Name.")
+    existing = db.query(StorageLocation).filter(StorageLocation.name.ilike(clean_name)).first()
     if existing:
-        raise HTTPException(status_code=400, detail="A location with this name already exists.")
+        raise HTTPException(status_code=400, detail=f"Location '{clean_name}' already exists.")
+    sync_postgres_sequences(db)
     code = f"LOC-{uuid.uuid4().hex[:4].upper()}"
     loc = StorageLocation(
         code=code,
-        name=payload.name.strip(),
-        location_type=payload.location_type.upper(),
+        name=clean_name,
+        location_type=(payload.location_type or "WAREHOUSE").upper(),
         address=payload.address
     )
     db.add(loc)
     bump_version()
     db.commit()
     db.refresh(loc)
-    return {"status": "success", "location": loc, "snapshot": export_full_snapshot(db)}
+    return {
+        "status": "success",
+        "location": {"id": loc.id, "code": loc.code, "name": loc.name, "location_type": loc.location_type, "address": loc.address or ""},
+        "locations": list_locations(db=db),
+        "snapshot": export_full_snapshot(db)
+    }
 
 
 @app.put("/api/locations/{location_id}")
@@ -2334,7 +2472,7 @@ def update_location(location_id: int, payload: LocationUpdate, db: Session = Dep
         setattr(loc, k, v)
     bump_version()
     db.commit()
-    return {"status": "success", "snapshot": export_full_snapshot(db)}
+    return {"status": "success", "locations": list_locations(db=db), "snapshot": export_full_snapshot(db)}
 
 
 # ==================== DIRECT LOCATION STOCK SET & STOCK TRANSFER ====================
@@ -2342,6 +2480,7 @@ def update_location(location_id: int, payload: LocationUpdate, db: Session = Dep
 @app.post("/api/inventory/set-location-stock")
 def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    sync_postgres_sequences(db)
     product = resolve_or_create_product(
         db=db,
         product_id=payload.product_id,
@@ -2353,6 +2492,8 @@ def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Dep
     )
     loc = db.query(StorageLocation).filter(StorageLocation.id == payload.location_id).first()
     if not loc:
+        loc = db.query(StorageLocation).order_by(StorageLocation.id.asc()).first()
+    if not loc:
         raise HTTPException(status_code=404, detail="Storage location not found.")
 
     if payload.pack_size and payload.pack_size > 0:
@@ -2360,6 +2501,7 @@ def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Dep
     if payload.units_per_carton and payload.units_per_carton > 0:
         product.units_per_carton = payload.units_per_carton
 
+    target_bottles = max(0, int(payload.stock_bottles))
     loc_stock = db.query(ProductLocationStock).filter(
         ProductLocationStock.product_id == product.id,
         ProductLocationStock.location_id == loc.id
@@ -2368,25 +2510,27 @@ def set_location_stock_direct(payload: DirectLocationStockSet, db: Session = Dep
         loc_stock = ProductLocationStock(
             product_id=product.id,
             location_id=loc.id,
-            stock_bottles=payload.stock_bottles
+            stock_bottles=target_bottles
         )
         db.add(loc_stock)
     else:
-        loc_stock.stock_bottles = payload.stock_bottles
+        loc_stock.stock_bottles = target_bottles
 
     db.flush()
     all_loc_stocks = db.query(ProductLocationStock).filter(ProductLocationStock.product_id == product.id).all()
-    product.current_stock = sum(ls.stock_bottles for ls in all_loc_stocks)
+    product.current_stock = sum(max(0, int(ls.stock_bottles or 0)) for ls in all_loc_stocks)
 
     bump_version()
     db.commit()
 
     upc = product.units_per_carton if product.units_per_carton > 0 else 12
-    ctns = payload.stock_bottles // upc
-    loose = payload.stock_bottles % upc
+    ctns = target_bottles // upc
+    loose = target_bottles % upc
     return {
         "status": "success",
-        "message": f"Updated {product.name} ({int(product.pack_size)} {product.pack_unit}) in {loc.name} to {payload.stock_bottles} Bottles ({ctns} Cartons + {loose} Bottles).",
+        "message": f"Updated {product.name} ({int(product.pack_size)} {product.pack_unit}) at {loc.name} to {target_bottles} Bottles ({ctns} Cartons + {loose} Bottles).",
+        "locations": list_locations(db=db),
+        "products": list_products(db=db),
         "snapshot": export_full_snapshot(db)
     }
 
@@ -2396,37 +2540,117 @@ def transfer_stock(payload: StockTransferRequest, db: Session = Depends(get_db))
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     if payload.from_location_id == payload.to_location_id:
         raise HTTPException(status_code=400, detail="Source and Destination locations must be different.")
+    if not payload.quantity or payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Transfer quantity must be greater than zero.")
+
+    sync_postgres_sequences(db)
 
     product = db.query(Product).filter(Product.id == payload.product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found.")
+        raise HTTPException(status_code=404, detail="Selected product not found.")
 
     from_loc = db.query(StorageLocation).filter(StorageLocation.id == payload.from_location_id).first()
     to_loc = db.query(StorageLocation).filter(StorageLocation.id == payload.to_location_id).first()
     if not from_loc or not to_loc:
-        raise HTTPException(status_code=404, detail="Location not found.")
+        raise HTTPException(status_code=404, detail="Source or Destination location not found.")
 
-    upc = product.units_per_carton if product.units_per_carton > 0 else 12
-    base_bottles = int(round(payload.quantity * upc)) if payload.unit_type == "CARTON" else int(round(payload.quantity))
+    product_id_val = product.id
+    product_name = product.name
+    from_loc_id = from_loc.id
+    from_loc_name = from_loc.name
+    to_loc_id = to_loc.id
+    to_loc_name = to_loc.name
 
-    adjust_location_stock(db, product, from_loc.id, -base_bottles)
-    adjust_location_stock(db, product, to_loc.id, base_bottles)
+    upc = max(1, int(product.units_per_carton or 12))
+    base_bottles = int(round(payload.quantity * upc)) if (payload.unit_type or "").upper() == "CARTON" else int(round(payload.quantity))
+    if base_bottles <= 0:
+        raise HTTPException(status_code=400, detail="Transfer quantity in bottles must be greater than 0.")
 
-    ref_no = f"TRF-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-    db.add(StockMovement(
-        product_id=product.id,
-        movement_type=f"TRANSFER ({from_loc.name} -> {to_loc.name})",
-        reference_number=ref_no,
-        qty_in=base_bottles,
-        qty_out=base_bottles,
-        running_balance=product.current_stock
-    ))
-    bump_version()
-    db.commit()
+    # Verify source location has sufficient stock before modifying anything
+    source_stock_row = db.query(ProductLocationStock).filter(
+        ProductLocationStock.product_id == product_id_val,
+        ProductLocationStock.location_id == from_loc_id
+    ).first()
+    avail_bottles = int(source_stock_row.stock_bottles or 0) if source_stock_row else 0
+    if avail_bottles < base_bottles:
+        avail_ctns = avail_bottles // upc
+        avail_loose = avail_bottles % upc
+        req_ctns = base_bottles // upc
+        req_loose = base_bottles % upc
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Insufficient stock in '{from_loc_name}' for '{product_name}'. "
+                f"Available: {avail_bottles} Bottles ({avail_ctns} Ctn + {avail_loose} Btl), "
+                f"Requested Transfer: {base_bottles} Bottles ({req_ctns} Ctn + {req_loose} Btl)."
+            )
+        )
+
+    # 8-second duplicate transfer guard to prevent accidental double-clicks or retry duplicates
+    tx_now = now_pkt()
+    recent_cutoff = tx_now - timedelta(seconds=8)
+    recent_dup = (
+        db.query(StockMovement)
+        .filter(
+            StockMovement.product_id == product_id_val,
+            StockMovement.movement_type == "TRANSFER",
+            StockMovement.qty_in == base_bottles,
+            StockMovement.qty_out == base_bottles,
+            StockMovement.movement_date >= recent_cutoff
+        )
+        .order_by(StockMovement.id.desc())
+        .first()
+    )
+    if recent_dup:
+        ctns = base_bottles // upc
+        loose = base_bottles % upc
+        return {
+            "status": "success",
+            "duplicate_prevented": True,
+            "reference": recent_dup.reference_number,
+            "message": (
+                f"Transferred {base_bottles} Bottles ({ctns} Cartons + {loose} Loose Bottles) of "
+                f"{product_name} from {from_loc_name} to {to_loc_name}."
+            ),
+            "locations": list_locations(db=db),
+            "products": list_products(db=db),
+            "snapshot": export_full_snapshot(db)
+        }
+
+    try:
+        adjust_location_stock(db, product, from_loc_id, -base_bottles)
+        adjust_location_stock(db, product, to_loc_id, base_bottles)
+
+        ref_no = f"TRF-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        db.add(StockMovement(
+            movement_date=tx_now,
+            product_id=product_id_val,
+            movement_type="TRANSFER",
+            reference_number=ref_no,
+            qty_in=base_bottles,
+            qty_out=base_bottles,
+            running_balance=product.current_stock
+        ))
+        bump_version()
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Stock transfer could not be completed: {str(exc)}")
+
+    ctns = base_bottles // upc
+    loose = base_bottles % upc
     return {
         "status": "success",
         "reference": ref_no,
-        "message": f"Transferred {base_bottles} bottles ({int(product.pack_size)} {product.pack_unit}) of {product.name} from {from_loc.name} to {to_loc.name}.",
+        "message": (
+            f"Transferred {base_bottles} Bottles ({ctns} Cartons + {loose} Loose Bottles) of "
+            f"{product_name} from {from_loc_name} to {to_loc_name}."
+        ),
+        "locations": list_locations(db=db),
+        "products": list_products(db=db),
         "snapshot": export_full_snapshot(db)
     }
 
@@ -3538,58 +3762,72 @@ def update_financial_account(account_id: int, payload: FinancialAccountUpdate, d
 @app.post("/api/accounts/adjust")
 def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    sync_postgres_sequences(db)
     acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.account_id).first()
     if not acc:
         raise HTTPException(status_code=404, detail="Financial account not found.")
 
     amt = pkr(payload.amount)
+    if amt <= 0:
+        raise HTTPException(status_code=400, detail="Transaction amount must be greater than PKR 0.")
     prev_bal = pkr(acc.current_balance)
+    op = (payload.operation or "DEPOSIT").strip().upper()
 
-    if payload.operation == "WITHDRAW" and prev_bal < amt:
+    if op == "WITHDRAW" and prev_bal < amt:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient funds in {acc.name}. Current Balance: PKR {prev_bal:,.0f}, Requested Withdrawal: PKR {amt:,.0f}."
+            detail=f"Insufficient funds in {acc.name}. Available Balance: PKR {prev_bal:,.0f}, Requested Withdrawal: PKR {amt:,.0f}."
         )
 
-    if payload.operation == "DEPOSIT":
-        tx_no = f"DEP-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-        acc.current_balance = pkr(prev_bal + amt)
+    tx_now = now_pkt()
+    if op == "DEPOSIT":
+        tx_no = f"DEP-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        new_bal = pkr(prev_bal + amt)
+        acc.current_balance = new_bal
         db.add(AccountTransaction(
             tx_number=tx_no,
+            tx_date=tx_now,
             tx_type="CASH DEPOSIT",
             account_id=acc.id,
             channel=acc.type,
             party=acc.name,
-            description=payload.remarks or f"Added +PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {acc.current_balance:,.0f})",
+            description=payload.remarks or f"Deposit +PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {new_bal:,.0f})",
             cash_in=amt,
             cash_out=0.0,
             admin_id=payload.admin_id,
             admin_name=(payload.admin_name or "Admin").strip()
         ))
-        msg = f"Added PKR {amt:,.0f} to {acc.name}! (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {acc.current_balance:,.0f})"
+        msg = f"[COMPLETED] Deposited PKR {amt:,.0f} into {acc.name} (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {new_bal:,.0f})."
     else:
-        tx_no = f"WDR-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-        acc.current_balance = pkr(prev_bal - amt)
+        tx_no = f"WDR-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+        new_bal = pkr(prev_bal - amt)
+        acc.current_balance = new_bal
         db.add(AccountTransaction(
             tx_number=tx_no,
+            tx_date=tx_now,
             tx_type="CASH WITHDRAWAL",
             account_id=acc.id,
             channel=acc.type,
             party=acc.name,
-            description=payload.remarks or f"Withdrew -PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {acc.current_balance:,.0f})",
+            description=payload.remarks or f"Withdrawal -PKR {amt:,.0f} (Prev: PKR {prev_bal:,.0f} -> New: PKR {new_bal:,.0f})",
             cash_in=0.0,
             cash_out=amt,
             admin_id=payload.admin_id,
             admin_name=(payload.admin_name or "Admin").strip()
         ))
-        msg = f"Withdrew PKR {amt:,.0f} from {acc.name}! (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {acc.current_balance:,.0f})"
+        msg = f"[COMPLETED] Withdrew PKR {amt:,.0f} from {acc.name} (Previous: PKR {prev_bal:,.0f} -> New Balance: PKR {new_bal:,.0f})."
 
     bump_version()
     db.commit()
+    db.refresh(acc)
     return {
-        "status": "success",
+        "status": "COMPLETED",
+        "tx_number": tx_no,
         "message": msg,
-        "new_balance": acc.current_balance,
+        "account_id": acc.id,
+        "new_balance": pkr(acc.current_balance),
+        "accounts": list_financial_accounts(db=db),
+        "account_history": get_accounts_history(period="all", channel="ALL", db=db),
         "snapshot": export_full_snapshot(db)
     }
 
@@ -3597,33 +3835,40 @@ def adjust_account_balance(payload: AccountAdjustRequest, db: Session = Depends(
 @app.post("/api/accounts/transfer")
 def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Depends(get_db)):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
+    sync_postgres_sequences(db)
     if payload.from_account_id == payload.to_account_id:
         raise HTTPException(status_code=400, detail="Source and Destination accounts must be different.")
 
     from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.from_account_id).first()
     to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == payload.to_account_id).first()
     if not from_acc or not to_acc:
-        raise HTTPException(status_code=404, detail="Account not found.")
+        raise HTTPException(status_code=404, detail="Source or Destination account not found.")
 
     amt = pkr(payload.amount)
-    if pkr(from_acc.current_balance) < amt:
+    if amt <= 0:
+        raise HTTPException(status_code=400, detail="Transfer amount must be greater than PKR 0.")
+    from_prev = pkr(from_acc.current_balance)
+    to_prev = pkr(to_acc.current_balance)
+    if from_prev < amt:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient balance in {from_acc.name} (Available: PKR {from_acc.current_balance:,.0f}, Transfer: PKR {amt:,.0f})."
+            detail=f"Insufficient balance in {from_acc.name} (Available: PKR {from_prev:,.0f}, Requested Transfer: PKR {amt:,.0f})."
         )
 
-    from_acc.current_balance = pkr(from_acc.current_balance - amt)
-    to_acc.current_balance = pkr(to_acc.current_balance + amt)
+    from_acc.current_balance = pkr(from_prev - amt)
+    to_acc.current_balance = pkr(to_prev + amt)
 
-    tx_no = f"ATRF-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    tx_now = now_pkt()
+    tx_no = f"ATRF-{tx_now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     db.add(AccountTransaction(
         tx_number=tx_no,
+        tx_date=tx_now,
         tx_type="ACCOUNT TRANSFER",
         account_id=from_acc.id,
         to_account_id=to_acc.id,
         channel=f"{from_acc.type} -> {to_acc.type}",
         party=f"{from_acc.name} -> {to_acc.name}",
-        description=payload.remarks or f"Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}",
+        description=payload.remarks or f"Transferred PKR {amt:,.0f} from {from_acc.name} (PKR {from_acc.current_balance:,.0f}) to {to_acc.name} (PKR {to_acc.current_balance:,.0f})",
         cash_in=amt,
         cash_out=amt,
         admin_id=payload.admin_id,
@@ -3632,8 +3877,11 @@ def transfer_between_accounts(payload: AccountTransferRequest, db: Session = Dep
     bump_version()
     db.commit()
     return {
-        "status": "success",
-        "message": f"Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}!",
+        "status": "COMPLETED",
+        "tx_number": tx_no,
+        "message": f"[COMPLETED] Transferred PKR {amt:,.0f} from {from_acc.name} to {to_acc.name}!",
+        "accounts": list_financial_accounts(db=db),
+        "account_history": get_accounts_history(period="all", channel="ALL", db=db),
         "snapshot": export_full_snapshot(db)
     }
 
@@ -5273,6 +5521,7 @@ def reverse_and_move_to_trash(
 ):
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     verify_admin_password(payload.admin_password, db=db, admin_id=payload.admin_id, admin_name=payload.admin_name)
+    sync_postgres_sequences(db)
     etype = entity_type.upper()
 
     default_loc = db.query(StorageLocation).first()
@@ -5287,6 +5536,9 @@ def reverse_and_move_to_trash(
             if not sale:
                 raise HTTPException(status_code=404, detail="Sale invoice not found")
 
+            sale_id_val = sale.id
+            sale_inv_no = sale.invoice_number
+            sale_cust_id = sale.customer_id
             channel, _ = extract_channel_and_remarks(sale.remarks, "CASH")
             dtype = getattr(sale, "doc_type", "SALE") or "SALE"
             cust_obj = sale.customer
@@ -5312,14 +5564,15 @@ def reverse_and_move_to_trash(
             auto_cpay_rows = (
                 db.query(CustomerPayment)
                 .filter(
-                    CustomerPayment.customer_id == sale.customer_id,
-                    CustomerPayment.remarks.ilike(f"%{sale.invoice_number}%")
+                    CustomerPayment.customer_id == sale_cust_id,
+                    CustomerPayment.remarks.ilike(f"%{sale_inv_no}%")
                 )
                 .all()
             )
             for cpay in auto_cpay_rows:
+                cpay_no = cpay.payment_number
                 for al in list(cpay.allocations):
-                    if al.sale_id != sale.id:
+                    if al.sale_id != sale_id_val:
                         older_sale = db.query(Sale).filter(Sale.id == al.sale_id).first()
                         if older_sale:
                             older_sale.received_amount = pkr(max(0.0, older_sale.received_amount - al.allocated_amount))
@@ -5329,9 +5582,10 @@ def reverse_and_move_to_trash(
                                 else ("PARTIAL" if older_sale.received_amount > 0 else "UNPAID")
                             )
                     db.delete(al)
+                db.flush()
                 db.execute(
                     text("DELETE FROM account_transactions WHERE tx_number = :tno"),
-                    {"tno": cpay.payment_number}
+                    {"tno": cpay_no}
                 )
                 db.delete(cpay)
             db.flush()
@@ -5339,7 +5593,7 @@ def reverse_and_move_to_trash(
             # 2. Remove any remaining CustomerPaymentAllocation rows referencing this sale_id so PostgreSQL FK never blocks delete
             direct_allocs = (
                 db.query(CustomerPaymentAllocation)
-                .filter(CustomerPaymentAllocation.sale_id == sale.id)
+                .filter(CustomerPaymentAllocation.sale_id == sale_id_val)
                 .all()
             )
             affected_payment_ids = {al.payment_id for al in direct_allocs}
@@ -5352,9 +5606,10 @@ def reverse_and_move_to_trash(
                 if pm_obj:
                     rem_allocs = db.query(CustomerPaymentAllocation).filter(CustomerPaymentAllocation.payment_id == pid).count()
                     if rem_allocs == 0:
+                        pm_no = pm_obj.payment_number
                         db.execute(
                             text("DELETE FROM account_transactions WHERE tx_number = :tno"),
-                            {"tno": pm_obj.payment_number}
+                            {"tno": pm_no}
                         )
                         db.delete(pm_obj)
             db.flush()
@@ -5369,9 +5624,9 @@ def reverse_and_move_to_trash(
                         acc.current_balance = pkr(max(0.0, acc.current_balance - total_cash_effect))
 
             snapshot = {
-                "invoice_number": sale.invoice_number,
+                "invoice_number": sale_inv_no,
                 "doc_type": dtype,
-                "customer_id": sale.customer_id,
+                "customer_id": sale_cust_id,
                 "subtotal_amount": pkr(getattr(sale, "subtotal_amount", sale.total_amount)),
                 "discount_amount": pkr(getattr(sale, "discount_amount", 0.0)),
                 "freight_amount": pkr(getattr(sale, "freight_amount", 0.0)),
@@ -5386,17 +5641,24 @@ def reverse_and_move_to_trash(
 
             db.add(RecycleBin(
                 entity_type="SALE",
-                entity_id=sale.id,
-                reference_code=sale.invoice_number,
+                entity_id=sale_id_val,
+                reference_code=sale_inv_no,
                 title=f"{dtype} to {cust_obj.name if cust_obj else 'Customer'}",
                 summary=f"Reversed {dtype} | Total: PKR {sale.total_amount:,.0f} | Received: PKR {total_cash_effect:,.0f}",
                 amount=pkr(sale.total_amount),
                 payload_json=json.dumps(snapshot)
             ))
+            db.flush()
 
-            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale.invoice_number})
-            db.execute(text("DELETE FROM sale_items WHERE sale_id = :sid"), {"sid": sale.id})
-            db.execute(text("DELETE FROM sales WHERE id = :sid"), {"sid": sale.id})
+            # Expunge ORM instances before raw SQL DELETE so SQLAlchemy never raises ObjectDeletedError
+            for it_obj in list(sale.items):
+                db.expunge(it_obj)
+            db.expunge(sale)
+            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :sid AND tx_type = 'CUSTOMER KHATA COLLECTION'"), {"sid": sale_id_val})
+            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale_inv_no})
+            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": sale_inv_no})
+            db.execute(text("DELETE FROM sale_items WHERE sale_id = :sid"), {"sid": sale_id_val})
+            db.execute(text("DELETE FROM sales WHERE id = :sid"), {"sid": sale_id_val})
             db.flush()
 
             if cust_obj and dtype != "ESTIMATE":
@@ -5411,6 +5673,8 @@ def reverse_and_move_to_trash(
             if not pur:
                 raise HTTPException(status_code=404, detail="Purchase bill not found")
 
+            pur_id_val = pur.id
+            pur_no_val = pur.purchase_number
             channel, _ = extract_channel_and_remarks(pur.remarks, "CASH")
             dtype = getattr(pur, "doc_type", "PURCHASE") or "PURCHASE"
             sup_obj = pur.supplier
@@ -5451,7 +5715,7 @@ def reverse_and_move_to_trash(
                         acc.current_balance = pkr(acc.current_balance + total_pur_cash)
 
             snapshot = {
-                "purchase_number": pur.purchase_number,
+                "purchase_number": pur_no_val,
                 "doc_type": dtype,
                 "supplier_id": pur.supplier_id,
                 "total_amount": pkr(pur.total_amount),
@@ -5465,18 +5729,23 @@ def reverse_and_move_to_trash(
 
             db.add(RecycleBin(
                 entity_type="PURCHASE",
-                entity_id=pur.id,
-                reference_code=pur.purchase_number,
+                entity_id=pur_id_val,
+                reference_code=pur_no_val,
                 title=f"Purchase Bill from {sup_obj.name if sup_obj else 'Supplier'}",
                 summary=f"Reversed Purchase | Bill: PKR {pur.total_amount:,.0f} | Paid: PKR {total_pur_cash:,.0f}",
                 amount=pkr(pur.total_amount),
                 payload_json=json.dumps(snapshot)
             ))
+            db.flush()
 
-            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :pid AND tx_type = 'SUPPLIER KHATA PAYMENT'"), {"pid": pur.id})
-            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": pur.purchase_number})
-            db.execute(text("DELETE FROM purchase_items WHERE purchase_id = :pid"), {"pid": pur.id})
-            db.execute(text("DELETE FROM purchases WHERE id = :pid"), {"pid": pur.id})
+            for it_obj in list(pur.items):
+                db.expunge(it_obj)
+            db.expunge(pur)
+
+            db.execute(text("DELETE FROM account_transactions WHERE reference_id = :pid AND tx_type = 'SUPPLIER KHATA PAYMENT'"), {"pid": pur_id_val})
+            db.execute(text("DELETE FROM stock_movements WHERE reference_number = :ref"), {"ref": pur_no_val})
+            db.execute(text("DELETE FROM purchase_items WHERE purchase_id = :pid"), {"pid": pur_id_val})
+            db.execute(text("DELETE FROM purchases WHERE id = :pid"), {"pid": pur_id_val})
             db.flush()
 
             if sup_obj:
@@ -5491,6 +5760,7 @@ def reverse_and_move_to_trash(
             if not exp:
                 raise HTTPException(status_code=404, detail="Expense not found")
 
+            exp_id_val = exp.id
             if getattr(exp, "payment_arrangement", "WALLET") == "WALLET":
                 acc = resolve_financial_account(db, getattr(exp, "account_id", None), exp.payment_method)
                 if acc:
@@ -5508,44 +5778,75 @@ def reverse_and_move_to_trash(
 
             db.add(RecycleBin(
                 entity_type="EXPENSE",
-                entity_id=exp.id,
+                entity_id=exp_id_val,
                 reference_code=exp.expense_number,
                 title=f"Expense: {exp.category} ({exp.paid_to or 'General'})",
                 summary=f"Reversed Expense | Refunded PKR {exp.amount:,.0f} to {exp.payment_method}",
                 amount=pkr(exp.amount),
                 payload_json=json.dumps(snapshot)
             ))
+            db.flush()
+            db.expunge(exp)
 
-            db.execute(text("DELETE FROM expenses WHERE id = :eid"), {"eid": exp.id})
+            db.execute(text("DELETE FROM expenses WHERE id = :eid"), {"eid": exp_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Expense {snapshot['expense_number']} reversed & refunded.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "ACCOUNT_TX":
-            atx = db.query(AccountTransaction).filter(AccountTransaction.id == entity_id).first()
-            if not atx:
-                raise HTTPException(status_code=404, detail="Account transaction not found")
+         atx = db.query(AccountTransaction).filter(AccountTransaction.id == entity_id).first()
+         if not atx:
+             raise HTTPException(status_code=404, detail="Account transaction not found")
 
-            if atx.tx_type in ("CASH DEPOSIT", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION") and atx.account_id:
-                acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-                if acc:
-                    acc.current_balance = pkr(max(0.0, acc.current_balance - atx.cash_in))
-            elif atx.tx_type in ("CASH WITHDRAWAL", "SUPPLIER KHATA PAYMENT", "LOAN / CAPITAL REPAYMENT") and atx.account_id:
-                acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-                if acc:
-                    acc.current_balance = pkr(acc.current_balance + atx.cash_out)
-            elif atx.tx_type == "ACCOUNT TRANSFER":
-                from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
-                to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.to_account_id).first()
-                if from_acc:
-                    from_acc.current_balance = pkr(from_acc.current_balance + atx.cash_out)
-                if to_acc:
-                    to_acc.current_balance = pkr(max(0.0, to_acc.current_balance - atx.cash_in))
+         atx_id_val = atx.id
+         atx_no_val = atx.tx_number
+         if atx.tx_type in ("CASH DEPOSIT", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION", "CUSTOMER PAYMENT ALLOCATION") and atx.account_id:
+             acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+             if acc:
+                 acc.current_balance = pkr(max(0.0, acc.current_balance - atx.cash_in))
+         elif atx.tx_type in ("CASH WITHDRAWAL", "SUPPLIER KHATA PAYMENT", "LOAN / CAPITAL REPAYMENT", "ARRANGED PAYMENT OUTFLOW") and atx.account_id:
+             acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+             if acc and atx.tx_type != "ARRANGED PAYMENT OUTFLOW":
+                 acc.current_balance = pkr(acc.current_balance + atx.cash_out)
+         elif atx.tx_type == "ACCOUNT TRANSFER":
+             from_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.account_id).first()
+             to_acc = db.query(FinancialAccount).filter(FinancialAccount.id == atx.to_account_id).first()
+             if from_acc:
+                 from_acc.current_balance = pkr(from_acc.current_balance + atx.cash_out)
+             if to_acc:
+                 to_acc.current_balance = pkr(max(0.0, to_acc.current_balance - atx.cash_in))
 
-            db.execute(text("DELETE FROM account_transactions WHERE id = :tid"), {"tid": atx.id})
-            bump_version()
-            db.commit()
-            return {"status": "reversed", "message": f"Account transaction {atx.tx_number} reversed.", "snapshot": export_full_snapshot(db)}
+         # If this ledger row was a Customer Payment voucher (CPAY/RCV), restore the linked Sale bill balances
+         linked_pm = db.query(CustomerPayment).filter(CustomerPayment.payment_number == atx_no_val).first()
+         if linked_pm and linked_pm.status != "REVERSED":
+             for al in list(linked_pm.allocations):
+                 s_row = db.query(Sale).filter(Sale.id == al.sale_id).first()
+                 if s_row:
+                     s_row.received_amount = pkr(max(0.0, s_row.received_amount - al.allocated_amount))
+                     s_row.receivable_amount = pkr(max(0.0, s_row.total_amount - s_row.received_amount))
+                     s_row.payment_status = "PAID" if s_row.receivable_amount <= 0 else ("PARTIAL" if s_row.received_amount > 0 else "UNPAID")
+             linked_pm.status = "REVERSED"
+             if linked_pm.customer:
+                 db.flush()
+                 recompute_customer_authoritative_receivable(db, linked_pm.customer)
+
+         # If this ledger row was a Supplier Khata Payment (PPAY) against a specific Purchase bill, restore its payable balance
+         if atx.tx_type == "SUPPLIER KHATA PAYMENT" and atx.reference_id:
+             pur_row = db.query(Purchase).filter(Purchase.id == atx.reference_id).first()
+             if pur_row:
+                 pur_row.paid_amount = pkr(max(0.0, pur_row.paid_amount - atx.cash_out))
+                 pur_row.payable_amount = pkr(max(0.0, pur_row.total_amount - pur_row.paid_amount))
+                 pur_row.payment_status = "PAID" if pur_row.payable_amount <= 0 else ("PARTIAL" if pur_row.paid_amount > 0 else "UNPAID")
+                 if pur_row.supplier:
+                     db.flush()
+                     recompute_supplier_authoritative_payable(db, pur_row.supplier)
+
+         db.flush()
+         db.expunge(atx)
+         db.execute(text("DELETE FROM account_transactions WHERE id = :tid"), {"tid": atx_id_val})
+         bump_version()
+         db.commit()
+         return {"status": "reversed", "message": f"Transaction {atx_no_val} reversed and balances restored.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "CUSTOMER_PAYMENT":
             pm = db.query(CustomerPayment).filter(CustomerPayment.id == entity_id).first()
@@ -5601,8 +5902,9 @@ def reverse_and_move_to_trash(
             prod = db.query(Product).filter(Product.id == entity_id).first()
             if not prod:
                 raise HTTPException(status_code=404, detail="Product not found")
-            linked_sales = db.query(SaleItem).filter(SaleItem.product_id == prod.id).count()
-            linked_purs = db.query(PurchaseItem).filter(PurchaseItem.product_id == prod.id).count()
+            prod_id_val = prod.id
+            linked_sales = db.query(SaleItem).filter(SaleItem.product_id == prod_id_val).count()
+            linked_purs = db.query(PurchaseItem).filter(PurchaseItem.product_id == prod_id_val).count()
             if linked_sales > 0 or linked_purs > 0:
                 raise HTTPException(
                     status_code=400,
@@ -5627,16 +5929,21 @@ def reverse_and_move_to_trash(
             }
             db.add(RecycleBin(
                 entity_type="PRODUCT",
-                entity_id=prod.id,
+                entity_id=prod_id_val,
                 reference_code=prod.sku,
                 title=f"Product: {prod.name}",
                 summary=f"Stock: {prod.current_stock} Bottles ({int(prod.pack_size)} {prod.pack_unit})",
                 amount=pkr(prod.current_stock * prod.purchase_rate),
                 payload_json=json.dumps(snapshot)
             ))
-            db.execute(text("DELETE FROM product_location_stocks WHERE product_id = :pid"), {"pid": prod.id})
-            db.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod.id})
-            db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod.id})
+            db.flush()
+            for ls_obj in list(prod.location_stocks):
+                db.expunge(ls_obj)
+            db.expunge(prod)
+
+            db.execute(text("DELETE FROM product_location_stocks WHERE product_id = :pid"), {"pid": prod_id_val})
+            db.execute(text("DELETE FROM stock_movements WHERE product_id = :pid"), {"pid": prod_id_val})
+            db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Product {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
@@ -5645,7 +5952,8 @@ def reverse_and_move_to_trash(
             cus = db.query(Customer).filter(Customer.id == entity_id).first()
             if not cus:
                 raise HTTPException(status_code=404, detail="Customer not found")
-            cust_sales_count = db.query(Sale).filter(Sale.customer_id == cus.id).count()
+            cus_id_val = cus.id
+            cust_sales_count = db.query(Sale).filter(Sale.customer_id == cus_id_val).count()
             if cust_sales_count > 0:
                 raise HTTPException(
                     status_code=400,
@@ -5663,14 +5971,17 @@ def reverse_and_move_to_trash(
             }
             db.add(RecycleBin(
                 entity_type="CUSTOMER",
-                entity_id=cus.id,
+                entity_id=cus_id_val,
                 reference_code=cus.code,
                 title=f"Customer: {cus.name} ({cus.city})",
                 summary=f"Phone: {cus.phone or 'N/A'} | Receivable Balance: PKR {cus.current_receivable:,.0f}",
                 amount=pkr(cus.current_receivable),
                 payload_json=json.dumps(snapshot)
             ))
-            db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cus.id})
+            db.flush()
+            db.expunge(cus)
+
+            db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cus_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Customer {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
@@ -5679,7 +5990,8 @@ def reverse_and_move_to_trash(
             sup = db.query(Supplier).filter(Supplier.id == entity_id).first()
             if not sup:
                 raise HTTPException(status_code=404, detail="Supplier not found")
-            sup_pur_count = db.query(Purchase).filter(Purchase.supplier_id == sup.id).count()
+            sup_id_val = sup.id
+            sup_pur_count = db.query(Purchase).filter(Purchase.supplier_id == sup_id_val).count()
             if sup_pur_count > 0:
                 raise HTTPException(
                     status_code=400,
@@ -5696,40 +6008,65 @@ def reverse_and_move_to_trash(
             }
             db.add(RecycleBin(
                 entity_type="SUPPLIER",
-                entity_id=sup.id,
+                entity_id=sup_id_val,
                 reference_code=sup.code,
                 title=f"Supplier: {sup.name} ({sup.city})",
                 summary=f"Phone: {sup.phone or 'N/A'} | Payable Balance: PKR {sup.current_payable:,.0f}",
                 amount=pkr(sup.current_payable),
                 payload_json=json.dumps(snapshot)
             ))
-            db.execute(text("DELETE FROM suppliers WHERE id = :sid"), {"sid": sup.id})
+            db.flush()
+            db.expunge(sup)
+
+            db.execute(text("DELETE FROM suppliers WHERE id = :sid"), {"pid": sup_id_val, "sid": sup_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Supplier {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
 
         elif etype == "LOCATION":
+            total_locs_count = db.query(StorageLocation).count()
+            if total_locs_count <= 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot delete the primary default location. At least one storage location must remain active."
+                )
             loc = db.query(StorageLocation).filter(StorageLocation.id == entity_id).first()
             if not loc:
                 raise HTTPException(status_code=404, detail="Location not found")
+            loc_id_val = loc.id
             total_btls = sum(ps.stock_bottles for ps in loc.product_stocks)
             if total_btls > 0:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Cannot delete '{loc.name}' while it holds {total_btls} bottles. Transfer stock first."
                 )
+            fallback_loc = db.query(StorageLocation).filter(StorageLocation.id != loc_id_val).order_by(StorageLocation.id.asc()).first()
+            fallback_loc_id = fallback_loc.id if fallback_loc else None
+
             snapshot = {"code": loc.code, "name": loc.name, "location_type": loc.location_type, "address": loc.address}
             db.add(RecycleBin(
                 entity_type="LOCATION",
-                entity_id=loc.id,
+                entity_id=loc_id_val,
                 reference_code=loc.code,
                 title=f"Storage Location: {loc.name}",
                 summary=f"Type: {loc.location_type} | Address: {loc.address or 'N/A'}",
                 amount=0.0,
                 payload_json=json.dumps(snapshot)
             ))
-            db.execute(text("DELETE FROM product_location_stocks WHERE location_id = :lid"), {"lid": loc.id})
-            db.execute(text("DELETE FROM storage_locations WHERE id = :lid"), {"lid": loc.id})
+            db.flush()
+            for ps_obj in list(loc.product_stocks):
+                db.expunge(ps_obj)
+            db.expunge(loc)
+
+            if fallback_loc_id:
+                db.query(SaleItem).filter(SaleItem.location_id == loc_id_val).update(
+                    {SaleItem.location_id: fallback_loc_id}, synchronize_session=False
+                )
+                db.query(PurchaseItem).filter(PurchaseItem.location_id == loc_id_val).update(
+                    {PurchaseItem.location_id: fallback_loc_id}, synchronize_session=False
+                )
+            db.execute(text("DELETE FROM product_location_stocks WHERE location_id = :lid"), {"lid": loc_id_val})
+            db.execute(text("DELETE FROM storage_locations WHERE id = :lid"), {"lid": loc_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Location {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}
@@ -5738,6 +6075,7 @@ def reverse_and_move_to_trash(
             acc = db.query(FinancialAccount).filter(FinancialAccount.id == entity_id).first()
             if not acc:
                 raise HTTPException(status_code=404, detail="Financial account not found")
+            acc_id_val = acc.id
             snapshot = {
                 "name": acc.name,
                 "type": acc.type,
@@ -5746,14 +6084,17 @@ def reverse_and_move_to_trash(
             }
             db.add(RecycleBin(
                 entity_type="ACCOUNT",
-                entity_id=acc.id,
+                entity_id=acc_id_val,
                 reference_code=acc.type,
                 title=f"Account: {acc.name}",
                 summary=f"Type: {acc.type} | No: {acc.account_number or 'N/A'} | Balance: PKR {acc.current_balance:,.0f}",
                 amount=pkr(acc.current_balance),
                 payload_json=json.dumps(snapshot)
             ))
-            db.execute(text("DELETE FROM financial_accounts WHERE id = :aid"), {"aid": acc.id})
+            db.flush()
+            db.expunge(acc)
+
+            db.execute(text("DELETE FROM financial_accounts WHERE id = :aid"), {"aid": acc_id_val})
             bump_version()
             db.commit()
             return {"status": "reversed", "message": f"Account {snapshot['name']} moved to Recycle Bin.", "snapshot": export_full_snapshot(db)}

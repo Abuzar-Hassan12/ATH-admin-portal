@@ -367,7 +367,7 @@ function AthFracturedCurrentHero({ onNavigate }: { onNavigate: (partial: Partial
             </div>
             <div>
               <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
-                Awan Trade Hub • Commercial Distribution & ERP
+                ATH • Commercial Distribution & ERP
               </div>
               <h2 className="text-base sm:text-lg font-black tracking-tight text-[#F7F7F5]">
                 ATH LUBRICANTS — <span className="text-[#FF6B3D]">GOLD 4T</span> M2 / M4 SERIES
@@ -704,7 +704,7 @@ export default function App() {
   const [purProductName, setPurProductName] = useState<string>('');
   const [purCompanyName, setPurCompanyName] = useState<string>('');
   const [purProdFav, setPurProdFav] = useState<boolean>(false);
-  const [purLocationId, setPurLocationId] = useState<number>(2);
+  const [purLocationId, setPurLocationId] = useState<number>(() => cachedUiBoot?.locations?.[0]?.id || 1);
   const [purUnitType, setPurUnitType] = useState<'CARTON' | 'BOTTLE'>('CARTON');
   const [purPackSize, setPurPackSize] = useState<string>('700');
   const [purCartonSize, setPurCartonSize] = useState<string>('12');
@@ -725,7 +725,7 @@ export default function App() {
 
   // ==================== INVENTORY, EXPENSE, PARTY & WALLET STATES ====================
   const [setStockProdId, setSetStockProdId] = useState<number>(1);
-  const [setStockLocId, setSetStockLocId] = useState<number>(1);
+  const [setStockLocId, setSetStockLocId] = useState<number>(() => cachedUiBoot?.locations?.[0]?.id || 1);
   const [setStockBottles, setSetStockBottles] = useState<string>('');
   const [directPackSize, setDirectPackSize] = useState<string>('700');
   const [directCartonMax, setDirectCartonMax] = useState<string>('12');
@@ -741,7 +741,7 @@ export default function App() {
   const [prodPurchaseRate, setProdPurchaseRate] = useState<string>('');
   const [prodSaleRate, setProdSaleRate] = useState<string>('');
   const [prodInitialStock, setProdInitialStock] = useState<string>('');
-  const [prodInitialLocId, setProdInitialLocId] = useState<number>(1);
+  const [prodInitialLocId, setProdInitialLocId] = useState<number>(() => cachedUiBoot?.locations?.[0]?.id || 1);
   const [prodReorder, setProdReorder] = useState<string>('24');
 
   const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
@@ -750,11 +750,30 @@ export default function App() {
   const [locAddress, setLocAddress] = useState<string>('');
 
   const [trfProductId, setTrfProductId] = useState<number>(1);
-  const [trfFromLocId, setTrfFromLocId] = useState<number>(2);
-  const [trfToLocId, setTrfToLocId] = useState<number>(1);
+  const [trfFromLocId, setTrfFromLocId] = useState<number>(() => cachedUiBoot?.locations?.[0]?.id || 1);
+  const [trfToLocId, setTrfToLocId] = useState<number>(() => cachedUiBoot?.locations?.[1]?.id || cachedUiBoot?.locations?.[0]?.id || 1);
   const [trfUnitType, setTrfUnitType] = useState<'CARTON' | 'BOTTLE'>('CARTON');
   const [trfQuantity, setTrfQuantity] = useState<string>('');
   const [trfRemarks, setTrfRemarks] = useState<string>('');
+
+  // Keep all location selectors synchronized whenever locations are loaded, added, or removed
+  useEffect(() => {
+    if (!locations || locations.length === 0) return;
+    const primaryId = locations[0].id;
+    const secondaryId = locations.length > 1 ? locations[1].id : primaryId;
+    setSaleLocationId(prev => (locations.some(l => l.id === prev) ? prev : primaryId));
+    setPurLocationId(prev => (locations.some(l => l.id === prev) ? prev : primaryId));
+    setProdInitialLocId(prev => (locations.some(l => l.id === prev) ? prev : primaryId));
+    setSetStockLocId(prev => (locations.some(l => l.id === prev) ? prev : primaryId));
+    setTrfFromLocId(prev => (locations.some(l => l.id === prev) ? prev : primaryId));
+    setTrfToLocId(prev => {
+      if (locations.length > 1 && locations.some(l => l.id === prev && l.id !== trfFromLocId)) {
+        return prev;
+      }
+      const alt = locations.find(l => l.id !== trfFromLocId);
+      return alt ? alt.id : secondaryId;
+    });
+  }, [locations, trfFromLocId]);
 
   const [expCategory, setExpCategory] = useState<string>('Fuel');
   const [expDesc, setExpDesc] = useState<string>('');
@@ -1033,15 +1052,23 @@ export default function App() {
       const locData: StorageLocation[] = Array.isArray(data.locations) ? data.locations : [];
       setLocations(locData);
       if (locData.length > 0) {
-        const disp = locData.find(l => l.location_type === 'DISPLAY') || locData[0];
-        const wh = locData.find(l => l.location_type === 'WAREHOUSE') || locData[0];
-        setSaleLocationId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
-        setPurLocationId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
-        setProdInitialLocId(prev => (locData.some(l => l.id === prev) ? prev : wh.id));
-        setSetStockLocId(prev => (locData.some(l => l.id === prev) ? prev : disp.id));
+        const primaryLoc = locData[0];
+        const secondLoc = locData.length > 1 ? locData[1] : locData[0];
+        setSaleLocationId(prev => (locData.some(l => l.id === prev) ? prev : primaryLoc.id));
+        setPurLocationId(prev => (locData.some(l => l.id === prev) ? prev : primaryLoc.id));
+        setProdInitialLocId(prev => (locData.some(l => l.id === prev) ? prev : primaryLoc.id));
+        setSetStockLocId(prev => (locData.some(l => l.id === prev) ? prev : primaryLoc.id));
+        setTrfFromLocId(prev => (locData.some(l => l.id === prev) ? prev : primaryLoc.id));
+        setTrfToLocId(prev => (locData.some(l => l.id === prev && prev !== primaryLoc.id) ? prev : secondLoc.id));
       }
 
-      setProducts(Array.isArray(data.products) ? data.products : []);
+      const prodList: Product[] = Array.isArray(data.products) ? data.products : [];
+      setProducts(prodList);
+      if (prodList.length > 0) {
+        setSetStockProdId(prev => (prodList.some(p => p.id === prev) ? prev : prodList[0].id));
+        setTrfProductId(prev => (prodList.some(p => p.id === prev) ? prev : prodList[0].id));
+      }
+
       setCustomers(Array.isArray(data.customers) ? data.customers : []);
       setSuppliers(Array.isArray(data.suppliers) ? data.suppliers : []);
       setSales(Array.isArray(data.sales) ? data.sales : []);
@@ -1053,12 +1080,18 @@ export default function App() {
       const accList: FinancialAccount[] = Array.isArray(data.accounts) ? data.accounts : [];
       setAccounts(accList);
       if (accList.length > 0) {
-        setAdjAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
-        setSaleAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
-        setPurAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
-        setExpAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
-        setPartialAccountId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
-        setLoanRepayAccId(prev => (accList.some(a => a.id === prev) ? prev : accList[0].id));
+        const firstAccId = accList[0].id;
+        const secondAccId = accList.length > 1 ? accList[1].id : accList[0].id;
+        setAdjAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setSaleAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setPurAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setExpAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setPartialAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setLoanRepayAccId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setAllocationAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setSupAllocAccountId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setTrfFromAccId(prev => (accList.some(a => a.id === prev) ? prev : firstAccId));
+        setTrfToAccId(prev => (accList.some(a => a.id === prev && prev !== firstAccId) ? prev : secondAccId));
       }
 
       setLoans(Array.isArray(data.loans) ? data.loans : []);
@@ -1742,6 +1775,31 @@ export default function App() {
   const directPreviewCartons = Math.floor(directStockNum / directCartonMaxNum);
   const directPreviewLoose = directStockNum % directCartonMaxNum;
 
+  // Live Location-Wise Stock Availability & Validation for Stock Transfers
+  const selectedTrfProduct = useMemo(
+    () => products.find(p => p.id === Number(trfProductId)) || products[0] || null,
+    [products, trfProductId]
+  );
+  const trfUpc = Math.max(1, selectedTrfProduct?.units_per_carton || 12);
+  const getProductStockAtLocation = (prod: Product | null, locId: number): number => {
+    if (!prod) return 0;
+    const match = (prod.locations || []).find(l => l.location_id === Number(locId));
+    return match ? Math.max(0, Number(match.stock_bottles) || 0) : 0;
+  };
+  const trfFromAvailBottles = useMemo(
+    () => getProductStockAtLocation(selectedTrfProduct, Number(trfFromLocId)),
+    [selectedTrfProduct, trfFromLocId]
+  );
+  const trfToAvailBottles = useMemo(
+    () => getProductStockAtLocation(selectedTrfProduct, Number(trfToLocId)),
+    [selectedTrfProduct, trfToLocId]
+  );
+  const trfQtyNum = Math.max(0, Number(trfQuantity) || 0);
+  const trfRequestedBottles =
+    trfUnitType === 'CARTON' ? Math.round(trfQtyNum * trfUpc) : Math.round(trfQtyNum);
+  const isTrfStockInsufficient =
+    trfFromAvailBottles <= 0 || (trfRequestedBottles > 0 && trfRequestedBottles > trfFromAvailBottles);
+
   // ==================== ADD ITEMS TO MULTI-ITEM CART ====================
   const handleAddSaleItemToCart = () => {
     if (!saleProductName.trim() && !saleProductId) {
@@ -2195,10 +2253,15 @@ export default function App() {
     }
   };
 
-  // ==================== OTHER CRUD & TRANSACTION HANDLERS ====================
+// ==================== OTHER CRUD & TRANSACTION HANDLERS (WITH DOUBLE-SUBMIT LOCKS & INSTANT STATE SYNC) ====================
+  const [txActionBusy, setTxActionBusy] = useState<boolean>(false);
+  const txActionLockRef = useRef<boolean>(false);
+
   const handleSetLocationStock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (setStockBottles === '') return;
+    if (setStockBottles === '' || txActionLockRef.current || txActionBusy) return;
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/inventory/set-location-stock', 'POST', {
         product_id: Number(setStockProdId),
@@ -2212,17 +2275,22 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleRecordPartialPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partialModal || !partialAmount || Number(partialAmount) <= 0) return;
+    if (!partialModal || !partialAmount || Number(partialAmount) <= 0 || txActionLockRef.current || txActionBusy) return;
     const endpoint =
       partialModal.kind === 'SALE'
         ? `/sales/${partialModal.id}/payment`
         : `/purchases/${partialModal.id}/payment`;
     const selAcc = accounts.find(a => a.id === Number(partialAccountId));
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       await apiSend(endpoint, 'POST', {
         amount: pkr(partialAmount),
@@ -2241,12 +2309,17 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleRepayLoan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loanRepayModal || !loanRepayAmount || Number(loanRepayAmount) <= 0) return;
+    if (!loanRepayModal || !loanRepayAmount || Number(loanRepayAmount) <= 0 || txActionLockRef.current || txActionBusy) return;
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/loans/repay', 'POST', {
         loan_id: loanRepayModal.id,
@@ -2261,28 +2334,80 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleSaveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (txActionLockRef.current || txActionBusy) return;
+    const cleanName = locName.trim();
+    if (!cleanName) {
+      notify('Please enter a valid Location Name.', true);
+      return;
+    }
     const endpoint = editingLocationId ? `/locations/${editingLocationId}` : '/locations';
     const method = editingLocationId ? 'PUT' : 'POST';
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
-      await apiSend(endpoint, method, { name: locName, location_type: locType, address: locAddress });
-      notify(editingLocationId ? 'Storage Location updated!' : 'New Storage Location created!');
+      const data = await apiSend(endpoint, method, {
+        name: cleanName,
+        location_type: locType,
+        address: locAddress.trim()
+      });
+      if (Array.isArray(data.locations)) {
+        setLocations(data.locations);
+        if (!editingLocationId && data.locations.length > 1) {
+          setTrfFromLocId(data.locations[0].id);
+          setTrfToLocId(data.locations[data.locations.length - 1].id);
+        }
+      }
+      notify(editingLocationId ? `Storage Location '${cleanName}' updated!` : `New Storage Location '${cleanName}' created and available across all modules!`);
       setEditingLocationId(null);
       setLocName('');
+      setLocType('WAREHOUSE');
       setLocAddress('');
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleStockTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trfQuantity || Number(trfQuantity) <= 0) return;
+    if (txActionLockRef.current || txActionBusy) return;
+    if (locations.length < 2) {
+      notify('Please create a second Storage Location on the right before transferring stock between locations.', true);
+      return;
+    }
+    if (Number(trfFromLocId) === Number(trfToLocId)) {
+      notify('Source ("From") and Destination ("To") locations must be different.', true);
+      return;
+    }
+    if (!trfQuantity || Number(trfQuantity) <= 0 || trfRequestedBottles <= 0) {
+      notify('Please enter a valid transfer quantity greater than 0.', true);
+      return;
+    }
+    const fromLocName = locations.find(l => l.id === Number(trfFromLocId))?.name || 'Source Location';
+    if (trfFromAvailBottles <= 0) {
+      notify(`Zero stock available in ${fromLocName} for ${selectedTrfProduct?.name || 'selected product'}.`, true);
+      return;
+    }
+    if (trfRequestedBottles > trfFromAvailBottles) {
+      notify(
+        `Insufficient stock in ${fromLocName}! Available: ${trfFromAvailBottles} Bottles (${Math.floor(trfFromAvailBottles / trfUpc)} Ctn + ${trfFromAvailBottles % trfUpc} Btl), Requested: ${trfRequestedBottles} Bottles.`,
+        true
+      );
+      return;
+    }
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/inventory/transfer', 'POST', {
         product_id: Number(trfProductId),
@@ -2290,21 +2415,29 @@ export default function App() {
         to_location_id: Number(trfToLocId),
         unit_type: trfUnitType,
         quantity: Number(trfQuantity),
-        remarks: trfRemarks
+        remarks: trfRemarks.trim()
       });
-      notify(data.message);
+      if (Array.isArray(data.locations)) setLocations(data.locations);
+      if (Array.isArray(data.products)) setProducts(data.products);
+      notify(data.message || 'Stock transfer completed successfully!');
       setTrfQuantity('');
       setTrfRemarks('');
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (txActionLockRef.current || txActionBusy) return;
     const endpoint = editingProductId ? `/products/${editingProductId}` : '/products';
     const method = editingProductId ? 'PUT' : 'POST';
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       await apiSend(endpoint, method, {
         sku: prodSku || undefined,
@@ -2333,13 +2466,18 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expAmount || Number(expAmount) <= 0) return;
+    if (!expAmount || Number(expAmount) <= 0 || txActionLockRef.current || txActionBusy) return;
     const selAcc = accounts.find(a => a.id === Number(expAccountId));
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/expenses', 'POST', {
         category: expCategory,
@@ -2360,13 +2498,19 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (txActionLockRef.current || txActionBusy) return;
     const endpoint = editingCustomerId ? `/customers/${editingCustomerId}` : '/customers';
     const method = editingCustomerId ? 'PUT' : 'POST';
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       await apiSend(endpoint, method, {
         name: cusName,
@@ -2390,13 +2534,19 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleSaveSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (txActionLockRef.current || txActionBusy) return;
     const endpoint = editingSupplierId ? `/suppliers/${editingSupplierId}` : '/suppliers';
     const method = editingSupplierId ? 'PUT' : 'POST';
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       await apiSend(endpoint, method, {
         name: supName,
@@ -2419,6 +2569,9 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
@@ -2512,8 +2665,6 @@ export default function App() {
     setAllocationError('');
   };
 
-  
-
   const handlePaymentInputOrPolicyChange = (
     rawAmount: string,
     nextPolicy: 'OLDEST_FIRST' | 'NEWEST_FIRST'
@@ -2562,7 +2713,7 @@ export default function App() {
   };
 
   const handleExecuteConfirmedAllocation = async () => {
-    if (!allocationLedgerModal) return;
+    if (!allocationLedgerModal || allocationBusy) return;
     setAllocationError('');
     setAllocationBusy(true);
     const selAcc = accounts.find(a => a.id === Number(allocationAccountId));
@@ -2603,8 +2754,11 @@ export default function App() {
 
   const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (txActionLockRef.current || txActionBusy) return;
     const endpoint = editingAccountId ? `/accounts/${editingAccountId}` : '/accounts';
     const method = editingAccountId ? 'PUT' : 'POST';
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       await apiSend(endpoint, method, {
         name: accName,
@@ -2620,47 +2774,81 @@ export default function App() {
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleAdjustAccountBalance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adjAmount || Number(adjAmount) <= 0) return;
+    if (!adjAmount || Number(adjAmount) <= 0 || txActionLockRef.current || txActionBusy) return;
+    const amt = pkr(adjAmount);
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/accounts/adjust', 'POST', {
         account_id: Number(adjAccountId),
         operation: adjOperation,
-        amount: pkr(adjAmount),
+        amount: amt,
         remarks: adjRemarks
       });
+      setAccounts(prev =>
+        prev.map(a =>
+          a.id === Number(adjAccountId)
+            ? {
+                ...a,
+                current_balance:
+                  data.new_balance !== undefined
+                    ? pkr(data.new_balance)
+                    : pkr(a.current_balance + (adjOperation === 'DEPOSIT' ? amt : -amt))
+              }
+            : a
+        )
+      );
       notify(data.message);
       setAdjAmount('');
       setAdjRemarks('');
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
 
   const handleTransferBetweenAccounts = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trfAccAmount || Number(trfAccAmount) <= 0) return;
+    if (!trfAccAmount || Number(trfAccAmount) <= 0 || txActionLockRef.current || txActionBusy) return;
+    const amt = pkr(trfAccAmount);
+    txActionLockRef.current = true;
+    setTxActionBusy(true);
     try {
       const data = await apiSend('/accounts/transfer', 'POST', {
         from_account_id: Number(trfFromAccId),
         to_account_id: Number(trfToAccId),
-        amount: pkr(trfAccAmount),
+        amount: amt,
         remarks: trfAccRemarks
       });
+      setAccounts(prev =>
+        prev.map(a => {
+          if (a.id === Number(trfFromAccId)) return { ...a, current_balance: pkr(a.current_balance - amt) };
+          if (a.id === Number(trfToAccId)) return { ...a, current_balance: pkr(a.current_balance + amt) };
+          return a;
+        })
+      );
       notify(data.message);
       setTrfAccAmount('');
       setTrfAccRemarks('');
       await fetchData();
     } catch (err: any) {
       notify(err.message, true);
+    } finally {
+      txActionLockRef.current = false;
+      setTxActionBusy(false);
     }
   };
-
   // ==================== 360° CUSTOMER & SUPPLIER PROFILE OPENERS ====================
   const openCustomer360 = async (customerId: number) => {
     try {
@@ -2801,14 +2989,14 @@ export default function App() {
     ctx.fillStyle = '#FF6B3D';
     ctx.fillRect(width * 0.62, 0, width * 0.38, 10);
 
-    // 2. Bold "INVOICE" Heading & Awan Trade Hub / ATH Lubricants Identity
+    // 2. Bold "INVOICE" Heading & ATH Lubricants Identity
     ctx.fillStyle = '#00262B';
     ctx.font = '900 46px Inter, Arial, sans-serif';
     ctx.fillText('INVOICE', 48, 78);
 
     ctx.fillStyle = '#005B66';
     ctx.font = 'bold 15px Inter, Arial, sans-serif';
-    ctx.fillText('ATH LUBRICANTS — AWAN TRADE HUB', 48, 106);
+    ctx.fillText('ATH LUBRICANTS', 48, 106);
     ctx.fillStyle = '#475569';
     ctx.font = '12px Inter, Arial, sans-serif';
     ctx.fillText('Gold 4T Series • Smoother Ride | Better Protection | Longer Life', 48, 125);
@@ -2829,25 +3017,33 @@ export default function App() {
       // Fallback if logo not loaded
     }
 
+    const stripAwanTradeHub = (txt: string | undefined | null): string =>
+      String(txt || '')
+        .replace(/\(\s*Awan\s+Trade\s+Hub\s*\)/gi, '')
+        .replace(/Awan\s+Trade\s+Hub\s*[-•|:]?\s*/gi, '')
+        .replace(/\s*[-•|:]?\s*Awan\s+Trade\s+Hub/gi, '')
+        .trim();
+
     const refNo = isSale ? (doc as SaleRecord).invoice_number : (doc as PurchaseRecord).purchase_number;
     const docType = (doc as any).doc_type || (isSale ? 'SALE' : 'PURCHASE');
-    const partyName = isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name;
+    const partyName = stripAwanTradeHub(isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name);
     const partyCity = isSale ? (doc as SaleRecord).customer_city : (doc as PurchaseRecord).supplier_city;
     const partyPhone = isSale ? (doc as SaleRecord).customer_phone : (doc as PurchaseRecord).supplier_phone;
     const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
     const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
-    const locSummary = (doc as any).location_summary || (isSale ? 'Shop Display' : 'Main Warehouse');
+    const locSummary = stripAwanTradeHub((doc as any).location_summary) || 'Main Warehouse';
+    const cleanRemarks = stripAwanTradeHub(doc.remarks) || 'Standard Trade Bill';
 
     // 3. 3-Column Meta Section: BILL TO | DISPATCH LOCATION | INVOICE DETAILS
     const metaY = 165;
     ctx.fillStyle = '#00262B';
     ctx.font = 'bold 13px Inter, Arial, sans-serif';
     ctx.fillText(isSale ? 'BILL TO' : 'SUPPLIER / VENDOR', 48, metaY);
-    ctx.fillText(isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING GODOWN', 330, metaY);
+    ctx.fillText(isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING LOCATION', 330, metaY);
 
     ctx.fillStyle = '#0F172A';
     ctx.font = 'bold 16px Inter, Arial, sans-serif';
-    ctx.fillText(partyName || ' Valued Partner', 48, metaY + 24);
+    ctx.fillText(partyName || 'Valued Partner', 48, metaY + 24);
     ctx.fillStyle = '#334155';
     ctx.font = '12px Inter, Arial, sans-serif';
     ctx.fillText(`City / Route: ${partyCity || 'Local'} (${partyGroup || 'General'})`, 48, metaY + 44);
@@ -2861,7 +3057,7 @@ export default function App() {
     ctx.font = '12px Inter, Arial, sans-serif';
     ctx.fillText(`Channel: ${doc.payment_method || 'CASH'}`, 330, metaY + 44);
     ctx.fillText(`Document: ${docType}`, 330, metaY + 62);
-    ctx.fillText(`Remarks: ${doc.remarks || 'Standard Trade Bill'}`, 330, metaY + 80);
+    ctx.fillText(`Remarks: ${cleanRemarks}`, 330, metaY + 80);
 
     // Right Column Meta Labels & Values
     const drawMetaRight = (lbl: string, val: string, rY: number, highlight = false) => {
@@ -3069,7 +3265,7 @@ export default function App() {
     ctx.fillStyle = '#334155';
     ctx.font = '11px Inter, Arial, sans-serif';
     ctx.fillText('100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life', 415, footerY + 8);
-    ctx.fillText('Please quote Invoice # on all payments to ATH Lubricants (Awan Trade Hub).', 415, footerY + 24);
+    ctx.fillText('Please quote Invoice # on all payments to ATH Lubricants.', 415, footerY + 24);
 
     canvas.toBlob(async blob => {
       if (!blob) return;
@@ -3104,14 +3300,22 @@ export default function App() {
     const doc = isSale ? invoiceModal.sale : invoiceModal.purchase;
     if (!doc) return;
 
+    const stripAwanTradeHub = (txt: string | undefined | null): string =>
+      String(txt || '')
+        .replace(/\(\s*Awan\s+Trade\s+Hub\s*\)/gi, '')
+        .replace(/Awan\s+Trade\s+Hub\s*[-•|:]?\s*/gi, '')
+        .replace(/\s*[-•|:]?\s*Awan\s+Trade\s+Hub/gi, '')
+        .trim();
+
     const refNo = isSale ? (doc as SaleRecord).invoice_number : (doc as PurchaseRecord).purchase_number;
     const docType = (doc as any).doc_type || (isSale ? 'SALE' : 'PURCHASE');
-    const partyName = isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name;
+    const partyName = stripAwanTradeHub(isSale ? (doc as SaleRecord).customer_name : (doc as PurchaseRecord).supplier_name);
     const partyCity = isSale ? (doc as SaleRecord).customer_city : (doc as PurchaseRecord).supplier_city;
     const partyPhone = isSale ? (doc as SaleRecord).customer_phone : (doc as PurchaseRecord).supplier_phone;
     const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
     const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
-    const locSummary = (doc as any).location_summary || (isSale ? 'Shop Display' : 'Main Warehouse');
+    const locSummary = stripAwanTradeHub((doc as any).location_summary) || 'Main Warehouse';
+    const cleanRemarks = stripAwanTradeHub(doc.remarks) || 'Standard Trade Bill';
     const items = (doc.items || []) as any[];
     const sigInfo = resolveInvoiceAuthorizerSignature(doc);
 
@@ -3179,7 +3383,7 @@ export default function App() {
           <div class="hdr">
             <div>
               <h1 class="inv-title">INVOICE</h1>
-              <div style="font-weight:800;color:#005B66;margin-top:6px;font-size:14px;">ATH LUBRICANTS — AWAN TRADE HUB</div>
+              <div style="font-weight:800;color:#005B66;margin-top:6px;font-size:14px;">ATH LUBRICANTS</div>
               <div style="font-size:11px;color:#475569;">Gold 4T Series • Smoother Ride | Better Protection | Longer Life</div>
             </div>
             <img src="${window.location.origin}/logo.png" onerror="this.style.display='none'" style="height:64px;object-fit:contain;" />
@@ -3194,11 +3398,11 @@ export default function App() {
               <div>CNIC: ${partyCnic || 'N/A'}</div>
             </div>
             <div>
-              <div class="meta-head">${isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING GODOWN'}</div>
+              <div class="meta-head">${isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING LOCATION'}</div>
               <div style="font-weight:800;font-size:14px;color:#0F172A;">${locSummary}</div>
               <div>Payment Channel: <strong>${doc.payment_method}</strong></div>
               <div>Document Type: <strong>${docType}</strong></div>
-              <div>Remarks: ${doc.remarks || 'Standard Trade Bill'}</div>
+              <div>Remarks: ${cleanRemarks}</div>
             </div>
             <div>
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#00262B;">INVOICE #</strong><span style="font-family:monospace;font-weight:800;color:#FF6B3D;">${refNo}</span></div>
@@ -3251,7 +3455,7 @@ export default function App() {
             <div>
               <div style="font-weight:800;color:#FF6B3D;font-size:12px;text-transform:uppercase;">TERMS & CONDITIONS</div>
               <div style="font-size:11px;color:#334155;margin-top:2px;">100% Whole-PKR Audited Trade Bill • Smoother Ride | Better Protection | Longer Life</div>
-              <div style="font-size:11px;color:#334155;">Please quote Invoice # ${refNo} on all settlements to ATH Lubricants (Awan Trade Hub).</div>
+              <div style="font-size:11px;color:#334155;">Please quote Invoice # ${refNo} on all settlements to ATH Lubricants.</div>
             </div>
           </div>
           <script>window.onload = () => { window.print(); };</script>
@@ -3797,7 +4001,7 @@ export default function App() {
     };
   }, [mobileMenuOpen]);
 
-  // ==================== LOGIN SCREEN (OFFICIAL AWAN TRADE HUB — COMMERCIAL ERP PORTAL) ====================
+  // ==================== LOGIN SCREEN (OFFICIAL COMMERCIAL ERP PORTAL) ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative bg-[#00191D]">
@@ -3820,7 +4024,7 @@ export default function App() {
             </div>
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
-                Awan Trade Hub • Enterprise ERP & Khata Suite
+                ATH• Enterprise ERP & Khata Suite
               </div>
               <p className="text-xs text-[#F7F7F5]/80 mt-0.5 font-medium">
                 Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life
@@ -4073,7 +4277,7 @@ export default function App() {
                   ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
                 </div>
                 <div className="text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
-                  Awan Trade Hub ERP
+                  ATH ERP
                 </div>
               </div>
             </button>
@@ -4227,8 +4431,8 @@ export default function App() {
 
                 {currentNav.main === 'inventory' &&
                   ([
-                    { id: 'stock_breakdown', label: 'Godown & Carton Breakdown' },
-                    { id: 'locations_transfer', label: 'Warehouses & Stock Transfers' }
+                    { id: 'stock_breakdown', label: 'Location & Carton Breakdown' },
+                    { id: 'locations_transfer', label: 'Locations & Stock Transfers' }
                   ] as { id: InventorySubTab; label: string }[]).map(sub => (
                     <button
                       key={sub.id}
@@ -4788,7 +4992,7 @@ export default function App() {
                 <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
                   <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
                     <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-[#FF6B3D]" /> Godowns & Warehouses
+                      <Layers className="w-4 h-4 text-[#FF6B3D]" /> Storage Locations
                     </h3>
                     <button
                       type="button"
@@ -7216,7 +7420,7 @@ export default function App() {
                         onClick={() => navigateTo({ main: 'inventory', invSub: 'locations_transfer' })}
                         className="btn-oil text-xs px-4 py-2"
                       >
-                        Transfer Stock Between Godowns
+                        Transfer Stock Between Locations
                       </button>
                     </div>
                   </div>
@@ -7226,7 +7430,7 @@ export default function App() {
                         <tr>
                           <th>Product & Size</th>
                           <th>Carton Capacity</th>
-                          <th>Warehouse Breakdown</th>
+                          <th>Location Breakdown</th>
                           <th>Total Stock</th>
                           <th>Buy & Sale Rates</th>
                           <th>Live Stock Value</th>
@@ -7284,43 +7488,311 @@ export default function App() {
             )}
 
             {currentNav.invSub === 'locations_transfer' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <form onSubmit={handleStockTransfer} className="glass-panel rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">TRANSFER STOCK BETWEEN GODOWNS</h3>
-                  <select value={trfProductId} onChange={e => setTrfProductId(Number(e.target.value))} className="erp-input">
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.pack_size})</option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-3">
-                    <select value={trfFromLocId} onChange={e => setTrfFromLocId(Number(e.target.value))} className="erp-input">
-                      {locations.map(l => <option key={l.id} value={l.id}>From: {l.name}</option>)}
-                    </select>
-                    <select value={trfToLocId} onChange={e => setTrfToLocId(Number(e.target.value))} className="erp-input">
-                      {locations.map(l => <option key={l.id} value={l.id}>To: {l.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <select value={trfUnitType} onChange={e => setTrfUnitType(e.target.value as 'CARTON' | 'BOTTLE')} className="erp-input">
-                      <option value="CARTON">CARTON</option>
-                      <option value="BOTTLE">BOTTLE</option>
-                    </select>
-                    <input type="number" required placeholder="Quantity" value={trfQuantity} onChange={e => setTrfQuantity(e.target.value)} className="erp-input" />
-                  </div>
-                  <button type="submit" className="w-full btn-oil py-2.5 text-xs uppercase">Execute Stock Transfer</button>
-                </form>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {/* LEFT CARD: STOCK TRANSFER BETWEEN LOCATIONS */}
+                  <form onSubmit={handleStockTransfer} className="glass-panel rounded-2xl p-5 space-y-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
+                        TRANSFER STOCK BETWEEN LOCATIONS
+                      </h3>
+                      <span className="text-[11px] font-mono text-emerald-300">
+                        {locations.length} Active {locations.length === 1 ? 'Location' : 'Locations'}
+                      </span>
+                    </div>
 
-                <form onSubmit={handleSaveLocation} className="glass-panel rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">ADD STORAGE LOCATION</h3>
-                  <input type="text" required placeholder="Location Name" value={locName} onChange={e => setLocName(e.target.value)} className="erp-input" />
-                  <select value={locType} onChange={e => setLocType(e.target.value)} className="erp-input">
-                    <option value="DISPLAY">DISPLAY COUNTER</option>
-                    <option value="WAREHOUSE">WAREHOUSE</option>
-                    <option value="GODOWN">GODOWN</option>
-                  </select>
-                  <input type="text" placeholder="Address" value={locAddress} onChange={e => setLocAddress(e.target.value)} className="erp-input" />
-                  <button type="submit" className="w-full btn-primary py-2.5 text-xs uppercase">Save Location</button>
-                </form>
+                    {locations.length < 2 && (
+                      <div className="p-3 rounded-xl bg-amber-950/90 border border-yellow-400/60 text-xs text-yellow-200 font-semibold">
+                        Only 1 default location (<strong>{locations[0]?.name || 'Main Warehouse'}</strong>) is currently configured. Add a second location on the right to transfer stock between locations.
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs text-white font-semibold block mb-1">Select Product</label>
+                      <select
+                        value={trfProductId}
+                        onChange={e => setTrfProductId(Number(e.target.value))}
+                        className="erp-input font-semibold"
+                      >
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.pack_size}) — Total: {p.cartons} Ctn + {p.loose_bottles} Btl ({p.current_stock_bottles} Btls)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-rose-300 font-semibold block mb-1">From Source Location</label>
+                        <select
+                          value={trfFromLocId}
+                          onChange={e => {
+                            const nextFrom = Number(e.target.value);
+                            setTrfFromLocId(nextFrom);
+                            if (nextFrom === Number(trfToLocId) && locations.length > 1) {
+                              const alt = locations.find(l => l.id !== nextFrom);
+                              if (alt) setTrfToLocId(alt.id);
+                            }
+                          }}
+                          className="erp-input"
+                        >
+                          {locations.map(l => {
+                            const btls = getProductStockAtLocation(selectedTrfProduct, l.id);
+                            return (
+                              <option key={l.id} value={l.id}>
+                                From: {l.name} ({Math.floor(btls / trfUpc)} Ctn + {btls % trfUpc} Btl)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-emerald-300 font-semibold block mb-1">To Destination Location</label>
+                        <select
+                          value={trfToLocId}
+                          onChange={e => setTrfToLocId(Number(e.target.value))}
+                          className="erp-input"
+                        >
+                          {locations.map(l => {
+                            const btls = getProductStockAtLocation(selectedTrfProduct, l.id);
+                            return (
+                              <option key={l.id} value={l.id}>
+                                To: {l.name} ({Math.floor(btls / trfUpc)} Ctn + {btls % trfUpc} Btl)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Live Source & Destination Stock Availability Panel */}
+                    {selectedTrfProduct && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-xl bg-[#001D21] border border-white/15 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-300 block">
+                            Available in {locations.find(l => l.id === Number(trfFromLocId))?.name || 'Source'}:
+                          </span>
+                          <div className={`text-sm font-black font-mono ${trfFromAvailBottles > 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
+                            {Math.floor(trfFromAvailBottles / trfUpc)} Ctn + {trfFromAvailBottles % trfUpc} Btl ({trfFromAvailBottles} Btls)
+                          </div>
+                          {trfRequestedBottles > 0 && trfFromAvailBottles >= trfRequestedBottles && (
+                            <div className="text-[11px] text-amber-300 font-mono">
+                              After Transfer: {Math.floor((trfFromAvailBottles - trfRequestedBottles) / trfUpc)} Ctn + {(trfFromAvailBottles - trfRequestedBottles) % trfUpc} Btl ({trfFromAvailBottles - trfRequestedBottles} Btls)
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-300 block">
+                            Current in {locations.find(l => l.id === Number(trfToLocId))?.name || 'Destination'}:
+                          </span>
+                          <div className="text-sm font-black font-mono text-yellow-300">
+                            {Math.floor(trfToAvailBottles / trfUpc)} Ctn + {trfToAvailBottles % trfUpc} Btl ({trfToAvailBottles} Btls)
+                          </div>
+                          {trfRequestedBottles > 0 && Number(trfFromLocId) !== Number(trfToLocId) && (
+                            <div className="text-[11px] text-emerald-300 font-mono">
+                              After Transfer: {Math.floor((trfToAvailBottles + trfRequestedBottles) / trfUpc)} Ctn + {(trfToAvailBottles + trfRequestedBottles) % trfUpc} Btl ({trfToAvailBottles + trfRequestedBottles} Btls)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-white font-semibold block mb-1">Transfer Unit</label>
+                        <select
+                          value={trfUnitType}
+                          onChange={e => setTrfUnitType(e.target.value as 'CARTON' | 'BOTTLE')}
+                          className="erp-input font-bold text-yellow-300"
+                        >
+                          <option value="CARTON">CARTON ({trfUpc} Btls)</option>
+                          <option value="BOTTLE">BOTTLE</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-white font-semibold block mb-1">Quantity ({trfUnitType})</label>
+                        <input
+                          type="number"
+                          required
+                          min={1}
+                          placeholder="Enter Quantity"
+                          value={trfQuantity}
+                          onChange={e => setTrfQuantity(e.target.value)}
+                          className="erp-input font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {trfRequestedBottles > trfFromAvailBottles && (
+                      <div className="p-2.5 rounded-lg bg-rose-950/90 border border-rose-500 text-xs text-rose-200 font-bold">
+                        Insufficient stock in source location! Requested {trfRequestedBottles} Bottles ({Math.floor(trfRequestedBottles / trfUpc)} Ctn + {trfRequestedBottles % trfUpc} Btl), but only {trfFromAvailBottles} Bottles are available.
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={
+                        txActionBusy ||
+                        locations.length < 2 ||
+                        Number(trfFromLocId) === Number(trfToLocId) ||
+                        isTrfStockInsufficient
+                      }
+                      className="w-full btn-oil py-2.5 text-xs uppercase"
+                    >
+                      {txActionBusy
+                        ? 'Executing Stock Transfer...'
+                        : isTrfStockInsufficient
+                        ? 'Insufficient Stock in Source Location'
+                        : 'Execute Stock Transfer'}
+                    </button>
+                  </form>
+
+                  {/* RIGHT CARD: CREATE OR EDIT STORAGE LOCATION */}
+                  <form onSubmit={handleSaveLocation} className="glass-panel rounded-2xl p-5 space-y-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
+                        {editingLocationId ? 'EDIT STORAGE LOCATION' : 'ADD STORAGE LOCATION'}
+                      </h3>
+                      {editingLocationId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingLocationId(null);
+                            setLocName('');
+                            setLocType('WAREHOUSE');
+                            setLocAddress('');
+                          }}
+                          className="text-xs text-rose-300 underline font-bold"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-white font-semibold block mb-1">Location Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. City Branch / Secondary Warehouse"
+                        value={locName}
+                        onChange={e => setLocName(e.target.value)}
+                        className="erp-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-white font-semibold block mb-1">Location Type</label>
+                      <select value={locType} onChange={e => setLocType(e.target.value)} className="erp-input">
+                        <option value="WAREHOUSE">WAREHOUSE</option>
+                        <option value="BRANCH">BRANCH / STORE</option>
+                        <option value="DISPLAY">DISPLAY COUNTER</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-white font-semibold block mb-1">Address / Description</label>
+                      <input
+                        type="text"
+                        placeholder="Address or facility notes"
+                        value={locAddress}
+                        onChange={e => setLocAddress(e.target.value)}
+                        className="erp-input"
+                      />
+                    </div>
+
+                    <button type="submit" disabled={txActionBusy} className="w-full btn-primary py-2.5 text-xs uppercase">
+                      {editingLocationId ? 'Update Storage Location' : 'Save Location'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* STORAGE LOCATIONS DIRECTORY & STOCK AVAILABILITY TABLE */}
+                <div className="glass-panel rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-white samsung-heading heading-reveal">
+                        CONFIGURED STORAGE LOCATIONS & STOCK AVAILABILITY ({enrichedLocations.length})
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Default location is automatically active. Any custom locations you add here immediately appear in Sales, Purchases, Stock Adjustments, and Transfers.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {enrichedLocations.map((loc, idx) => (
+                      <div key={loc.id} className="bg-[#001D21] p-4 rounded-xl border border-white/15 space-y-3">
+                        <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2.5">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-extrabold text-white">{loc.name}</span>
+                              {idx === 0 && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                                  Default Location
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#00282E] text-[#FF6B3D] border border-white/10">
+                                {loc.location_type}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-300 font-mono mt-0.5">
+                              Code: {loc.code} • Address: {loc.address || 'Main Facility'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLocationId(loc.id);
+                                setLocName(loc.name);
+                                setLocType(loc.location_type === 'GODOWN' ? 'WAREHOUSE' : loc.location_type);
+                                setLocAddress(loc.address || '');
+                              }}
+                              className="btn-secondary px-2.5 py-1 text-[11px]"
+                              title="Edit Location"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            {enrichedLocations.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => triggerReverse('LOCATION', loc.id, loc.name)}
+                                className="btn-danger px-2.5 py-1 text-[11px]"
+                                title="Delete Empty Location"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300">Total Available Stock:</span>
+                          <span className="font-mono font-black text-amber-300 text-sm">
+                            {loc.total_bottles.toLocaleString()} Bottles ({loc.safeItems.length} Active SKUs)
+                          </span>
+                        </div>
+
+                        {loc.safeItems.length > 0 && (
+                          <div className="space-y-1.5 pt-1 border-t border-white/10 max-h-40 overflow-y-auto pr-1">
+                            {loc.safeItems.map(it => (
+                              <div key={it.product_id} className="flex items-center justify-between text-xs bg-[#00282E] px-2.5 py-1.5 rounded-lg">
+                                <span className="font-semibold text-white truncate">{it.product_name} ({it.pack_size})</span>
+                                <span className="font-mono font-bold text-emerald-300 shrink-0 ml-2">
+                                  {it.cartons} Ctn + {it.loose_bottles} Btl ({it.stock_bottles} Btls)
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -7990,7 +8462,7 @@ export default function App() {
                         INVOICE
                       </h1>
                       <div className="mt-2 text-sm font-extrabold text-[#005B66] uppercase tracking-wide">
-                        ATH Lubricants • Awan Trade Hub
+                        ATH Lubricants • ATH
                       </div>
                       <div className="text-xs text-slate-600 font-medium">
                         Gold 4T Series (M2 / M4 SAE 20W-40 API SL) — Smoother Ride | Better Protection | Longer Life
@@ -8231,7 +8703,7 @@ export default function App() {
                         100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life
                       </div>
                       <div className="text-slate-500 text-[11px]">
-                        Please quote Invoice # <strong className="text-slate-800 font-mono">{refNo}</strong> on all payments and correspondence with ATH Lubricants (Awan Trade Hub).
+                        Please quote Invoice # <strong className="text-slate-800 font-mono">{refNo}</strong> on all payments and correspondence with ATH Lubricants.
                       </div>
                     </div>
                   </div>
