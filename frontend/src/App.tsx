@@ -1816,7 +1816,7 @@ export default function App() {
         return;
       }
       if (saleDraftBottles > saleLocAvailableBottles) {
-        notify(`Not enough stock in ${selectedSaleLocName} (Available: ${saleLocAvailableBottles} Btls, Requested: ${saleDraftBottles} Btls). Please adjust quantity or switch godown.`, true);
+        notify(`Not enough stock in ${selectedSaleLocName} (Available: ${saleLocAvailableBottles} Btls, Requested: ${saleDraftBottles} Btls). Please adjust quantity or switch location.`, true);
         return;
       }
     }
@@ -2906,20 +2906,36 @@ export default function App() {
     }
   };
 
-  // ==================== RESOLVE AUTHENTICATED CREATOR SIGNATURE ====================
+  // ==================== CLEAN PARTNER NAME & INVOICE SIGNATURE RESOLVER ====================
+  const formatPartnerDisplayName = (rawName: string | undefined | null, fallback = 'Partner'): string => {
+    const cleaned = String(rawName || '')
+      .replace(/\s*\(\s*Super\s*Admin\s*\)\s*/gi, '')
+      .replace(/\s*\(\s*Admin\s*\)\s*/gi, '')
+      .replace(/\bSUPER_ADMIN\b/gi, '')
+      .trim();
+    if (!cleaned || cleaned.toLowerCase() === 'admin') {
+      const curCleaned = String(currentAdmin?.full_name || '')
+        .replace(/\s*\(\s*Super\s*Admin\s*\)\s*/gi, '')
+        .replace(/\s*\(\s*Admin\s*\)\s*/gi, '')
+        .trim();
+      return curCleaned || fallback;
+    }
+    return cleaned;
+  };
+
   const resolveInvoiceAuthorizerSignature = (doc: any): { signatureText: string; fullName: string; roleLabel: string } => {
     const rawSaved = String(doc?.admin_name || '').trim();
-    const cleanedSaved = rawSaved.replace(/\s*\(Super Admin\)\s*/gi, '').trim();
+    const cleanedSaved = formatPartnerDisplayName(rawSaved, '');
     const matchedAdmin = adminsList.find(
       a =>
         (doc?.admin_id && a.id === doc.admin_id) ||
         (cleanedSaved &&
-          (a.full_name.toLowerCase() === cleanedSaved.toLowerCase() ||
+          (formatPartnerDisplayName(a.full_name, '').toLowerCase() === cleanedSaved.toLowerCase() ||
             a.username.toLowerCase() === cleanedSaved.toLowerCase()))
     );
 
     if (matchedAdmin) {
-      const cleanFull = matchedAdmin.full_name.replace(/\s*\(Super Admin\)\s*/gi, '').trim();
+      const cleanFull = formatPartnerDisplayName(matchedAdmin.full_name, 'Authorized Partner');
       const sig =
         matchedAdmin.username && matchedAdmin.username.toLowerCase() !== 'admin'
           ? matchedAdmin.username
@@ -2927,21 +2943,22 @@ export default function App() {
       return {
         signatureText: sig,
         fullName: cleanFull,
-        roleLabel: `${matchedAdmin.username} • ${matchedAdmin.role}`
+        roleLabel: `${cleanFull} • Authorized Partner`
       };
     }
 
-    if (cleanedSaved && cleanedSaved.toLowerCase() !== 'admin') {
+    if (cleanedSaved) {
       return {
         signatureText: cleanedSaved,
         fullName: cleanedSaved,
-        roleLabel: currentAdmin?.username || 'Authorized Partner'
+        roleLabel: `${cleanedSaved} • Authorized Partner`
       };
     }
 
-    const fallbackFull = (currentAdmin?.full_name || currentAdmin?.username || 'Malik Abuzar')
-      .replace(/\s*\(Super Admin\)\s*/gi, '')
-      .trim();
+    const fallbackFull = formatPartnerDisplayName(
+      currentAdmin?.full_name || currentAdmin?.username || 'Malik Abuzar',
+      'Malik Abuzar'
+    );
     const fallbackSig =
       currentAdmin?.username && currentAdmin.username.toLowerCase() !== 'admin'
         ? currentAdmin.username
@@ -2950,7 +2967,7 @@ export default function App() {
     return {
       signatureText: fallbackSig,
       fullName: fallbackFull,
-      roleLabel: `${currentAdmin?.username || fallbackSig} • ${currentAdmin?.role || 'SUPER_ADMIN'}`
+      roleLabel: `${fallbackFull} • Authorized Partner`
     };
   };
 
@@ -4034,14 +4051,14 @@ export default function App() {
             </div>
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#FF6B3D]">
-                ATH• Enterprise ERP & Khata Suite
+                ATH • Enterprise ERP & Khata Suite
               </div>
               <p className="text-xs text-[#F7F7F5]/80 mt-0.5 font-medium">
                 Smoother Ride &nbsp;|&nbsp; Better Protection &nbsp;|&nbsp; Longer Life
               </p>
             </div>
 
-            {/* Mode Switcher: Partner Sign In vs Admin Registration */}
+            {/* Mode Switcher: Partner Sign In vs Partner Registration */}
             <div className="grid grid-cols-2 gap-1.5 w-full mt-1 bg-[#00171A] p-1 rounded-lg border border-[#F7F7F5]/15">
               <button
                 type="button"
@@ -4059,7 +4076,7 @@ export default function App() {
                   authTab === 'SIGNUP' ? 'bg-[#005B66] text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
                 }`}
               >
-                Admin Registration
+                Partner Registration
               </button>
             </div>
           </div>
@@ -4135,7 +4152,7 @@ export default function App() {
                     <RefreshCw className="w-4 h-4 animate-spin" /> Authenticating Session...
                   </>
                 ) : (
-                  'Sign In to Executive Portal'
+                  'Sign In to Partner Portal'
                 )}
               </button>
             </form>
@@ -4143,11 +4160,11 @@ export default function App() {
             <form onSubmit={handleAdminSignup} className="p-6 space-y-4">
               <div className="border-b border-[#F7F7F5]/10 pb-2.5">
                 <h2 className="text-sm font-extrabold text-[#F7F7F5] uppercase">
-                  New Partner / Admin Registration
+                  New Partner Registration
                 </h2>
                 <p className="text-[11px] text-[#F7F7F5]/75 mt-0.5">
-                  Register with your official email. Accounts require authorization from the{' '}
-                  <strong className="text-[#FF6B3D]">System Administrator</strong>.
+                  Register with your official email. New partner accounts require authorization from{' '}
+                  <strong className="text-[#FF6B3D]">Portal Management</strong>.
                 </p>
               </div>
 
@@ -4234,7 +4251,7 @@ export default function App() {
     },
     {
       id: 'inventory',
-      label: 'Godowns & Stock',
+      label: 'Inventory & Stock',
       badge: products.length,
       icon: <Package className="w-3.5 h-3.5" />
     },
@@ -4256,8 +4273,12 @@ export default function App() {
     [products]
   );
 
+  const activePartnerCleanName = formatPartnerDisplayName(
+    currentAdmin?.full_name || currentAdmin?.username || 'Partner'
+  );
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#001D21] text-[#F7F7F5] pb-12 relative">
+    <div className="min-h-screen flex flex-col bg-[#001D21] text-[#F7F7F5] pb-16 lg:pb-12 relative">
       <OilDropletsBackdrop />
 
       {/* ==================== SINGLE UNIFIED ENTERPRISE TOP NAVIGATION HEADER ==================== */}
@@ -4266,33 +4287,33 @@ export default function App() {
         className="bg-[#00181C]/95 backdrop-blur-md border-b border-[#F7F7F5]/15 sticky top-0 z-40 no-print shadow-lg"
       >
         {/* Primary Top Bar */}
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-5 py-2.5 flex items-center justify-between gap-2">
           {/* Left: Brand Logo + Back/Forward History Controls */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => navigateTo({ main: 'dashboard' })}
-              className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+              className="flex items-center gap-2 text-left group focus:outline-none shrink-0"
             >
-              <div className="bg-[#F7F7F5] px-2.5 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
+              <div className="bg-[#F7F7F5] px-2 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
                 <img
                   src="/logo.png"
                   alt="ATH Logo"
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  className="h-7 sm:h-8 w-auto object-contain"
+                  className="h-6 sm:h-7 w-auto object-contain"
                 />
               </div>
               <div className="min-w-0">
-                <div className="text-sm sm:text-base font-black tracking-tight text-[#F7F7F5] leading-none">
+                <div className="text-xs sm:text-sm xl:text-base font-black tracking-tight text-[#F7F7F5] leading-none truncate">
                   ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
                 </div>
-                <div className="text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
+                <div className="text-[9px] sm:text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
                   ATH ERP
                 </div>
               </div>
             </button>
 
-            <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-[#F7F7F5]/15">
+            <div className="hidden md:flex items-center gap-1 pl-1.5 border-l border-[#F7F7F5]/15">
               <button
                 type="button"
                 disabled={!canGoBack}
@@ -4316,7 +4337,7 @@ export default function App() {
 
           {/* Center: Single Authoritative Desktop Top-Menu Navigation */}
           <nav
-            className="hidden lg:flex items-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15"
+            className="hidden lg:flex items-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 min-w-0"
             aria-label="Primary ERP Navigation"
           >
             {mainMenuItems.map(item => {
@@ -4326,7 +4347,7 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => navigateTo({ main: item.id })}
-                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold tracking-tight transition flex items-center gap-2 whitespace-nowrap ${
+                  className={`px-2.5 xl:px-3.5 py-1.5 rounded-md text-[11px] xl:text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#FF6B3D] text-white shadow-sm'
                       : 'text-[#F7F7F5]/85 hover:text-white hover:bg-[#00343C]'
@@ -4348,49 +4369,39 @@ export default function App() {
             })}
           </nav>
 
-          {/* Right: Sync + Backup + Authenticated Partner Profile + Mobile Menu Toggle */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={fetchData}
-              className="btn-secondary px-2.5 py-1.5 text-xs"
-              title="Synchronize Live Database"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#FF6B3D]' : ''}`} />
-              <span className="hidden xl:inline">Sync</span>
-            </button>
-
+          {/* Right: Backup + Equal Partner Profile + Mobile Menu Toggle (Sync Button Removed) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={handleDownloadBackupJson}
-              className="hidden md:inline-flex items-center gap-1.5 btn-oil px-3 py-1.5 text-xs"
+              className="hidden sm:inline-flex items-center gap-1.5 btn-oil px-2.5 py-1.5 text-xs"
               title="1-Click Download Full Database Backup"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Backup DB</span>
+              <span className="hidden md:inline">Backup DB</span>
             </button>
 
-            {/* Authenticated User Capsule & Sign Out */}
-            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
+            {/* Equal Partner Profile Capsule & Sign Out */}
+            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
               <div className="w-6 h-6 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-[11px] flex items-center justify-center shrink-0">
-                {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
+                {activePartnerCleanName.charAt(0).toUpperCase()}
               </div>
-              <div className="hidden xl:block pr-1 text-left">
-                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[120px]">
-                  {currentAdmin?.full_name || currentAdmin?.username || 'Admin'}
+              <div className="pr-1 text-left">
+                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[110px] xl:max-w-[150px]">
+                  {activePartnerCleanName}
                 </div>
-                <div className="text-[9px] font-mono uppercase text-[#FF6B3D] leading-tight">
-                  {currentAdmin?.role || 'PARTNER'}
+                <div className="text-[9px] font-mono uppercase text-emerald-300 leading-tight">
+                  Partner
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1"
-                title="End Executive Session"
+                className="btn-signout px-2 py-1 text-[11px] font-bold flex items-center gap-1"
+                title="Sign Out"
               >
                 <LogOut className="w-3 h-3 text-[#FF6B3D]" />
-                <span>Sign Out</span>
+                <span className="hidden xl:inline">Sign Out</span>
               </button>
             </div>
 
@@ -4398,7 +4409,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(prev => !prev)}
-              className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#00282E] hover:bg-[#00373E] rounded-lg border border-[#F7F7F5]/25 transition"
+              className="lg:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-white bg-[#00282E] hover:bg-[#00373E] rounded-lg border border-[#F7F7F5]/25 transition"
               aria-expanded={mobileMenuOpen}
               aria-label="Toggle Navigation Menu"
             >
@@ -4408,11 +4419,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* Second-Tier Contextual Module Sub-Navigation Bar */}
+        {/* Second-Tier Contextual Module Sub-Navigation Bar (Wraps Cleanly — Zero Horizontal Scroll) */}
         {currentNav.main !== 'dashboard' && (
-          <div className="bg-[#001418] border-t border-[#F7F7F5]/10 px-3 sm:px-6 py-2">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="bg-[#001418] border-t border-[#F7F7F5]/10 px-2.5 sm:px-5 py-2">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 py-0.5">
                 {currentNav.main === 'accounts' &&
                   ([
                     { id: 'sales', label: 'Customer Sales' },
@@ -4441,7 +4452,7 @@ export default function App() {
 
                 {currentNav.main === 'inventory' &&
                   ([
-                    { id: 'stock_breakdown', label: 'Location & Carton Breakdown' },
+                    { id: 'stock_breakdown', label: 'Inventory & Carton Breakdown' },
                     { id: 'locations_transfer', label: 'Locations & Stock Transfers' }
                   ] as { id: InventorySubTab; label: string }[]).map(sub => (
                     <button
@@ -4509,18 +4520,18 @@ export default function App() {
         {/* Responsive Mobile & Tablet Top-Menu Dropdown Panel */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-[#00181C] border-t border-[#F7F7F5]/15 px-3 sm:px-6 py-3 space-y-3 max-h-[82vh] overflow-y-auto shadow-2xl">
-            {/* Active User Row */}
+            {/* Active Partner Row */}
             <div className="bg-[#00242A] p-3 rounded-lg border border-[#F7F7F5]/15 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  {(currentAdmin?.full_name || currentAdmin?.username || 'A').charAt(0).toUpperCase()}
+                  {activePartnerCleanName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-extrabold text-white truncate">
-                    {currentAdmin?.full_name || currentAdmin?.username || 'Authorized Partner'}
+                    {activePartnerCleanName}
                   </div>
-                  <div className="text-[10px] font-mono text-[#FF6B3D] truncate">
-                    {currentAdmin?.username || 'Admin'} • {currentAdmin?.role || 'ADMIN'}
+                  <div className="text-[10px] font-mono text-emerald-300 truncate">
+                    {currentAdmin?.username || activePartnerCleanName} • Partner
                   </div>
                 </div>
               </div>
@@ -4662,24 +4673,24 @@ export default function App() {
         {currentNav.main === 'dashboard' && !stats && (
           <div className="glass-panel p-8 rounded-xl text-center space-y-2">
             <RefreshCw className="w-6 h-6 text-[#FF6B3D] animate-spin mx-auto" />
-            <div className="text-sm font-extrabold text-white">Syncing Live Executive ERP Database...</div>
-            <div className="text-xs text-slate-300">Loading Sales, Purchases, Godown Stock & Partner Ledgers</div>
+            <div className="text-sm font-extrabold text-white">Loading Live Business Database...</div>
+            <div className="text-xs text-slate-300">Preparing Sales, Purchases, Inventory & Partner Ledgers</div>
           </div>
         )}
 
         {currentNav.main === 'dashboard' && stats && (
           <div className="space-y-5 animate-fade-in">
-            {/* Super Admin Approval Requests Bar */}
+            {/* Partner Registration Approval Requests Bar */}
             {(currentAdmin?.is_super_admin || currentAdmin?.role === 'SUPER_ADMIN' || currentAdmin?.username === 'Admin') &&
               adminsList.some(a => a.approval_status === 'PENDING') && (
                 <div className="glass-panel p-4 rounded-xl border-2 border-[#FF6B3D] space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FF6B3D] text-white font-extrabold">
-                        Super Administrator Authorization Required
+                        Partner Account Authorization
                       </span>
                       <h3 className="text-sm font-black text-white mt-1">
-                        PENDING ADMIN REGISTRATION REQUESTS ({adminsList.filter(a => a.approval_status === 'PENDING').length})
+                        PENDING PARTNER REGISTRATION REQUESTS ({adminsList.filter(a => a.approval_status === 'PENDING').length})
                       </h3>
                     </div>
                   </div>
@@ -4692,9 +4703,9 @@ export default function App() {
                           className="bg-[#001D21] p-3 rounded-lg border border-[#F7F7F5]/15 flex flex-wrap items-center justify-between gap-3 text-xs"
                         >
                           <div>
-                            <div className="font-extrabold text-white text-sm">{req.full_name}</div>
+                            <div className="font-extrabold text-white text-sm">{formatPartnerDisplayName(req.full_name)}</div>
                             <div className="text-[#FF6B3D] font-mono">
-                              Email: {req.email} • Username: {req.username} • Role: {req.role}
+                              Email: {req.email} • Username: {req.username} • Access: Partner
                             </div>
                             <div className="text-[11px] text-slate-300">Requested At: {req.created_at}</div>
                           </div>
@@ -4704,7 +4715,7 @@ export default function App() {
                               onClick={() => handleAdminApprovalDecision(req.id, 'APPROVED')}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3.5 py-1.5 rounded-md text-xs transition"
                             >
-                              ✓ Approve
+                              ✓ Approve Partner
                             </button>
                             <button
                               type="button"
@@ -4720,18 +4731,18 @@ export default function App() {
                 </div>
               )}
 
-            {/* Executive Reporting Filter & PKT Status Bar */}
+            {/* Responsive Reporting Filter & PKT Status Bar (Zero Horizontal Overflow on All Devices) */}
             <div className="glass-panel p-3.5 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="px-2.5 py-1 rounded-md bg-[#00181C] border border-[#005B66] text-[11px] font-mono font-bold text-emerald-300">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-[#00181C] border border-[#005B66] text-[11px] font-mono font-bold text-emerald-300 shrink-0">
                   ● PKT {pktClock.time12}
                 </span>
-                <span className="text-xs sm:text-sm font-extrabold text-white">
+                <span className="text-xs sm:text-sm font-extrabold text-white break-words">
                   {activeDateRangeInfo.fullLabel}
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {([
                   { id: 'daily', label: 'Today' },
                   { id: 'weekly', label: 'Last 7 Days' },
@@ -4746,7 +4757,7 @@ export default function App() {
                       setCustomDateTo('');
                       setPeriod(p.id);
                     }}
-                    className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
                       !customDate && period === p.id
                         ? 'bg-[#FF6B3D] text-white'
                         : 'bg-[#00181C] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
@@ -4756,7 +4767,7 @@ export default function App() {
                   </button>
                 ))}
 
-                <div className="flex items-center gap-1.5 bg-[#00181C] px-2.5 py-1 rounded-md border border-[#F7F7F5]/20 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5 bg-[#00181C] px-2.5 py-1.5 rounded-md border border-[#F7F7F5]/20 text-xs w-full sm:w-auto">
                   <span className="text-[11px] text-slate-300 font-semibold">From:</span>
                   <input
                     type="date"
@@ -4767,7 +4778,7 @@ export default function App() {
                         setCustomDateTo(e.target.value);
                       }
                     }}
-                    className="bg-transparent text-xs font-mono text-white outline-none"
+                    className="bg-transparent text-xs font-mono text-white outline-none flex-1 sm:flex-initial min-w-[115px]"
                   />
                   <span className="text-slate-400">–</span>
                   <input
@@ -4778,7 +4789,7 @@ export default function App() {
                       if (!customDate) setCustomDate(e.target.value);
                       setCustomDateTo(e.target.value);
                     }}
-                    className="bg-transparent text-xs font-mono text-white outline-none"
+                    className="bg-transparent text-xs font-mono text-white outline-none flex-1 sm:flex-initial min-w-[115px]"
                   />
                   {customDate && (
                     <button
@@ -4797,15 +4808,16 @@ export default function App() {
               </div>
             </div>
 
-            {/* 5 Structured Executive Financial KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* 6 Prominent Executive Financial KPI Cards (Including Dedicated Big Profit & Loss Card) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+              {/* 1. Sales Revenue */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
                 className="kpi-card p-4 rounded-xl cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
                   <span>Sales Revenue</span>
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                 </div>
                 <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
                   PKR {pkr(stats.total_sales_revenue).toLocaleString()}
@@ -4816,13 +4828,42 @@ export default function App() {
                 </div>
               </div>
 
+              {/* 2. Dedicated Prominent Profit & Loss (P&L) Card */}
+              <div
+                onClick={() => navigateTo({ main: 'reports', repSub: 'bill_pnl' })}
+                className={`kpi-card p-4 rounded-xl cursor-pointer border-t-4 ${
+                  pkr(stats.net_profit) >= 0 ? '!border-t-emerald-400' : '!border-t-rose-500'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-200">
+                  <span>{pkr(stats.net_profit) >= 0 ? 'Net Profit (P&L)' : 'Net Loss (P&L)'}</span>
+                  <BarChart3 className={`w-4 h-4 shrink-0 ${pkr(stats.net_profit) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} />
+                </div>
+                <div
+                  className={`mt-2 text-xl sm:text-2xl font-black tabular-nums ${
+                    pkr(stats.net_profit) >= 0 ? 'text-emerald-300' : 'text-rose-400'
+                  }`}
+                >
+                  {pkr(stats.net_profit) >= 0 ? '+' : '-'}PKR {Math.abs(pkr(stats.net_profit)).toLocaleString()}
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
+                  <span className="text-slate-200 font-semibold">
+                    Gross: PKR {pkr(stats.estimated_gross_profit).toLocaleString()}
+                  </span>
+                  <span className="text-rose-300 font-semibold">
+                    Exp: PKR {pkr(stats.total_expenses).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* 3. Stock Purchases */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
                 className="kpi-card p-4 rounded-xl cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
                   <span>Stock Purchases</span>
-                  <ShoppingCart className="w-4 h-4 text-[#FF6B3D]" />
+                  <ShoppingCart className="w-4 h-4 text-[#FF6B3D] shrink-0" />
                 </div>
                 <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
                   PKR {pkr(stats.total_purchases_cost).toLocaleString()}
@@ -4833,13 +4874,14 @@ export default function App() {
                 </div>
               </div>
 
+              {/* 4. Market Khata Dues */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'partials' })}
                 className="kpi-card p-4 rounded-xl cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
                   <span>Market Khata Dues</span>
-                  <Users className="w-4 h-4 text-amber-300" />
+                  <Users className="w-4 h-4 text-amber-300 shrink-0" />
                 </div>
                 <div className="mt-2 text-xl sm:text-2xl font-black text-amber-300 tabular-nums">
                   PKR {pkr(stats.total_receivable).toLocaleString()}
@@ -4850,30 +4892,32 @@ export default function App() {
                 </div>
               </div>
 
+              {/* 5. Cash & Bank Wallets */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
                 className="kpi-card p-4 rounded-xl cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
                   <span>Cash & Bank Wallets</span>
-                  <Wallet className="w-4 h-4 text-emerald-300" />
+                  <Wallet className="w-4 h-4 text-emerald-300 shrink-0" />
                 </div>
                 <div className="mt-2 text-xl sm:text-2xl font-black text-emerald-300 tabular-nums">
                   PKR {pkr(stats.total_cash_bank).toLocaleString()}
                 </div>
                 <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-slate-300">Net P&L: PKR {pkr(stats.net_profit).toLocaleString()}</span>
-                  <span className="text-rose-300">Exp: PKR {pkr(stats.total_expenses).toLocaleString()}</span>
+                  <span className="text-emerald-200 font-semibold">{accounts.length} Active Wallets</span>
+                  <span className="text-slate-300">Flow: PKR {pkr(stats.net_cash_flow).toLocaleString()}</span>
                 </div>
               </div>
 
+              {/* 6. Inventory & Stock Value */}
               <div
                 onClick={() => navigateTo({ main: 'inventory', invSub: 'stock_breakdown' })}
                 className="kpi-card p-4 rounded-xl cursor-pointer"
               >
                 <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Live Stock Value</span>
-                  <Package className="w-4 h-4 text-[#FF6B3D]" />
+                  <span>Inventory & Stock</span>
+                  <Package className="w-4 h-4 text-[#FF6B3D] shrink-0" />
                 </div>
                 <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
                   PKR {pkr(stats.total_stock_value).toLocaleString()}
@@ -4887,13 +4931,13 @@ export default function App() {
               </div>
             </div>
 
-            {/* Row 2: Brand Operations Command Panel (Left 2 Cols) + Financial Accounts & Godown Summary (Right 1 Col) */}
+            {/* Row 2: Brand Operations Command Panel (Left 2 Cols) + Financial Accounts & Storage Locations (Right 1 Col) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-              <div className="lg:col-span-2 space-y-5">
+              <div className="lg:col-span-2 space-y-5 min-w-0">
                 <AthFracturedCurrentHero onNavigate={navigateTo} />
 
-                {/* Recent Business Transactions Table */}
-                <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
+                {/* Recent Business Transactions Table (Zero X-Axis Scrollbar on All Devices) */}
+                <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3 overflow-hidden">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                     <div>
                       <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wide">
@@ -4912,40 +4956,71 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs erp-table">
+                  <div className="w-full overflow-hidden">
+                    <table className="w-full text-left text-xs erp-table table-fixed">
                       <thead>
                         <tr>
-                          <th>Date & Time</th>
-                          <th>Type</th>
-                          <th>Ref #</th>
-                          <th>Party</th>
-                          <th className="text-right">Cash In (+)</th>
-                          <th className="text-right">Cash Out (-)</th>
+                          <th className="w-[24%] sm:w-[20%]">Date & Time</th>
+                          <th className="w-[30%] sm:w-[28%]">Type & Ref #</th>
+                          <th className="w-[24%] sm:w-[30%]">Party / Account</th>
+                          <th className="w-[22%] text-right">Amount (PKR)</th>
                         </tr>
                       </thead>
                       <tbody>
                         {accountHistory.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-6 text-slate-400">
+                            <td colSpan={4} className="text-center py-6 text-slate-400">
                               No transactions recorded in this date range.
                             </td>
                           </tr>
                         ) : (
-                          accountHistory.slice(0, 7).map(h => (
-                            <tr key={h.id}>
-                              <td className="font-mono text-slate-300 whitespace-nowrap">{formatRecordDateTimePkt(h.date)}</td>
-                              <td className="font-bold text-white whitespace-nowrap">{h.type}</td>
-                              <td className="font-mono text-[#FF6B3D] font-bold whitespace-nowrap">{h.reference}</td>
-                              <td className="text-slate-100 font-semibold truncate max-w-[160px]">{h.party}</td>
-                              <td className="text-right font-mono font-bold text-emerald-300 tabular-nums whitespace-nowrap">
-                                {h.cash_in > 0 ? `+PKR ${pkr(h.cash_in).toLocaleString()}` : '—'}
-                              </td>
-                              <td className="text-right font-mono font-bold text-rose-300 tabular-nums whitespace-nowrap">
-                                {h.cash_out > 0 ? `-PKR ${pkr(h.cash_out).toLocaleString()}` : '—'}
-                              </td>
-                            </tr>
-                          ))
+                          accountHistory.slice(0, 7).map(h => {
+                            const isTransfer = h.type === 'ACCOUNT TRANSFER';
+                            const isInflow = h.cash_in > 0 && !isTransfer;
+                            const isOutflow = h.cash_out > 0 && !isTransfer;
+                            const displayAmt = isTransfer
+                              ? pkr(h.cash_in || h.cash_out)
+                              : isInflow
+                              ? pkr(h.cash_in)
+                              : isOutflow
+                              ? pkr(h.cash_out)
+                              : pkr(h.total_bill);
+
+                            return (
+                              <tr key={h.id}>
+                                <td className="font-mono text-[11px] text-slate-300 break-words leading-tight">
+                                  {formatRecordDateTimePkt(h.date)}
+                                </td>
+                                <td className="leading-tight">
+                                  <div className="font-bold text-white break-words">{h.type}</div>
+                                  <div className="font-mono text-[11px] text-[#FF6B3D] font-bold break-all mt-0.5">
+                                    {h.reference}
+                                  </div>
+                                </td>
+                                <td className="text-slate-100 font-semibold break-words leading-tight">
+                                  <div>{h.party}</div>
+                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">{h.channel}</div>
+                                </td>
+                                <td className="text-right font-mono font-bold tabular-nums leading-tight">
+                                  {isTransfer ? (
+                                    <span className="text-amber-300">
+                                      PKR {displayAmt.toLocaleString()}
+                                      <span className="block text-[10px] text-slate-400 font-normal">Transfer</span>
+                                    </span>
+                                  ) : isInflow ? (
+                                    <span className="text-emerald-300">+PKR {displayAmt.toLocaleString()}</span>
+                                  ) : isOutflow ? (
+                                    <span className="text-rose-300">-PKR {displayAmt.toLocaleString()}</span>
+                                  ) : (
+                                    <span className="text-amber-300">
+                                      PKR {displayAmt.toLocaleString()}
+                                      <span className="block text-[10px] text-slate-400 font-normal">Khata Bill</span>
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -4953,8 +5028,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Live Financial Accounts + Godown Stock Summary */}
-              <div className="space-y-5">
+              {/* Right Column: Live Financial Accounts + Storage Locations Summary */}
+              <div className="space-y-5 min-w-0">
                 <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
                   <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
                     <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase flex items-center gap-2">
@@ -4972,15 +5047,15 @@ export default function App() {
                     {accounts.map(acc => (
                       <div
                         key={acc.id}
-                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center"
+                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center gap-2"
                       >
-                        <div>
-                          <div className="text-xs font-bold text-white">{acc.name}</div>
-                          <div className="text-[10px] text-[#FF6B3D] font-mono">
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white truncate">{acc.name}</div>
+                          <div className="text-[10px] text-[#FF6B3D] font-mono truncate">
                             {acc.type} • {acc.account_number || 'Active'}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <div className="text-xs sm:text-sm font-extrabold text-emerald-300 tabular-nums font-mono">
                             PKR {pkr(acc.current_balance).toLocaleString()}
                           </div>
@@ -4998,7 +5073,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Godown Stock Summary Card */}
+                {/* Storage Locations Stock Summary Card */}
                 <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-3">
                   <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
                     <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase flex items-center gap-2">
@@ -5016,15 +5091,15 @@ export default function App() {
                     {enrichedLocations.map(loc => (
                       <div
                         key={loc.id}
-                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center text-xs"
+                        className="bg-[#001D21] p-3 rounded-lg border border-white/10 flex justify-between items-center gap-2 text-xs"
                       >
-                        <div>
-                          <div className="font-bold text-white">{loc.name}</div>
-                          <div className="text-[10px] font-mono text-slate-400">
+                        <div className="min-w-0">
+                          <div className="font-bold text-white truncate">{loc.name}</div>
+                          <div className="text-[10px] font-mono text-slate-400 truncate">
                             {loc.location_type} • {loc.safeItems.length} Active SKUs
                           </div>
                         </div>
-                        <div className="text-right font-mono font-extrabold text-amber-300 tabular-nums">
+                        <div className="text-right font-mono font-extrabold text-amber-300 tabular-nums shrink-0">
                           {loc.total_bottles.toLocaleString()} Btls
                         </div>
                       </div>
@@ -5034,18 +5109,18 @@ export default function App() {
               </div>
             </div>
 
-            {/* Row 3: Partner & Admin Operational Transparency */}
+            {/* Row 3: Equal Partner Operational Overview (No Super Admin / Admin Hierarchy) */}
             <div className="glass-panel rounded-xl p-4 sm:p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F7F7F5]/10 pb-3">
                 <div>
                   <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wide">
-                    Partner & Admin Operational Transparency ({activeDateRangeInfo.badge})
+                    Partner Operational Overview ({activeDateRangeInfo.badge})
                   </h3>
                   <p className="text-[11px] text-[#F7F7F5]/75">
-                    Side-by-side audit of Sales, Purchases, Cash Collections, and Expenses recorded by each authorized partner
+                    Side-by-side activity summary of Sales, Purchases, Cash Collections, and Expenses recorded by each partner
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setDashboardPartnerView('ALL')}
@@ -5062,7 +5137,7 @@ export default function App() {
                       dashboardPartnerView === 'MINE' ? 'bg-[#F7F7F5] text-[#00262B]' : 'bg-[#001D21] text-[#F7F7F5] border border-white/15'
                     }`}
                   >
-                    My Activity ({currentAdmin?.username || 'Admin'})
+                    My Activity ({activePartnerCleanName})
                   </button>
                 </div>
               </div>
@@ -5075,60 +5150,60 @@ export default function App() {
                       : pt.admin_id === (currentAdmin?.id || 1) ||
                         (Boolean(currentAdmin?.email) && pt.email.toLowerCase() === currentAdmin!.email.toLowerCase())
                   )
-                  .map((pt, idx) => (
-                    <div
-                      key={pt.admin_id}
-                      className="bg-[#001D21] p-4 rounded-xl border border-[#F7F7F5]/15 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-[#F7F7F5]/10 pb-2.5">
-                        <div>
-                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#005B66] text-white font-bold">
-                            Partner #{idx + 1} • {pt.role}
-                          </span>
-                          <h4 className="text-sm font-black text-white mt-1">{pt.full_name}</h4>
-                          <div className="text-[11px] text-[#F7F7F5]/70 font-mono">
-                            Username: {pt.username}
+                  .map((pt, idx) => {
+                    const cleanPartnerName = formatPartnerDisplayName(pt.full_name, `Partner #${idx + 1}`);
+                    return (
+                      <div
+                        key={pt.admin_id}
+                        className="bg-[#001D21] p-4 rounded-xl border border-[#F7F7F5]/15 space-y-3"
+                      >
+                        <div className="flex items-center justify-between border-b border-[#F7F7F5]/10 pb-2.5">
+                          <div>
+                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#005B66] text-white font-bold">
+                              Partner #{idx + 1} • Partner
+                            </span>
+                            <h4 className="text-sm font-black text-white mt-1">{cleanPartnerName}</h4>
                           </div>
+                          {pt.admin_id === (currentAdmin?.id || 1) && (
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold">
+                              ● Active Session
+                            </span>
+                          )}
                         </div>
-                        {pt.admin_id === (currentAdmin?.id || 1) && (
-                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold">
-                            ● Active Session
-                          </span>
-                        )}
-                      </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
-                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Sales Billed</div>
-                          <div className="text-xs font-extrabold text-emerald-300 mt-0.5 font-mono">
-                            PKR {pkr(pt.sales_total).toLocaleString()}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
+                          <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                            <div className="text-[10px] text-slate-300 uppercase">Sales Billed</div>
+                            <div className="text-xs font-extrabold text-emerald-300 mt-0.5 font-mono">
+                              PKR {pkr(pt.sales_total).toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{pt.sales_count} Bills</div>
                           </div>
-                          <div className="text-[10px] text-slate-400">{pt.sales_count} Bills</div>
-                        </div>
-                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Purchases</div>
-                          <div className="text-xs font-extrabold text-[#FF6B3D] mt-0.5 font-mono">
-                            PKR {pkr(pt.purchases_total).toLocaleString()}
+                          <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                            <div className="text-[10px] text-slate-300 uppercase">Purchases</div>
+                            <div className="text-xs font-extrabold text-[#FF6B3D] mt-0.5 font-mono">
+                              PKR {pkr(pt.purchases_total).toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{pt.purchases_count} Bills</div>
                           </div>
-                          <div className="text-[10px] text-slate-400">{pt.purchases_count} Bills</div>
-                        </div>
-                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Cash Inflow</div>
-                          <div className="text-xs font-extrabold text-[#F7F7F5] mt-0.5 font-mono">
-                            PKR {pkr(pt.deposits_total).toLocaleString()}
+                          <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                            <div className="text-[10px] text-slate-300 uppercase">Cash Inflow</div>
+                            <div className="text-xs font-extrabold text-[#F7F7F5] mt-0.5 font-mono">
+                              PKR {pkr(pt.deposits_total).toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{pt.deposits_count} Entries</div>
                           </div>
-                          <div className="text-[10px] text-slate-400">{pt.deposits_count} Entries</div>
-                        </div>
-                        <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
-                          <div className="text-[10px] text-slate-300 uppercase">Expenses</div>
-                          <div className="text-xs font-extrabold text-rose-300 mt-0.5 font-mono">
-                            PKR {pkr(pt.expenses_total).toLocaleString()}
+                          <div className="bg-[#00282E] p-2.5 rounded-lg border border-white/10">
+                            <div className="text-[10px] text-slate-300 uppercase">Expenses</div>
+                            <div className="text-xs font-extrabold text-rose-300 mt-0.5 font-mono">
+                              PKR {pkr(pt.expenses_total).toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{pt.expenses_count} Vouchers</div>
                           </div>
-                          <div className="text-[10px] text-slate-400">{pt.expenses_count} Vouchers</div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -5198,7 +5273,7 @@ export default function App() {
                       <Plus className="w-4 h-4 text-[#FF6B3D]" /> CREATE CUSTOMER SALE INVOICE
                     </h3>
                     <span className="text-xs font-bold text-[#F7F7F5]/80">
-                      Recorded by Admin: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Admin'}</strong>
+                      Recorded by Partner: <strong className="text-[#FF6B3D]">{activePartnerCleanName}</strong>
                     </span>
                   </div>
 
@@ -5583,7 +5658,7 @@ export default function App() {
                         {totalStockAcrossAllLocs <= 0 ? (
                           <div className="p-3 rounded-xl bg-rose-950/90 border-2 border-rose-500 text-rose-200 font-bold flex items-center justify-between">
                             <span>
-                              Zero Stock Available! <strong>{selectedSaleProduct.name}</strong> is completely out of stock across all godowns.
+                              Zero Stock Available! <strong>{selectedSaleProduct.name}</strong> is completely out of stock across all locations.
                             </span>
                             <span className="text-[11px] bg-rose-600 text-white px-2.5 py-1 rounded-full font-mono uppercase">
                               0 Bottles in System
@@ -5591,7 +5666,7 @@ export default function App() {
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Selected Godown Stock */}
+                            {/* Selected Location Stock */}
                             <div className="bg-[#00373E] p-3 rounded-xl border border-white/10 space-y-1">
                               <span className="text-[10px] text-slate-300 uppercase block font-semibold">
                                 Dispatching From: <strong className="text-white">{selectedSaleLocName}</strong>
@@ -5604,16 +5679,16 @@ export default function App() {
                               </div>
                             </div>
 
-                            {/* Total Stock in All Godowns */}
+                            {/* Total Stock in All Locations */}
                             <div className="bg-[#00373E] p-3 rounded-xl border border-white/10 space-y-1">
                               <span className="text-[10px] text-slate-300 uppercase block font-semibold">
-                                Total All Warehouses:
+                                Total All Locations:
                               </span>
                               <div className="text-base font-black text-yellow-300 tabular-nums">
                                 {Math.floor(totalStockAcrossAllLocs / saleUpc)} Ctn + {totalStockAcrossAllLocs % saleUpc} Btl
                               </div>
                               <div className="text-[11px] text-slate-300 font-mono">
-                                {totalStockAcrossAllLocs} Total Bottles in Godowns
+                                {totalStockAcrossAllLocs} Total Bottles in Stock
                               </div>
                             </div>
 
@@ -5632,11 +5707,11 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Location Switcher if another godown has stock */}
+                        {/* Location Switcher if another location has stock */}
                         {saleLocAvailableBottles <= 0 && saleAlternativeLocations.length > 0 && (
                           <div className="p-3 rounded-xl bg-amber-950/90 border border-yellow-400 flex flex-wrap items-center justify-between gap-2">
                             <span className="text-yellow-200 font-bold">
-                              Stock is 0 in {selectedSaleLocName}, but available in other godowns. Click to switch:
+                              Stock is 0 in {selectedSaleLocName}, but available in other locations. Click to switch:
                             </span>
                             <div className="flex flex-wrap gap-2">
                               {saleAlternativeLocations.map(alt => (
@@ -5830,13 +5905,13 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs erp-table min-w-[920px]">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-left text-xs erp-table">
                       <thead>
                         <tr>
                           <th>Invoice #</th>
                           <th>Date & Time</th>
-                          <th>Recorded By (Admin)</th>
+                          <th>Partner</th>
                           <th>Customer & Group</th>
                           <th>Location</th>
                           <th>Items, Qty & Rate Breakdown</th>
@@ -5883,12 +5958,12 @@ export default function App() {
                               <td>
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    s.admin_name === currentAdmin?.full_name || s.admin_name === currentAdmin?.username
+                                    formatPartnerDisplayName(s.admin_name) === activePartnerCleanName
                                       ? 'bg-[#FF6B3D] text-white'
                                       : 'bg-[#00373E] text-[#F7F7F5] border border-white/20'
                                   }`}
                                 >
-                                  {s.admin_name || 'Admin'}
+                                  {formatPartnerDisplayName(s.admin_name, 'Partner')}
                                 </span>
                               </td>
                               <td>
@@ -5984,7 +6059,7 @@ export default function App() {
                       <ShoppingCart className="w-4 h-4 text-[#FF6B3D]" /> RECORD SUPPLIER STOCK PURCHASE (ADDS NEW OR EXISTING PRODUCTS TO STOCK)
                     </h3>
                     <span className="text-xs font-bold text-[#F7F7F5]/80">
-                      Recorded by Admin: <strong className="text-[#FF6B3D]">{currentAdmin?.full_name || 'Admin'}</strong>
+                      Recorded by Partner: <strong className="text-[#FF6B3D]">{activePartnerCleanName}</strong>
                     </span>
                   </div>
 
