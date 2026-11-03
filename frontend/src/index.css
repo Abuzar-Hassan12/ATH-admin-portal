@@ -386,7 +386,7 @@ button:disabled {
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.72);
 }
 
-/* ==================== HIGH-DENSITY ENTERPRISE DATA TABLES (ZERO X-AXIS SCROLL) ==================== */
+/* ==================== HIGH-DENSITY ENTERPRISE DATA TABLES ==================== */
 .erp-table {
   border-collapse: separate;
   border-spacing: 0;
@@ -403,36 +403,22 @@ button:disabled {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ath-off-white);
-  padding: 0.65rem 0.55rem;
+  padding: 0.65rem 0.6rem;
   border-bottom: 2px solid var(--ath-petrol-main);
   background-color: #001A1E;
-  white-space: normal;
+  white-space: nowrap;
   line-height: 1.25;
 }
 
 .erp-table td {
-  padding: 0.65rem 0.55rem;
+  padding: 0.65rem 0.6rem;
   color: var(--ath-off-white);
   border-bottom: 1px solid rgba(247, 247, 245, 0.09);
   transition: background-color 0.12s ease;
   vertical-align: middle;
-  white-space: normal !important;
+  word-break: normal;
   overflow-wrap: break-word;
-  word-break: break-word;
   line-height: 1.35;
-}
-
-.erp-table td.space-x-1\.5,
-.erp-table td.space-x-2 {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.35rem;
-}
-
-.erp-table td.space-x-1\.5 > *,
-.erp-table td.space-x-2 > * {
-  margin-left: 0 !important;
 }
 
 .erp-table tbody tr:nth-child(even) td {
@@ -471,65 +457,85 @@ body,
   }
 
   .erp-input {
-    font-size: 16px; /* Prevents iOS/Android auto-zoom on input focus */
+    font-size: 16px;
     min-height: 42px;
-  }
-
-  .btn-primary,
-  .btn-oil,
-  .btn-secondary,
-  .btn-danger,
-  .btn-signout {
-    min-height: 40px;
   }
 }
 
+/* On Mobile Phones (<= 768px): Convert multi-column tables into clean, full-width stacked cards
+   so numbers and words NEVER break letter-by-letter and there is ZERO x-axis scrolling! */
 @media (max-width: 768px) {
-  .erp-table th,
-  .erp-table td {
-    padding: 0.62rem 0.55rem;
-    font-size: 0.74rem;
+  .erp-table:not(.table-fixed),
+  .erp-table:not(.table-fixed) tbody {
+    display: block;
+    width: 100% !important;
+  }
+
+  .erp-table:not(.table-fixed) thead {
+    display: none;
+  }
+
+  .erp-table:not(.table-fixed) tbody tr {
+    display: block;
+    background-color: #001D21;
+    border: 1px solid rgba(247, 247, 245, 0.16);
+    border-radius: 0.65rem;
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 0.65rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  }
+
+  .erp-table:not(.table-fixed) tbody tr td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.38rem 0 !important;
+    border-bottom: 1px solid rgba(247, 247, 245, 0.07);
+    text-align: left !important;
+    font-size: 0.78rem;
+    word-break: normal !important;
+  }
+
+  .erp-table:not(.table-fixed) tbody tr td:first-child {
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding-top: 0 !important;
+    padding-bottom: 0.5rem !important;
+    border-bottom: 1px solid rgba(255, 107, 61, 0.35);
+    margin-bottom: 0.2rem;
+  }
+
+  .erp-table:not(.table-fixed) tbody tr td:last-child {
+    border-bottom: none;
+    padding-bottom: 0 !important;
+    padding-top: 0.5rem !important;
+    justify-content: flex-end;
   }
 }
 
 @media (max-width: 640px) {
   .glass-panel {
-    padding: 0.75rem !important;
-    border-radius: 0.6rem !important;
+    padding: 0.8rem !important;
+    border-radius: 0.65rem !important;
   }
 
   .kpi-card {
-    padding: 0.75rem !important;
-  }
-
-  .erp-table th,
-  .erp-table td {
-    padding: 0.5rem 0.4rem;
-    font-size: 0.7rem;
-  }
-
-  /* Make horizontal table containers fully touch-swipeable on mobile */
-  .overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-
-  /* Ensure buttons in mobile tables have comfortable touch targets */
-  .erp-table button {
-    padding: 0.35rem 0.6rem !important;
-    font-size: 0.7rem !important;
-    min-height: 32px !important;
+    padding: 0.85rem !important;
   }
 }
 
-/* Prevent zoom distortion and ensure 44px+ touch targets on mobile viewports */
+/* Prevent zoom distortion on touch devices */
 @media (hover: none) and (pointer: coarse) {
-  button, select, input[type="checkbox"], input[type="date"] {
+  select, input[type="checkbox"], input[type="date"] {
     min-height: 40px;
   }
-  
+
   .erp-input {
-    font-size: 16px !important; /* Disables iOS Safari automatic form zoom */
+    font-size: 16px !important;
   }
 }
 

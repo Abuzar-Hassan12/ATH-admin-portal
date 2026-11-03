@@ -4286,58 +4286,35 @@ export default function App() {
         ref={headerMenuRef}
         className="bg-[#00181C]/95 backdrop-blur-md border-b border-[#F7F7F5]/15 sticky top-0 z-40 no-print shadow-lg"
       >
-        {/* Primary Top Bar */}
-        <div className="max-w-7xl mx-auto px-2.5 sm:px-5 py-2.5 flex items-center justify-between gap-2">
-          {/* Left: Brand Logo + Back/Forward History Controls */}
-          <div className="flex items-center gap-2 min-w-0 shrink-0">
-            <button
-              type="button"
-              onClick={() => navigateTo({ main: 'dashboard' })}
-              className="flex items-center gap-2 text-left group focus:outline-none shrink-0"
-            >
-              <div className="bg-[#F7F7F5] px-2 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
-                <img
-                  src="/logo.png"
-                  alt="ATH Logo"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  className="h-6 sm:h-7 w-auto object-contain"
-                />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm xl:text-base font-black tracking-tight text-[#F7F7F5] leading-none truncate">
-                  ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
-                </div>
-                <div className="text-[9px] sm:text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
-                  ATH ERP
-                </div>
-              </div>
-            </button>
-
-            <div className="hidden md:flex items-center gap-1 pl-1.5 border-l border-[#F7F7F5]/15">
-              <button
-                type="button"
-                disabled={!canGoBack}
-                onClick={handleBack}
-                className="p-1.5 rounded-md bg-[#00282E] border border-[#F7F7F5]/15 text-white hover:border-[#FF6B3D] disabled:opacity-30 transition"
-                title="Navigate Back"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                disabled={!canGoForward}
-                onClick={handleForward}
-                className="p-1.5 rounded-md bg-[#00282E] border border-[#F7F7F5]/15 text-white hover:border-[#FF6B3D] disabled:opacity-30 transition"
-                title="Navigate Forward"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+        {/* Primary Top Bar (Zero Overlap — Back/Forward & Backup DB Removed from Header) */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          {/* Left: Brand Logo */}
+          <button
+            type="button"
+            onClick={() => navigateTo({ main: 'dashboard' })}
+            className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+          >
+            <div className="bg-[#F7F7F5] px-2 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
+              <img
+                src="/logo.png"
+                alt="ATH Logo"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
             </div>
-          </div>
+            <div className="min-w-0">
+              <div className="text-xs sm:text-sm xl:text-base font-black tracking-tight text-[#F7F7F5] leading-none truncate">
+                ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
+                ATH ERP
+              </div>
+            </div>
+          </button>
 
-          {/* Center: Single Authoritative Desktop Top-Menu Navigation */}
+          {/* Center: Single Authoritative Desktop Navigation */}
           <nav
-            className="hidden lg:flex items-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 min-w-0"
+            className="hidden lg:flex flex-wrap items-center justify-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 max-w-full"
             aria-label="Primary ERP Navigation"
           >
             {mainMenuItems.map(item => {
@@ -4347,7 +4324,7 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => navigateTo({ main: item.id })}
-                  className={`px-2.5 xl:px-3.5 py-1.5 rounded-md text-[11px] xl:text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#FF6B3D] text-white shadow-sm'
                       : 'text-[#F7F7F5]/85 hover:text-white hover:bg-[#00343C]'
@@ -4369,25 +4346,14 @@ export default function App() {
             })}
           </nav>
 
-          {/* Right: Backup + Equal Partner Profile + Mobile Menu Toggle (Sync Button Removed) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleDownloadBackupJson}
-              className="hidden sm:inline-flex items-center gap-1.5 btn-oil px-2.5 py-1.5 text-xs"
-              title="1-Click Download Full Database Backup"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Backup DB</span>
-            </button>
-
-            {/* Equal Partner Profile Capsule & Sign Out */}
-            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
+          {/* Right: Equal Partner Profile + Sign Out Icon + Mobile Menu Toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
               <div className="w-6 h-6 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                 {activePartnerCleanName.charAt(0).toUpperCase()}
               </div>
               <div className="pr-1 text-left">
-                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[110px] xl:max-w-[150px]">
+                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[120px]">
                   {activePartnerCleanName}
                 </div>
                 <div className="text-[9px] font-mono uppercase text-emerald-300 leading-tight">
@@ -4397,11 +4363,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn-signout px-2 py-1 text-[11px] font-bold flex items-center gap-1"
+                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1"
                 title="Sign Out"
               >
-                <LogOut className="w-3 h-3 text-[#FF6B3D]" />
-                <span className="hidden xl:inline">Sign Out</span>
+                <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" />
+                <span>Sign Out</span>
               </button>
             </div>
 
@@ -4409,7 +4375,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(prev => !prev)}
-              className="lg:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-white bg-[#00282E] hover:bg-[#00373E] rounded-lg border border-[#F7F7F5]/25 transition"
+              className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#00282E] hover:bg-[#00373E] rounded-lg border border-[#F7F7F5]/25 transition"
               aria-expanded={mobileMenuOpen}
               aria-label="Toggle Navigation Menu"
             >
@@ -4808,49 +4774,51 @@ export default function App() {
               </div>
             </div>
 
-            {/* 6 Prominent Executive Financial KPI Cards (Including Dedicated Big Profit & Loss Card) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+            {/* 6 Spacious Executive KPI Cards (3x2 Grid — Handles Multi-Trillion 10-Year PKR Values Without Overflow) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {/* 1. Sales Revenue */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'sales' })}
-                className="kpi-card p-4 rounded-xl cursor-pointer"
+                className="kpi-card p-4 rounded-xl cursor-pointer min-w-0"
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Sales Revenue</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-300">
+                  <span className="truncate">Sales Revenue</span>
                   <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                 </div>
-                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                <div className="mt-2 text-lg sm:text-xl xl:text-2xl font-black text-white tabular-nums break-all leading-tight">
                   PKR {pkr(stats.total_sales_revenue).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-emerald-300 font-semibold">Collected: PKR {pkr(stats.sales_collected).toLocaleString()}</span>
-                  <span className="text-slate-300">{stats.sales_count} Bills</span>
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-emerald-300 font-semibold break-all">
+                    Collected: PKR {pkr(stats.sales_collected).toLocaleString()}
+                  </span>
+                  <span className="text-slate-300 font-mono shrink-0">{stats.sales_count} Bills</span>
                 </div>
               </div>
 
               {/* 2. Dedicated Prominent Profit & Loss (P&L) Card */}
               <div
                 onClick={() => navigateTo({ main: 'reports', repSub: 'bill_pnl' })}
-                className={`kpi-card p-4 rounded-xl cursor-pointer border-t-4 ${
+                className={`kpi-card p-4 rounded-xl cursor-pointer min-w-0 border-t-4 ${
                   pkr(stats.net_profit) >= 0 ? '!border-t-emerald-400' : '!border-t-rose-500'
                 }`}
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-200">
-                  <span>{pkr(stats.net_profit) >= 0 ? 'Net Profit (P&L)' : 'Net Loss (P&L)'}</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-200">
+                  <span className="truncate">{pkr(stats.net_profit) >= 0 ? 'Net Profit (P&L)' : 'Net Loss (P&L)'}</span>
                   <BarChart3 className={`w-4 h-4 shrink-0 ${pkr(stats.net_profit) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} />
                 </div>
                 <div
-                  className={`mt-2 text-xl sm:text-2xl font-black tabular-nums ${
+                  className={`mt-2 text-lg sm:text-xl xl:text-2xl font-black tabular-nums break-all leading-tight ${
                     pkr(stats.net_profit) >= 0 ? 'text-emerald-300' : 'text-rose-400'
                   }`}
                 >
                   {pkr(stats.net_profit) >= 0 ? '+' : '-'}PKR {Math.abs(pkr(stats.net_profit)).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-slate-200 font-semibold">
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-slate-200 font-semibold break-all">
                     Gross: PKR {pkr(stats.estimated_gross_profit).toLocaleString()}
                   </span>
-                  <span className="text-rose-300 font-semibold">
+                  <span className="text-rose-300 font-semibold break-all">
                     Exp: PKR {pkr(stats.total_expenses).toLocaleString()}
                   </span>
                 </div>
@@ -4859,72 +4827,78 @@ export default function App() {
               {/* 3. Stock Purchases */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'purchases' })}
-                className="kpi-card p-4 rounded-xl cursor-pointer"
+                className="kpi-card p-4 rounded-xl cursor-pointer min-w-0"
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Stock Purchases</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-300">
+                  <span className="truncate">Stock Purchases</span>
                   <ShoppingCart className="w-4 h-4 text-[#FF6B3D] shrink-0" />
                 </div>
-                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                <div className="mt-2 text-lg sm:text-xl xl:text-2xl font-black text-white tabular-nums break-all leading-tight">
                   PKR {pkr(stats.total_purchases_cost).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-[#FF6B3D] font-semibold">Paid: PKR {pkr(stats.purchases_paid).toLocaleString()}</span>
-                  <span className="text-slate-300">{stats.purchases_count} Bills</span>
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-[#FF6B3D] font-semibold break-all">
+                    Paid: PKR {pkr(stats.purchases_paid).toLocaleString()}
+                  </span>
+                  <span className="text-slate-300 font-mono shrink-0">{stats.purchases_count} Bills</span>
                 </div>
               </div>
 
               {/* 4. Market Khata Dues */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'partials' })}
-                className="kpi-card p-4 rounded-xl cursor-pointer"
+                className="kpi-card p-4 rounded-xl cursor-pointer min-w-0"
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Market Khata Dues</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-300">
+                  <span className="truncate">Market Khata Dues</span>
                   <Users className="w-4 h-4 text-amber-300 shrink-0" />
                 </div>
-                <div className="mt-2 text-xl sm:text-2xl font-black text-amber-300 tabular-nums">
+                <div className="mt-2 text-lg sm:text-xl xl:text-2xl font-black text-amber-300 tabular-nums break-all leading-tight">
                   PKR {pkr(stats.total_receivable).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-slate-300">{consolidatedCustomerDues.length} Cust</span>
-                  <span className="text-rose-300 font-bold">Payable: PKR {pkr(stats.total_payable).toLocaleString()}</span>
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-slate-300 shrink-0">{consolidatedCustomerDues.length} Customers</span>
+                  <span className="text-rose-300 font-bold break-all">
+                    Payable: PKR {pkr(stats.total_payable).toLocaleString()}
+                  </span>
                 </div>
               </div>
 
               {/* 5. Cash & Bank Wallets */}
               <div
                 onClick={() => navigateTo({ main: 'accounts', accSub: 'wallets' })}
-                className="kpi-card p-4 rounded-xl cursor-pointer"
+                className="kpi-card p-4 rounded-xl cursor-pointer min-w-0"
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Cash & Bank Wallets</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-300">
+                  <span className="truncate">Cash & Bank Wallets</span>
                   <Wallet className="w-4 h-4 text-emerald-300 shrink-0" />
                 </div>
-                <div className="mt-2 text-xl sm:text-2xl font-black text-emerald-300 tabular-nums">
+                <div className="mt-2 text-lg sm:text-xl xl:text-2xl font-black text-emerald-300 tabular-nums break-all leading-tight">
                   PKR {pkr(stats.total_cash_bank).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-emerald-200 font-semibold">{accounts.length} Active Wallets</span>
-                  <span className="text-slate-300">Flow: PKR {pkr(stats.net_cash_flow).toLocaleString()}</span>
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-emerald-200 font-semibold shrink-0">{accounts.length} Active Wallets</span>
+                  <span className="text-slate-300 break-all">Flow: PKR {pkr(stats.net_cash_flow).toLocaleString()}</span>
                 </div>
               </div>
 
               {/* 6. Inventory & Stock Value */}
               <div
                 onClick={() => navigateTo({ main: 'inventory', invSub: 'stock_breakdown' })}
-                className="kpi-card p-4 rounded-xl cursor-pointer"
+                className="kpi-card p-4 rounded-xl cursor-pointer min-w-0"
               >
-                <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-300">
-                  <span>Inventory & Stock</span>
+                <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase text-slate-300">
+                  <span className="truncate">Inventory & Stock</span>
                   <Package className="w-4 h-4 text-[#FF6B3D] shrink-0" />
                 </div>
-                <div className="mt-2 text-xl sm:text-2xl font-black text-white tabular-nums">
+                <div className="mt-2 text-lg sm:text-xl xl:text-2xl font-black text-white tabular-nums break-all leading-tight">
                   PKR {pkr(stats.total_stock_value).toLocaleString()}
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] tabular-nums">
-                  <span className="text-slate-200 font-semibold">{pkr(stats.total_stock_bottles).toLocaleString()} Bottles</span>
-                  <span className={lowStockProducts.length > 0 ? 'text-amber-300 font-bold' : 'text-emerald-300'}>
+                <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="text-slate-200 font-semibold break-all">
+                    {pkr(stats.total_stock_bottles).toLocaleString()} Bottles
+                  </span>
+                  <span className={lowStockProducts.length > 0 ? 'text-amber-300 font-bold shrink-0' : 'text-emerald-300 shrink-0'}>
                     {lowStockProducts.length > 0 ? `${lowStockProducts.length} Low Stock` : 'Stock Healthy'}
                   </span>
                 </div>
@@ -6005,40 +5979,45 @@ export default function App() {
                                   Khata: PKR {pkr(s.closing_receivable ?? s.receivable_amount).toLocaleString()} ({s.payment_status})
                                 </div>
                               </td>
-                              <td className="text-right space-x-1.5 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => setInvoiceModal({ kind: 'SALE', sale: s })}
-                                  className="btn-oil px-2.5 py-1 text-[11px]"
-                                >
-                                  View / Share Bill
-                                </button>
-                                {s.doc_type === 'ESTIMATE' && (
+                              <td className="text-right">
+                                <div className="inline-flex items-center justify-end gap-1.5">
                                   <button
                                     type="button"
-                                    onClick={() => handleConvertEstimate(s.id)}
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                                    onClick={() => setInvoiceModal({ kind: 'SALE', sale: s })}
+                                    className="btn-oil p-2 rounded-lg"
+                                    title="View, Print or Share Invoice"
                                   >
-                                    Convert Estimate to Sale
+                                    <Eye className="w-4 h-4" />
                                   </button>
-                                )}
-                                {s.receivable_amount > 0 && s.doc_type !== 'ESTIMATE' && (
+                                  {s.doc_type === 'ESTIMATE' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConvertEstimate(s.id)}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-lg transition"
+                                      title="Convert Estimate to Confirmed Sale"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {s.receivable_amount > 0 && s.doc_type !== 'ESTIMATE' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openCustomerAllocationModal(s.customer_id)}
+                                      className="btn-primary p-2 rounded-lg"
+                                      title="Receive / Allocate Customer Payment"
+                                    >
+                                      <Wallet className="w-4 h-4" />
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
-                                    onClick={() => openCustomerAllocationModal(s.customer_id)}
-                                    className="btn-primary px-2.5 py-1 text-[11px]"
+                                    onClick={() => triggerReverse('SALE', s.id, s.invoice_number)}
+                                    className="btn-danger p-2 rounded-lg"
+                                    title="Reverse Invoice & Move to Recycle Bin"
                                   >
-                                    Allocate Payment
+                                    <RotateCcw className="w-4 h-4" />
                                   </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => triggerReverse('SALE', s.id, s.invoice_number)}
-                                  className="btn-danger px-2 py-1 text-[11px]"
-                                  title="Reverse Invoice"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" /> Reverse
-                                </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -6517,37 +6496,45 @@ export default function App() {
                                 Total Supplier Due: PKR {pkr(p.closing_payable ?? p.payable_amount).toLocaleString()} ({p.payment_status})
                               </div>
                             </td>
-                            <td className="text-right space-x-1.5 whitespace-nowrap">
-                              <button
-                                onClick={() => setInvoiceModal({ kind: 'PURCHASE', purchase: p })}
-                                className="bg-yellow-400 hover:bg-yellow-300 text-slate-950 px-2.5 py-1 rounded-lg text-[11px] font-extrabold"
-                              >
-                                View Bill
-                              </button>
-                              {p.payable_amount > 0 && (
+                            <td className="text-right">
+                              <div className="inline-flex items-center justify-end gap-1.5">
                                 <button
-                                  onClick={() =>
-                                    setPartialModal({
-                                      kind: 'PURCHASE',
-                                      id: p.id,
-                                      refNumber: p.purchase_number,
-                                      partyName: p.supplier_name,
-                                      totalAmount: pkr(p.total_amount),
-                                      alreadyPaid: pkr(p.paid_amount),
-                                      remainingBalance: pkr(p.payable_amount)
-                                    })
-                                  }
-                                  className="bg-amber-500/25 hover:bg-amber-500 text-yellow-300 hover:text-slate-950 border border-yellow-400/40 px-2 py-1 rounded-lg text-[11px] font-bold"
+                                  type="button"
+                                  onClick={() => setInvoiceModal({ kind: 'PURCHASE', purchase: p })}
+                                  className="btn-oil p-2 rounded-lg"
+                                  title="View / Print Purchase Bill"
                                 >
-                                  + Pay
+                                  <Eye className="w-4 h-4" />
                                 </button>
-                              )}
-                              <button
-                                onClick={() => triggerReverse('PURCHASE', p.id, p.purchase_number)}
-                                className="text-rose-300 hover:text-white p-1"
-                              >
-                                <RotateCcw className="w-4 h-4 inline" />
-                              </button>
+                                {p.payable_amount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPartialModal({
+                                        kind: 'PURCHASE',
+                                        id: p.id,
+                                        refNumber: p.purchase_number,
+                                        partyName: p.supplier_name,
+                                        totalAmount: pkr(p.total_amount),
+                                        alreadyPaid: pkr(p.paid_amount),
+                                        remainingBalance: pkr(p.payable_amount)
+                                      })
+                                    }
+                                    className="btn-primary p-2 rounded-lg"
+                                    title="Pay Supplier Installment"
+                                  >
+                                    <Wallet className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => triggerReverse('PURCHASE', p.id, p.purchase_number)}
+                                  className="btn-danger p-2 rounded-lg"
+                                  title="Reverse Purchase Bill"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -7554,13 +7541,14 @@ export default function App() {
                             <td className="font-extrabold text-[#F7F7F5] tabular-nums">
                               PKR {pkr(p.stock_valuation).toLocaleString()}
                             </td>
-                            <td className="text-right space-x-2">
+                            <td className="text-right">
                               <button
                                 type="button"
                                 onClick={() => triggerReverse('PRODUCT', p.id, p.name)}
-                                className="btn-danger px-2.5 py-1 text-[11px]"
+                                className="btn-danger p-2 rounded-lg"
+                                title="Remove Product to Recycle Bin"
                               >
-                                <Trash2 className="w-3.5 h-3.5" /> Remove
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>
