@@ -2124,7 +2124,6 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         db.rollback()
 
     is_super = (user.email.lower() == SUPER_ADMIN_EMAIL or user.role == "SUPER_ADMIN")
-    boot_data = bootstrap_erp(BootstrapRequest(period="all", channel="ALL", client_snapshot=None), db=db)
     return {
         "status": "authenticated",
         "id": user.id,
@@ -2134,8 +2133,7 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         "role": user.role,
         "approval_status": user.approval_status,
         "is_super_admin": is_super,
-        "bootstrap": boot_data,
-        "snapshot": boot_data.get("snapshot")
+        "snapshot": export_full_snapshot(db)
     }
 
 
