@@ -529,16 +529,62 @@ export default function App() {
       return null;
     }
   });
-  const [authTab, setAuthTab] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  // One-time browser cache wipe so old test snapshots never re-upload after production DB reset
+  useEffect(() => {
+    if (localStorage.getItem('ath_prod_clean_v1') !== 'true') {
+      localStorage.removeItem('ath_erp_snapshot');
+      localStorage.removeItem('ath_ui_cache_v2');
+      localStorage.removeItem('ath_admin_auth');
+      localStorage.removeItem('ath_admin_auth_ts');
+      localStorage.removeItem('ath_admin_profile');
+      localStorage.setItem('ath_prod_clean_v1', 'true');
+      setIsAuthenticated(false);
+      setCurrentAdmin(null);
+    }
+  }, []);
+
+  // Automatically attach column header labels (data-label) to all table cells for mobile card view
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      document.querySelectorAll('table.erp-table').forEach(tbl => {
+        const headers = Array.from(tbl.querySelectorAll('thead th')).map(th => th.textContent?.trim() || '');
+        tbl.querySelectorAll('tbody tr').forEach(tr => {
+          Array.from(tr.querySelectorAll('td')).forEach((td, idx) => {
+            if (headers[idx] && !td.hasAttribute('colspan')) {
+              td.setAttribute('data-label', headers[idx]);
+            }
+          });
+        });
+      });
+    }, 60);
+    return () => clearTimeout(timer);
+  });
+
+  const [authTab, setAuthTab] = useState<'LOGIN' | 'SIGNUP' | 'RESET'>('LOGIN');
   const [loginUser, setLoginUser] = useState<string>('');
   const [loginPass, setLoginPass] = useState<string>('');
+  const [showLoginPass, setShowLoginPass] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string>('');
   const [signupFullName, setSignupFullName] = useState<string>('');
   const [signupEmail, setSignupEmail] = useState<string>('');
   const [signupUsername, setSignupUsername] = useState<string>('');
   const [signupPassword, setSignupPassword] = useState<string>('');
+  const [showSignupPass, setShowSignupPass] = useState<boolean>(false);
   const [signupSuccessMsg, setSignupSuccessMsg] = useState<string>('');
+  const [resetIdentifier, setResetIdentifier] = useState<string>('');
+  const [resetVerifyCode, setResetVerifyCode] = useState<string>('');
+  const [resetNewPassword, setResetNewPassword] = useState<string>('');
+  const [showResetPass, setShowResetPass] = useState<boolean>(false);
   const [authBusy, setAuthBusy] = useState<boolean>(false);
+
+  const validateStrongPassword = (pw: string): string | null => {
+    if (pw.length < 6) return 'Password must be at least 6 characters long.';
+    if (!/[A-Z]/.test(pw)) return 'Password must include at least one capital letter (A–Z).';
+    if (!/[a-z]/.test(pw)) return 'Password must include at least one small letter (a–z).';
+    if (!/[0-9]/.test(pw)) return 'Password must include at least one number (0–9).';
+    if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must include at least one special character (e.g. @, #, $, %, !, _, *).';
+    return null;
+  };
 
   const [adminsList, setAdminsList] = useState<AdminUserRecord[]>([]);
   const [partnerTransparency, setPartnerTransparency] = useState<PartnerTransparencyRow[]>([]);
@@ -1933,6 +1979,11 @@ export default function App() {
     if (authBusy) return;
     setLoginError('');
     setSignupSuccessMsg('');
+    const pwErr = validateStrongPassword(signupPassword.trim());
+    if (pwErr) {
+      setLoginError(pwErr);
+      return;
+    }
     setAuthBusy(true);
     try {
       const { res, data } = await resilientFetch(
@@ -1944,7 +1995,7 @@ export default function App() {
             full_name: signupFullName.trim(),
             email: signupEmail.trim().toLowerCase(),
             username: signupUsername.trim() || signupEmail.trim().split('@')[0],
-            password: signupPassword,
+            password: signupPassword.trim(),
             role: 'ADMIN'
           })
         },
@@ -1963,6 +2014,53 @@ export default function App() {
       setAuthTab('LOGIN');
     } catch (err: any) {
       setLoginError(err.message || 'Registration failed.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authBusy) return;
+    setLoginError('');
+    setSignupSuccessMsg('');
+    if (resetVerifyCode.trim() !== 'Admin@786') {
+      setLoginError('Invalid verification code. Please enter the valid authorization code.');
+      return;
+    }
+    const pwErr = validateStrongPassword(resetNewPassword.trim());
+    if (pwErr) {
+      setLoginError(pwErr);
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      const { res, data } = await resilientFetch(
+        `${API_BASE}/auth/reset-password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: resetIdentifier.trim(),
+            verification_code: resetVerifyCode.trim(),
+            new_password: resetNewPassword.trim()
+          })
+        },
+        2
+      );
+      if (!res.ok) {
+        throw new Error(data.detail || 'Password reset failed.');
+      }
+      if (data.snapshot) saveSnapshot(data.snapshot, true);
+      setSignupSuccessMsg(data.message || 'Password reset successfully! Please sign in with your new password.');
+      setLoginUser(resetIdentifier.trim());
+      setLoginPass('');
+      setResetIdentifier('');
+      setResetVerifyCode('');
+      setResetNewPassword('');
+      setAuthTab('LOGIN');
+    } catch (err: any) {
+      setLoginError(err.message || 'Password reset failed.');
     } finally {
       setAuthBusy(false);
     }
@@ -4029,7 +4127,7 @@ export default function App() {
   }, [mobileMenuOpen]);
 
   // ==================== LOGIN SCREEN (OFFICIAL COMMERCIAL ERP PORTAL) ====================
-  if (!isAuthenticated) {
+if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative bg-[#00191D]">
         <OilDropletsBackdrop />
@@ -4058,30 +4156,39 @@ export default function App() {
               </p>
             </div>
 
-            {/* Mode Switcher: Partner Sign In vs Partner Registration */}
-            <div className="grid grid-cols-2 gap-1.5 w-full mt-1 bg-[#00171A] p-1 rounded-lg border border-[#F7F7F5]/15">
+            {/* 3-Mode Switcher: Sign In | Register | Reset Password */}
+            <div className="grid grid-cols-3 gap-1 w-full mt-1 bg-[#00171A] p-1 rounded-lg border border-[#F7F7F5]/15">
               <button
                 type="button"
                 onClick={() => { setAuthTab('LOGIN'); setLoginError(''); }}
-                className={`py-2 rounded-md text-xs font-bold uppercase tracking-wider transition ${
+                className={`py-2 rounded-md text-[11px] font-bold uppercase tracking-wider transition ${
                   authTab === 'LOGIN' ? 'bg-[#FF6B3D] text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
                 }`}
               >
-                Partner Sign In
+                Sign In
               </button>
               <button
                 type="button"
                 onClick={() => { setAuthTab('SIGNUP'); setLoginError(''); setSignupSuccessMsg(''); }}
-                className={`py-2 rounded-md text-xs font-bold uppercase tracking-wider transition ${
+                className={`py-2 rounded-md text-[11px] font-bold uppercase tracking-wider transition ${
                   authTab === 'SIGNUP' ? 'bg-[#005B66] text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
                 }`}
               >
-                Partner Registration
+                Register
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthTab('RESET'); setLoginError(''); setSignupSuccessMsg(''); }}
+                className={`py-2 rounded-md text-[11px] font-bold uppercase tracking-wider transition ${
+                  authTab === 'RESET' ? 'bg-amber-600 text-white shadow-sm' : 'text-[#F7F7F5]/75 hover:text-white'
+                }`}
+              >
+                Reset Pass
               </button>
             </div>
           </div>
 
-          {authTab === 'LOGIN' ? (
+          {authTab === 'LOGIN' && (
             <form onSubmit={handleAdminLogin} className="p-6 space-y-4">
               <div className="flex items-center justify-between gap-2 border-b border-[#F7F7F5]/10 pb-3">
                 <div>
@@ -4120,19 +4227,39 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    autoComplete="current-password"
-                    required
-                    placeholder="Enter your password"
-                    value={loginPass}
-                    onChange={e => setLoginPass(e.target.value)}
-                    className="erp-input"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-[#F7F7F5]">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetIdentifier(loginUser);
+                        setLoginError('');
+                        setAuthTab('RESET');
+                      }}
+                      className="text-[11px] font-bold text-[#FF6B3D] hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showLoginPass ? 'text' : 'password'}
+                      name="password"
+                      autoComplete="current-password"
+                      required
+                      placeholder="Enter your password"
+                      value={loginPass}
+                      onChange={e => setLoginPass(e.target.value)}
+                      className="erp-input pr-16"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPass(prev => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-[10px] font-extrabold uppercase bg-[#00282E] text-yellow-300 border border-white/15 hover:border-[#FF6B3D]"
+                    >
+                      {showLoginPass ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -4156,15 +4283,16 @@ export default function App() {
                 )}
               </button>
             </form>
-          ) : (
+          )}
+
+          {authTab === 'SIGNUP' && (
             <form onSubmit={handleAdminSignup} className="p-6 space-y-4">
               <div className="border-b border-[#F7F7F5]/10 pb-2.5">
                 <h2 className="text-sm font-extrabold text-[#F7F7F5] uppercase">
                   New Partner Registration
                 </h2>
                 <p className="text-[11px] text-[#F7F7F5]/75 mt-0.5">
-                  Register with your official email. New partner accounts require authorization from{' '}
-                  <strong className="text-[#FF6B3D]">Portal Management</strong>.
+                  Password must be 6+ chars with Capital, Small, Number & Special character.
                 </p>
               </div>
 
@@ -4204,14 +4332,23 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">Password</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Min 6 characters"
-                    value={signupPassword}
-                    onChange={e => setSignupPassword(e.target.value)}
-                    className="erp-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showSignupPass ? 'text' : 'password'}
+                      required
+                      placeholder="e.g. Partner@1"
+                      value={signupPassword}
+                      onChange={e => setSignupPassword(e.target.value)}
+                      className="erp-input pr-14"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupPass(prev => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase bg-[#00282E] text-yellow-300 border border-white/15"
+                    >
+                      {showSignupPass ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -4232,6 +4369,90 @@ export default function App() {
                   </>
                 ) : (
                   'Submit Registration for Approval'
+                )}
+              </button>
+            </form>
+          )}
+
+          {authTab === 'RESET' && (
+            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+              <div className="border-b border-[#F7F7F5]/10 pb-2.5">
+                <h2 className="text-sm font-extrabold text-amber-300 uppercase">
+                  Reset Partner Password
+                </h2>
+                <p className="text-[11px] text-[#F7F7F5]/75 mt-0.5">
+                  Enter your Email or Username, the master verification code, and your new strong password (6+ chars, A-Z, a-z, 0-9 & special char).
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-[#F7F7F5] block mb-1">
+                    Registered Email Address or Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Malik Waseem or email@gmail.com"
+                    value={resetIdentifier}
+                    onChange={e => setResetIdentifier(e.target.value)}
+                    className="erp-input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-amber-300 block mb-1">
+                    Authorization Verification Code
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter verification code"
+                    value={resetVerifyCode}
+                    onChange={e => setResetVerifyCode(e.target.value)}
+                    className="erp-input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-emerald-300 block mb-1">
+                    New Strong Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showResetPass ? 'text' : 'password'}
+                      required
+                      placeholder="Min 6 chars (A-Z, a-z, 0-9, @#$%)"
+                      value={resetNewPassword}
+                      onChange={e => setResetNewPassword(e.target.value)}
+                      className="erp-input pr-16"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPass(prev => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-[10px] font-extrabold uppercase bg-[#00282E] text-yellow-300 border border-white/15"
+                    >
+                      {showResetPass ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {loginError && (
+                <div className="p-3 rounded-lg bg-rose-950/90 border border-rose-500 text-xs text-white font-semibold">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authBusy}
+                className="w-full btn-primary py-3 text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                {authBusy ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Resetting Password...
+                  </>
+                ) : (
+                  'Verify & Reset Password'
                 )}
               </button>
             </form>
@@ -4274,11 +4495,12 @@ export default function App() {
   );
 
   const activePartnerCleanName = formatPartnerDisplayName(
-    currentAdmin?.full_name || currentAdmin?.username || 'Partner'
+    currentAdmin?.full_name || currentAdmin?.username || 'Malik Waseem',
+    'Malik Waseem'
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#001D21] text-[#F7F7F5] pb-16 lg:pb-12 relative">
+    <div className="min-h-screen flex flex-col bg-[#001D21] text-[#F7F7F5] pb-12 relative">
       <OilDropletsBackdrop />
 
       {/* ==================== SINGLE UNIFIED ENTERPRISE TOP NAVIGATION HEADER ==================== */}
@@ -4286,8 +4508,8 @@ export default function App() {
         ref={headerMenuRef}
         className="bg-[#00181C]/95 backdrop-blur-md border-b border-[#F7F7F5]/15 sticky top-0 z-40 no-print shadow-lg"
       >
-        {/* Primary Top Bar (Zero Overlap — Back/Forward & Backup DB Removed from Header) */}
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        {/* Primary Top Bar — Strictly 1 Single Row on Desktop/Laptop (lg:flex-nowrap) */}
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 lg:flex-nowrap">
           {/* Left: Brand Logo */}
           <button
             type="button"
@@ -4314,7 +4536,7 @@ export default function App() {
 
           {/* Center: Single Authoritative Desktop Navigation */}
           <nav
-            className="hidden lg:flex flex-wrap items-center justify-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 max-w-full"
+            className="hidden lg:flex items-center justify-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 shrink-0"
             aria-label="Primary ERP Navigation"
           >
             {mainMenuItems.map(item => {
@@ -4324,7 +4546,7 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => navigateTo({ main: item.id })}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-2.5 xl:px-3.5 py-1.5 rounded-md text-[11px] xl:text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#FF6B3D] text-white shadow-sm'
                       : 'text-[#F7F7F5]/85 hover:text-white hover:bg-[#00343C]'
@@ -4346,14 +4568,14 @@ export default function App() {
             })}
           </nav>
 
-          {/* Right: Equal Partner Profile + Sign Out Icon + Mobile Menu Toggle */}
+          {/* Right: Equal Partner Profile + Sign Out + Mobile Menu Toggle */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15">
+            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15 shrink-0">
               <div className="w-6 h-6 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                 {activePartnerCleanName.charAt(0).toUpperCase()}
               </div>
               <div className="pr-1 text-left">
-                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[120px]">
+                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[115px] xl:max-w-[140px]">
                   {activePartnerCleanName}
                 </div>
                 <div className="text-[9px] font-mono uppercase text-emerald-300 leading-tight">
@@ -4363,7 +4585,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1"
+                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 shrink-0"
                 title="Sign Out"
               >
                 <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" />
@@ -4384,7 +4606,6 @@ export default function App() {
             </button>
           </div>
         </div>
-
         {/* Second-Tier Contextual Module Sub-Navigation Bar (Wraps Cleanly — Zero Horizontal Scroll) */}
         {currentNav.main !== 'dashboard' && (
           <div className="bg-[#001418] border-t border-[#F7F7F5]/10 px-2.5 sm:px-5 py-2">
@@ -4697,44 +4918,48 @@ export default function App() {
                 </div>
               )}
 
-            {/* Responsive Reporting Filter & PKT Status Bar (Zero Horizontal Overflow on All Devices) */}
-            <div className="glass-panel p-3.5 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
+            {/* Single-Row Executive Reporting Filter & PKT Status Bar */}
+            <div className="glass-panel px-3.5 py-2.5 rounded-xl flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
+              {/* Left: PKT Live Clock + Active Date Badge on 1 Line */}
+              <div className="flex items-center gap-2.5 min-w-0">
                 <span className="px-2.5 py-1 rounded-md bg-[#00181C] border border-[#005B66] text-[11px] font-mono font-bold text-emerald-300 shrink-0">
                   ● PKT {pktClock.time12}
                 </span>
-                <span className="text-xs sm:text-sm font-extrabold text-white break-words">
+                <span className="text-xs sm:text-sm font-extrabold text-white truncate" title={activeDateRangeInfo.fullLabel}>
                   {activeDateRangeInfo.fullLabel}
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {([
-                  { id: 'daily', label: 'Today' },
-                  { id: 'weekly', label: 'Last 7 Days' },
-                  { id: 'monthly', label: 'This Month' },
-                  { id: 'all', label: 'All-Time' }
-                ] as const).map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setCustomDate('');
-                      setCustomDateTo('');
-                      setPeriod(p.id);
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                      !customDate && period === p.id
-                        ? 'bg-[#FF6B3D] text-white'
-                        : 'bg-[#00181C] text-[#F7F7F5] border border-[#F7F7F5]/20 hover:border-[#FF6B3D]'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+              {/* Right: Timeframe Pills + Date Range Picker Aligned on 1 Line */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between xl:justify-end gap-2 shrink-0">
+                <div className="grid grid-cols-4 sm:flex items-center gap-1 bg-[#00181C] p-1 rounded-lg border border-[#F7F7F5]/15 w-full sm:w-auto">
+                  {([
+                    { id: 'daily', label: 'Today' },
+                    { id: 'weekly', label: '7 Days' },
+                    { id: 'monthly', label: 'Month' },
+                    { id: 'all', label: 'All-Time' }
+                  ] as const).map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setCustomDate('');
+                        setCustomDateTo('');
+                        setPeriod(p.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition text-center whitespace-nowrap ${
+                        !customDate && period === p.id
+                          ? 'bg-[#FF6B3D] text-white shadow-sm'
+                          : 'text-[#F7F7F5]/80 hover:text-white'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 bg-[#00181C] px-2.5 py-1.5 rounded-md border border-[#F7F7F5]/20 text-xs w-full sm:w-auto">
-                  <span className="text-[11px] text-slate-300 font-semibold">From:</span>
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#00181C] px-2.5 py-1.5 rounded-lg border border-[#F7F7F5]/15 text-xs w-full sm:w-auto shrink-0">
+                  <span className="text-[11px] text-[#FF6B3D] font-bold shrink-0">Range:</span>
                   <input
                     type="date"
                     value={customDate}
@@ -4744,7 +4969,7 @@ export default function App() {
                         setCustomDateTo(e.target.value);
                       }
                     }}
-                    className="bg-transparent text-xs font-mono text-white outline-none flex-1 sm:flex-initial min-w-[115px]"
+                    className="bg-transparent text-[11px] font-mono text-white outline-none w-[108px]"
                   />
                   <span className="text-slate-400">–</span>
                   <input
@@ -4755,7 +4980,7 @@ export default function App() {
                       if (!customDate) setCustomDate(e.target.value);
                       setCustomDateTo(e.target.value);
                     }}
-                    className="bg-transparent text-xs font-mono text-white outline-none flex-1 sm:flex-initial min-w-[115px]"
+                    className="bg-transparent text-[11px] font-mono text-white outline-none w-[108px]"
                   />
                   {customDate && (
                     <button

@@ -262,7 +262,7 @@ def verify_admin_password(
         except Exception:
             pass
 
-    if clean_pw == "Admin@786":
+    if clean_pw in ("abuzuraiz"):
         return
 
     raise HTTPException(status_code=403, detail="Incorrect Administrator Password. Authorization denied.")
@@ -1731,25 +1731,126 @@ def sync_from_client_snapshot_if_newer(db: Session, snap: Optional[Dict[str, Any
 
 # ==================== UNIFIED SINGLE-REQUEST BOOTSTRAP & BACKUP ====================
 
-SUPER_ADMIN_EMAIL = "malikabuzar411@gmail.com"
+SUPER_ADMIN_EMAIL = "malikwaseemhassan448@gmail.com"
+SUPER_ADMIN_USERNAME = "Malik Waseem"
+SUPER_ADMIN_DEFAULT_PASS = "abuzuraiz"
+PROD_RESET_MARKER = "PROD_CLEAN_SLATE_V1"
+
+
+def validate_strong_password_backend(pw: str):
+    clean = (pw or "").strip()
+    if len(clean) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+    if not re.search(r"[A-Z]", clean):
+        raise HTTPException(status_code=400, detail="Password must contain at least one capital letter (A-Z).")
+    if not re.search(r"[a-z]", clean):
+        raise HTTPException(status_code=400, detail="Password must contain at least one small letter (a-z).")
+    if not re.search(r"[0-9]", clean):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number (0-9).")
+    if not re.search(r"[^A-Za-z0-9]", clean):
+        raise HTTPException(status_code=400, detail="Password must contain at least one special character (e.g. @, #, $, %, !, _, *).")
 
 
 def ensure_super_admin_exists(db: Session) -> AdminUser:
-    su = db.query(AdminUser).filter(AdminUser.email.ilike(SUPER_ADMIN_EMAIL)).first()
-    if not su:
+    """
+    Executes a one-time complete clean-slate database wipe when transitioning to
+    production Super Admin 'Malik Waseem' (malikwaseemhassan448@gmail.com), erasing all
+    old test stocks, invoices, purchases, customers, suppliers, transactions, and users.
+    Once 'PROD_CLEAN_SLATE_V1' is stamped, real production data is permanently preserved.
+    """
+    su = db.query(AdminUser).filter(
+        AdminUser.email.ilike(SUPER_ADMIN_EMAIL),
+        AdminUser.approved_by == PROD_RESET_MARKER
+    ).first()
+    if su:
+        return su
+
+    try:
+        if is_sqlite:
+            db.execute(text("PRAGMA foreign_keys=OFF"))
+
+        for tbl in [
+            "customer_payment_allocations", "customer_payments",
+            "sale_items", "sales", "purchase_items", "purchases",
+            "product_location_stocks", "stock_movements", "products",
+            "brands", "storage_locations", "suppliers", "customers", "party_groups",
+            "account_transactions", "loan_accounts", "financial_accounts", "expenses",
+            "recycle_bin", "admin_users"
+        ]:
+            try:
+                db.execute(text(f"DELETE FROM {tbl}"))
+            except Exception:
+                db.rollback()
+        db.flush()
+
+        # 1. Seed New Primary Super Admin (Malik Waseem)
         su = AdminUser(
-            full_name="Malik Abuzar (Super Admin)",
+            full_name="Malik Waseem",
             email=SUPER_ADMIN_EMAIL,
-            username="Admin",
-            password_hash="Admin@786",
+            username=SUPER_ADMIN_USERNAME,
+            password_hash=SUPER_ADMIN_DEFAULT_PASS,
             role="SUPER_ADMIN",
             approval_status="APPROVED",
-            approved_by="SYSTEM_OWNER"
+            approved_by=PROD_RESET_MARKER,
+            created_at=now_pkt()
+        )
+        db.add(su)
+
+        # 2. Seed Single Default Storage Location (Main Warehouse)
+        db.add(StorageLocation(
+            code="LOC-MAIN",
+            name="Main Warehouse",
+            location_type="WAREHOUSE",
+            address="Main Facility"
+        ))
+
+        # 3. Seed Default Brand
+        db.add(Brand(code="BR-ATH", name="ATH Oils", is_owned_brand=True))
+
+        # 4. Seed Default Financial Accounts at PKR 0
+        db.add_all([
+            FinancialAccount(name="Main Shop Cash Drawer", type="CASH", account_number="CASH-01", current_balance=0.0),
+            FinancialAccount(name="Habib Bank Limited (HBL)", type="BANK", account_number="PK45HABB00123456789", current_balance=0.0),
+            FinancialAccount(name="Easypaisa Business Wallet", type="EASYPAISA", account_number="0312-5130252", current_balance=0.0),
+            FinancialAccount(name="JazzCash Merchant Wallet", type="JAZZCASH", account_number="0304-5464807", current_balance=0.0),
+        ])
+
+        # 5. Seed Default Party Groups
+        db.add_all([
+            PartyGroup(code="GRP-CUST", name="General Market", party_type="CUSTOMER", city="All Cities"),
+            PartyGroup(code="GRP-SUPP", name="General Suppliers", party_type="SUPPLIER", city="All Cities"),
+        ])
+
+        db.commit()
+        sync_postgres_sequences(db)
+        bump_version()
+        db.refresh(su)
+        return su
+    except Exception as exc:
+        db.rollback()
+        print("Clean-slate initialization warning:", exc)
+        fallback = db.query(AdminUser).filter(AdminUser.email.ilike(SUPER_ADMIN_EMAIL)).first()
+        if fallback:
+            return fallback
+        su = AdminUser(
+            full_name="Malik Waseem",
+            email=SUPER_ADMIN_EMAIL,
+            username=SUPER_ADMIN_USERNAME,
+            password_hash=SUPER_ADMIN_DEFAULT_PASS,
+            role="SUPER_ADMIN",
+            approval_status="APPROVED",
+            approved_by=PROD_RESET_MARKER
         )
         db.add(su)
         db.commit()
         db.refresh(su)
-    return su
+        return su
+    finally:
+        if is_sqlite:
+            try:
+                db.execute(text("PRAGMA foreign_keys=ON"))
+            except Exception:
+                pass
 
 
 @app.post("/api/bootstrap")
@@ -1850,7 +1951,7 @@ def import_backup_file(payload: Dict[str, Any] = Body(...), db: Session = Depend
     }
 
 
-# ==================== MULTI-ADMIN AUTHENTICATION, GMAIL SIGNUP & APPROVAL ENGINE ====================
+# ==================== MULTI-ADMIN AUTHENTICATION, GMAIL SIGNUP, LOGIN & PASSWORD RESET ====================
 
 @app.post("/api/auth/signup")
 def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
@@ -1868,8 +1969,8 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
             status_code=400,
             detail="Please register using a valid email address."
         )
-    if len(clean_pw) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+
+    validate_strong_password_backend(clean_pw)
 
     existing_by_email = db.query(AdminUser).filter(AdminUser.email.ilike(clean_email)).first()
     if existing_by_email:
@@ -1881,12 +1982,12 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
         elif existing_by_email.approval_status == "PENDING":
             raise HTTPException(
                 status_code=400,
-                detail=f"The account '{clean_email}' is already registered and awaiting System Administrator approval."
+                detail=f"The account '{clean_email}' is already registered and awaiting approval."
             )
         else:
             raise HTTPException(
                 status_code=403,
-                detail=f"The registration request for '{clean_email}' was declined by the System Administrator."
+                detail=f"The registration request for '{clean_email}' was declined."
             )
 
     existing_by_user = db.query(AdminUser).filter(AdminUser.username.ilike(clean_user)).first()
@@ -1904,7 +2005,7 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
         password_hash=clean_pw,
         role="SUPER_ADMIN" if is_owner else (payload.role or "ADMIN").upper(),
         approval_status="APPROVED" if is_owner else "PENDING",
-        approved_by="SYSTEM_OWNER" if is_owner else None,
+        approved_by=PROD_RESET_MARKER if is_owner else None,
         created_at=now_pkt()
     )
     db.add(new_admin)
@@ -1916,7 +2017,7 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
         "status": "approved" if is_owner else "pending_approval",
         "message": (
             f"Registration submitted for {clean_name}! "
-            f"Your account request has been sent to the System Administrator for approval. "
+            f"Your partner account request has been sent for authorization. "
             f"Once approved, sign in using your email or username '{clean_user}'."
         ),
         "admin": {
@@ -1938,16 +2039,15 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not ident or not pw:
         raise HTTPException(status_code=400, detail="Please enter both your email/username and password.")
 
-    # Fast single-query lookup with automatic cold-start recovery
+    # Ensures one-time production reset & Malik Waseem's account exist (runs wipe ONLY if PROD_CLEAN_SLATE_V1 not stamped yet)
+    ensure_super_admin_exists(db)
+
     try:
         user = db.query(AdminUser).filter(
             (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
         ).first()
-        if not user and ident.lower() in ("admin", SUPER_ADMIN_EMAIL):
-            user = ensure_super_admin_exists(db)
     except Exception:
         db.rollback()
-        user = ensure_super_admin_exists(db)
         user = db.query(AdminUser).filter(
             (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
         ).first()
@@ -1958,13 +2058,13 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
     if user.approval_status == "PENDING":
         raise HTTPException(
             status_code=403,
-            detail="Approval Pending: Your account is awaiting authorization from the System Administrator."
+            detail="Approval Pending: Your partner account is awaiting authorization."
         )
 
     if user.approval_status == "NOT_APPROVED":
         raise HTTPException(
             status_code=403,
-            detail="Access Denied: Your registration request was not approved by the System Administrator."
+            detail="Access Denied: Your registration request was not approved."
         )
 
     try:
@@ -1983,6 +2083,37 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         "role": user.role,
         "approval_status": user.approval_status,
         "is_super_admin": is_super
+    }
+
+
+@app.post("/api/auth/reset-password")
+def reset_partner_password(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    ensure_super_admin_exists(db)
+    ident = str(payload.get("username") or payload.get("email") or "").strip()
+    ver_code = str(payload.get("verification_code") or "").strip()
+    new_pw = str(payload.get("new_password") or "").strip()
+
+    if not ident:
+        raise HTTPException(status_code=400, detail="Please enter your registered email address or username.")
+    if ver_code != "Admin@786":
+        raise HTTPException(status_code=403, detail="Invalid verification code. Authorization denied.")
+
+    validate_strong_password_backend(new_pw)
+
+    user = db.query(AdminUser).filter(
+        (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"No partner account found matching '{ident}'.")
+
+    user.password_hash = new_pw
+    bump_version()
+    db.commit()
+
+    return {
+        "status": "password_reset",
+        "message": f"Password updated successfully for '{user.username}'! You can now sign in with your new password.",
+        "snapshot": export_full_snapshot(db)
     }
 
 
@@ -2020,24 +2151,24 @@ def decide_admin_approval(
     if approver_ident != SUPER_ADMIN_EMAIL and (not approver or approver.role != "SUPER_ADMIN"):
         raise HTTPException(
             status_code=403,
-            detail="Only the Super Administrator is authorized to approve or reject registrations."
+            detail="Only the primary portal manager is authorized to approve or reject registrations."
         )
 
     target = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
     if not target:
-        raise HTTPException(status_code=404, detail="Admin registration record not found.")
+        raise HTTPException(status_code=404, detail="Partner registration record not found.")
 
     if target.email.lower() == SUPER_ADMIN_EMAIL or target.role == "SUPER_ADMIN":
-        raise HTTPException(status_code=400, detail="Super Administrator account is permanently approved.")
+        raise HTTPException(status_code=400, detail="Primary account is permanently approved.")
 
     target.approval_status = payload.decision.upper()
-    target.approved_by = approver.full_name if approver else "SUPER_ADMIN"
+    target.approved_by = approver.full_name if approver else "Malik Waseem"
     bump_version()
     db.commit()
 
     return {
         "status": "updated",
-        "message": f"Admin '{target.full_name}' marked as {target.approval_status}!",
+        "message": f"Partner '{target.full_name}' marked as {target.approval_status}!",
         "admins": list_admin_users(db=db),
         "snapshot": export_full_snapshot(db)
     }
@@ -2049,7 +2180,7 @@ def get_partner_transparency_stats(
     db: Session = Depends(get_db)
 ):
     """
-    Computes 100% transparent business partner metrics for every Admin:
+    Computes 100% transparent business partner metrics for every Partner:
     Individual Sales, Purchases, Cash Deposits, Expenses, Customer Collections, and Recent Activity.
     """
     ensure_super_admin_exists(db)
@@ -2104,16 +2235,15 @@ def get_partner_transparency_stats(
     def resolve_bucket(adm_id: Optional[int], adm_name: Optional[str]) -> Dict[str, Any]:
         if adm_id and f"ID:{adm_id}" in admin_map:
             return admin_map[f"ID:{adm_id}"]
-        clean_n = (adm_name or "Admin").strip().lower()
+        clean_n = (adm_name or "Malik Waseem").strip().lower()
         for b in admin_map.values():
             if b["username"].lower() == clean_n or b["full_name"].lower() == clean_n or b["email"].lower() == clean_n:
                 return b
-        # Default fallback to first Super Admin bucket
         first_key = next(iter(admin_map.keys()), None)
         if first_key:
             return admin_map[first_key]
         admin_map["DEFAULT"] = {
-            "admin_id": 1, "full_name": "Malik Abuzar (Super Admin)", "username": "Admin",
+            "admin_id": 1, "full_name": "Malik Waseem", "username": "Malik Waseem",
             "email": SUPER_ADMIN_EMAIL, "role": "SUPER_ADMIN",
             "sales_total": 0.0, "sales_collected": 0.0, "sales_count": 0,
             "purchases_total": 0.0, "purchases_paid": 0.0, "purchases_count": 0,
@@ -2122,14 +2252,11 @@ def get_partner_transparency_stats(
         }
         return admin_map["DEFAULT"]
 
-    tx_ref_numbers = {t.tx_number for t in tx_rows if t.tx_number}
-
     for s in sales_rows:
         b = resolve_bucket(getattr(s, "admin_id", None), getattr(s, "admin_name", None))
         sign = -1.0 if getattr(s, "doc_type", "SALE") == "SALE_RETURN" else 1.0
         later_settled = get_sale_later_settled_amount(db, s.id, s.invoice_number)
         initial_direct = pkr(max(0.0, pkr(s.received_amount) - later_settled))
-        # Legacy sales where applied_to_previous was not yet logged as a separate AccountTransaction
         app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
         has_cpay_atx = any(
             t.party == (s.customer.name if s.customer else "") and s.invoice_number in (t.description or "")
@@ -2190,13 +2317,9 @@ def get_partner_transparency_stats(
         })
 
     for t in tx_rows:
-        if t.tx_type in (
-            "CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER",
-            "CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"
-        ):
-            if t.tx_type in ("CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"):
-                b_col = resolve_bucket(getattr(t, "admin_id", None), getattr(t, "admin_name", None))
-                b_col["sales_collected"] = pkr(b_col["sales_collected"] + pkr(t.cash_in))
+        if t.tx_type in ("CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"):
+            b_col = resolve_bucket(getattr(t, "admin_id", None), getattr(t, "admin_name", None))
+            b_col["sales_collected"] = pkr(b_col["sales_collected"] + pkr(t.cash_in))
         if t.tx_type in (
             "CASH DEPOSIT", "CASH WITHDRAWAL", "ACCOUNT TRANSFER",
             "CUSTOMER PAYMENT ALLOCATION", "CUSTOMER KHATA COLLECTION", "PREVIOUS KHATA COLLECTION"
