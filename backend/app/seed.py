@@ -104,83 +104,8 @@ def upgrade_database_schema():
 
 
 def seed_database():
-    db = SessionLocal()
-    try:
-        pur_cols = [c["name"] for c in inspect(engine).get_columns("purchases")]
-        if "idempotency_key" not in pur_cols:
-            upgrade_database_schema()
-
-        existing_admin = db.query(AdminUser).filter(
-            AdminUser.email.ilike("malikwaseemhassan448@gmail.com"),
-            AdminUser.approved_by == "PROD_CLEAN_SLATE_V1"
-        ).first()
-        existing_loc = db.query(StorageLocation).first()
-        if existing_admin and existing_loc:
-            db.close()
-            return
-    except Exception:
-        db.rollback()
-
     Base.metadata.create_all(bind=engine)
     upgrade_database_schema()
-
-    if not db.query(StorageLocation).first():
-        db.add(StorageLocation(
-            code="LOC-MAIN",
-            name="Main Warehouse",
-            location_type="WAREHOUSE",
-            address="Primary Storage Room"
-        ))
-        db.commit()
-
-    if not db.query(Brand).first():
-        db.add(Brand(code="BR-ATH", name="ATH Oils", is_owned_brand=True))
-        db.commit()
-
-    if not db.query(FinancialAccount).first():
-        accounts = [
-            FinancialAccount(name="Main Shop Cash Drawer", type="CASH", account_number="CASH-01", current_balance=0.0),
-            FinancialAccount(name="Habib Bank Limited (HBL)", type="BANK", account_number="PK45HABB00123456789", current_balance=0.0),
-            FinancialAccount(name="Easypaisa Business Wallet", type="EASYPAISA", account_number="0312-5130252", current_balance=0.0),
-            FinancialAccount(name="JazzCash Merchant Wallet", type="JAZZCASH", account_number="0304-5464807", current_balance=0.0),
-        ]
-        db.add_all(accounts)
-        db.commit()
-
-    default_groups = [
-        ("General Market", "CUSTOMER", "All Cities"),
-        ("General Suppliers", "SUPPLIER", "All Cities"),
-    ]
-    for g_name, p_type, g_city in default_groups:
-        exists = db.query(PartyGroup).filter(
-            PartyGroup.name.ilike(g_name),
-            PartyGroup.party_type == p_type
-        ).first()
-        if not exists:
-            db.add(PartyGroup(
-                code=f"GRP-{uuid.uuid4().hex[:4].upper()}",
-                name=g_name,
-                party_type=p_type,
-                city=g_city
-            ))
-    db.commit()
-
-    super_admin = db.query(AdminUser).filter(
-        AdminUser.email.ilike("malikwaseemhassan448@gmail.com")
-    ).first()
-    if not super_admin:
-        db.add(AdminUser(
-            full_name="Malik Waseem",
-            email="malikwaseemhassan448@gmail.com",
-            username="Malik Waseem",
-            password_hash="abuzuraiz",
-            role="SUPER_ADMIN",
-            approval_status="APPROVED",
-            approved_by="PROD_CLEAN_SLATE_V1"
-        ))
-        db.commit()
-
-    db.close()
 
 
 if __name__ == "__main__":

@@ -509,6 +509,26 @@ function normalizeIdentityText(raw: string | undefined | null): string {
   return String(raw).trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+// Synchronously purge legacy test cache or any old 'Malik Abuzar' / 'Admin' session before mount
+try {
+  if (typeof window !== 'undefined') {
+    const rawProf = localStorage.getItem('ath_admin_profile') || '';
+    const isLegacyUser =
+      rawProf.toLowerCase().includes('abuzar') ||
+      rawProf.toLowerCase().includes('"username":"admin"');
+    if (localStorage.getItem('ath_prod_clean_v2') !== 'true' || isLegacyUser) {
+      localStorage.removeItem('ath_erp_snapshot');
+      localStorage.removeItem('ath_ui_cache_v2');
+      localStorage.removeItem('ath_admin_auth');
+      localStorage.removeItem('ath_admin_auth_ts');
+      localStorage.removeItem('ath_admin_profile');
+      localStorage.setItem('ath_prod_clean_v2', 'true');
+    }
+  }
+} catch {
+  // Ignore storage restrictions
+}
+
 export default function App() {
   // ==================== AUTHENTICATION & 15-MINUTE INACTIVITY TIMEOUT ====================
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -529,19 +549,6 @@ export default function App() {
       return null;
     }
   });
-  // One-time browser cache wipe so old test snapshots never re-upload after production DB reset
-  useEffect(() => {
-    if (localStorage.getItem('ath_prod_clean_v1') !== 'true') {
-      localStorage.removeItem('ath_erp_snapshot');
-      localStorage.removeItem('ath_ui_cache_v2');
-      localStorage.removeItem('ath_admin_auth');
-      localStorage.removeItem('ath_admin_auth_ts');
-      localStorage.removeItem('ath_admin_profile');
-      localStorage.setItem('ath_prod_clean_v1', 'true');
-      setIsAuthenticated(false);
-      setCurrentAdmin(null);
-    }
-  }, []);
 
   // Automatically attach column header labels (data-label) to all table cells for mobile card view
   useEffect(() => {
@@ -1255,9 +1262,8 @@ export default function App() {
     [allAccountHistory, activeDateRangeInfo, channelFilter]
   );
 
-  // Instant Synchronized Dashboard KPIs for the Active Date Range
-  const stats = useMemo<DashboardStats | null>(() => {
-    if (!rawStats && products.length === 0 && accounts.length === 0) return null;
+  // Instant Synchronized Dashboard KPIs for the Active Date Range (Never returns null — 0ms instant render)
+  const stats = useMemo<DashboardStats>(() => {
     const activeConfirmedSales = sales.filter(s => (s.doc_type || 'SALE') !== 'ESTIMATE');
     let salesRev = 0;
     let salesPend = 0;
@@ -1927,7 +1933,38 @@ export default function App() {
     setPurNewSaleRatePerBottle('');
   };
 
-  // ==================== LOGIN & LOGOUT ====================
+  // ==================== LOGIN, SIGNUP & INSTANT 0ms DASHBOARD HYDRATION ====================
+  const applyBootstrapPayload = (boot: any) => {
+    if (!boot || typeof boot !== 'object') return;
+    if (boot.snapshot) {
+      saveSnapshot(boot.snapshot, false);
+      initialSyncDone.current = true;
+    }
+    if (boot.stats) setStats(boot.stats);
+    if (Array.isArray(boot.locations)) setLocations(boot.locations);
+    if (Array.isArray(boot.products)) setProducts(boot.products);
+    if (Array.isArray(boot.customers)) setCustomers(boot.customers);
+    if (Array.isArray(boot.suppliers)) setSuppliers(boot.suppliers);
+    if (Array.isArray(boot.sales)) setSales(boot.sales);
+    if (Array.isArray(boot.purchases)) setPurchases(boot.purchases);
+    if (Array.isArray(boot.pending_sales)) setAllPendingSales(boot.pending_sales);
+    if (Array.isArray(boot.pending_purchases)) setAllPendingPurchases(boot.pending_purchases);
+    if (Array.isArray(boot.expenses)) setExpenses(boot.expenses);
+    if (Array.isArray(boot.accounts)) setAccounts(boot.accounts);
+    if (Array.isArray(boot.loans)) setLoans(boot.loans);
+    if (Array.isArray(boot.account_history)) setAccountHistory(boot.account_history);
+    if (Array.isArray(boot.recycle_bin)) setRecycleBin(boot.recycle_bin);
+    if (boot.vyapar_reports) setVyaparReports(boot.vyapar_reports);
+    if (Array.isArray(boot.admins)) setAdminsList(boot.admins);
+    if (Array.isArray(boot.partner_transparency)) setPartnerTransparency(boot.partner_transparency);
+    try {
+      const { snapshot, ...uiCache } = boot;
+      localStorage.setItem('ath_ui_cache_v2', JSON.stringify(uiCache));
+    } catch {
+      // Ignore storage quota
+    }
+  };
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authBusy) return;
@@ -1942,7 +1979,8 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: loginUser.trim(),
-            password: loginPass
+            password: loginPass,
+            client_snapshot: getSavedSnapshot()
           })
         },
         2
@@ -1950,12 +1988,14 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.detail || 'Invalid email/username or password.');
       }
-      if (data.snapshot) {
+      if (data.bootstrap) {
+        applyBootstrapPayload(data.bootstrap);
+      } else if (data.snapshot) {
         saveSnapshot(data.snapshot, false);
       }
       const profile: AdminUserRecord = {
         id: data.id || 1,
-        full_name: data.full_name || data.username || 'Authorized User',
+        full_name: data.full_name || data.username || 'Malik Waseem',
         email: data.email || '',
         username: data.username || loginUser.trim(),
         role: data.role || 'ADMIN',
@@ -1996,7 +2036,8 @@ export default function App() {
             email: signupEmail.trim().toLowerCase(),
             username: signupUsername.trim() || signupEmail.trim().split('@')[0],
             password: signupPassword.trim(),
-            role: 'ADMIN'
+            role: 'ADMIN',
+            client_snapshot: getSavedSnapshot()
           })
         },
         2
@@ -2004,7 +2045,7 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.detail || 'Registration failed.');
       }
-      if (data.snapshot) saveSnapshot(data.snapshot, true);
+      if (data.snapshot) saveSnapshot(data.snapshot, false);
       setSignupSuccessMsg(data.message);
       setLoginUser(signupEmail.trim().toLowerCase());
       setSignupFullName('');
@@ -2024,11 +2065,12 @@ export default function App() {
     if (authBusy) return;
     setLoginError('');
     setSignupSuccessMsg('');
+    const cleanNewPw = resetNewPassword.trim();
     if (resetVerifyCode.trim() !== 'Admin@786') {
       setLoginError('Invalid verification code. Please enter the valid authorization code.');
       return;
     }
-    const pwErr = validateStrongPassword(resetNewPassword.trim());
+    const pwErr = validateStrongPassword(cleanNewPw);
     if (pwErr) {
       setLoginError(pwErr);
       return;
@@ -2043,7 +2085,8 @@ export default function App() {
           body: JSON.stringify({
             username: resetIdentifier.trim(),
             verification_code: resetVerifyCode.trim(),
-            new_password: resetNewPassword.trim()
+            new_password: cleanNewPw,
+            client_snapshot: getSavedSnapshot()
           })
         },
         2
@@ -2051,10 +2094,10 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.detail || 'Password reset failed.');
       }
-      if (data.snapshot) saveSnapshot(data.snapshot, true);
-      setSignupSuccessMsg(data.message || 'Password reset successfully! Please sign in with your new password.');
-      setLoginUser(resetIdentifier.trim());
-      setLoginPass('');
+      if (data.snapshot) saveSnapshot(data.snapshot, false);
+      setSignupSuccessMsg(data.message || 'Password reset successfully! Click Sign In below to enter.');
+      setLoginUser(data.username || resetIdentifier.trim());
+      setLoginPass(cleanNewPw);
       setResetIdentifier('');
       setResetVerifyCode('');
       setResetNewPassword('');
@@ -4508,13 +4551,13 @@ if (!isAuthenticated) {
         ref={headerMenuRef}
         className="bg-[#00181C]/95 backdrop-blur-md border-b border-[#F7F7F5]/15 sticky top-0 z-40 no-print shadow-lg"
       >
-        {/* Primary Top Bar — Strictly 1 Single Row on Desktop/Laptop (lg:flex-nowrap) */}
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 lg:flex-nowrap">
+        {/* Primary Top Bar — Strictly 1 Single Row on Desktop/Laptop Without Right-Edge Clipping */}
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 lg:flex-nowrap">
           {/* Left: Brand Logo */}
           <button
             type="button"
             onClick={() => navigateTo({ main: 'dashboard' })}
-            className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+            className="flex items-center gap-2 text-left group focus:outline-none shrink-0"
           >
             <div className="bg-[#F7F7F5] px-2 py-1 rounded-md border border-white shadow-sm group-hover:border-[#FF6B3D] transition">
               <img
@@ -4525,7 +4568,7 @@ if (!isAuthenticated) {
               />
             </div>
             <div className="min-w-0">
-              <div className="text-xs sm:text-sm xl:text-base font-black tracking-tight text-[#F7F7F5] leading-none truncate">
+              <div className="text-xs sm:text-sm font-black tracking-tight text-[#F7F7F5] leading-none truncate">
                 ATH <span className="text-[#FF6B3D]">LUBRICANTS</span>
               </div>
               <div className="text-[9px] sm:text-[10px] text-[#F7F7F5]/70 font-medium tracking-wide uppercase mt-0.5 truncate">
@@ -4536,7 +4579,7 @@ if (!isAuthenticated) {
 
           {/* Center: Single Authoritative Desktop Navigation */}
           <nav
-            className="hidden lg:flex items-center justify-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 shrink-0"
+            className="hidden lg:flex items-center justify-center gap-1 bg-[#00242A] p-1 rounded-lg border border-[#F7F7F5]/15 min-w-0"
             aria-label="Primary ERP Navigation"
           >
             {mainMenuItems.map(item => {
@@ -4546,7 +4589,7 @@ if (!isAuthenticated) {
                   key={item.id}
                   type="button"
                   onClick={() => navigateTo({ main: item.id })}
-                  className={`px-2.5 xl:px-3.5 py-1.5 rounded-md text-[11px] xl:text-xs font-bold tracking-tight transition flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-2 xl:px-3 py-1.5 rounded-md text-[11px] xl:text-xs font-bold tracking-tight transition flex items-center gap-1 xl:gap-1.5 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#FF6B3D] text-white shadow-sm'
                       : 'text-[#F7F7F5]/85 hover:text-white hover:bg-[#00343C]'
@@ -4569,13 +4612,13 @@ if (!isAuthenticated) {
           </nav>
 
           {/* Right: Equal Partner Profile + Sign Out + Mobile Menu Toggle */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 bg-[#00242A] pl-2.5 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#00242A] pl-2 pr-1.5 py-1 rounded-lg border border-[#F7F7F5]/15 shrink-0">
               <div className="w-6 h-6 rounded-md bg-[#005B66] border border-[#FF6B3D]/50 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                 {activePartnerCleanName.charAt(0).toUpperCase()}
               </div>
               <div className="pr-1 text-left">
-                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[115px] xl:max-w-[140px]">
+                <div className="text-[11px] font-bold text-white leading-tight truncate max-w-[95px] xl:max-w-[135px]">
                   {activePartnerCleanName}
                 </div>
                 <div className="text-[9px] font-mono uppercase text-emerald-300 leading-tight">
@@ -4585,7 +4628,7 @@ if (!isAuthenticated) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn-signout px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 shrink-0"
+                className="btn-signout px-2 py-1 text-[11px] font-bold flex items-center gap-1 shrink-0 whitespace-nowrap"
                 title="Sign Out"
               >
                 <LogOut className="w-3.5 h-3.5 text-[#FF6B3D]" />
