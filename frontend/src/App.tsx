@@ -584,8 +584,11 @@ export default function App() {
   const [showResetPass, setShowResetPass] = useState<boolean>(false);
   const [authBusy, setAuthBusy] = useState<boolean>(false);
 
-  const validateStrongPassword = (pw: string): string | null => {
+  const validateStrongPassword = (pw: string, userOrEmail = ''): string | null => {
     if (pw.length < 6) return 'Password must be at least 6 characters long.';
+    if (userOrEmail && pw.trim().toLowerCase() === userOrEmail.trim().toLowerCase()) {
+      return 'Password cannot be the same as your username or email address.';
+    }
     if (!/[A-Z]/.test(pw)) return 'Password must include at least one capital letter (A–Z).';
     if (!/[a-z]/.test(pw)) return 'Password must include at least one small letter (a–z).';
     if (!/[0-9]/.test(pw)) return 'Password must include at least one number (0–9).';
@@ -1979,11 +1982,10 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: loginUser.trim(),
-            password: loginPass,
-            client_snapshot: getSavedSnapshot()
+            password: loginPass
           })
         },
-        2
+        0
       );
       if (!res.ok) {
         throw new Error(data.detail || 'Invalid email/username or password.');

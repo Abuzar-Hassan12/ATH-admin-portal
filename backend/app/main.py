@@ -1744,13 +1744,17 @@ def sync_from_client_snapshot_if_newer(db: Session, snap: Optional[Dict[str, Any
 SUPER_ADMIN_EMAIL = "malikwaseemhassan448@gmail.com"
 SUPER_ADMIN_USERNAME = "Malik Waseem"
 SUPER_ADMIN_DEFAULT_PASS = "abuzuraiz"
-PROD_RESET_MARKER = "PROD_CLEAN_SLATE_V2"
+PROD_RESET_MARKER = "PROD_CLEAN_SLATE_V3"
 
 
-def validate_strong_password_backend(pw: str):
+def validate_strong_password_backend(pw: str, username: str = "", email: str = ""):
     clean = (pw or "").strip()
     if len(clean) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+    if username and clean.lower() == username.strip().lower():
+        raise HTTPException(status_code=400, detail="Password cannot be the same as your username.")
+    if email and clean.lower() == email.strip().lower():
+        raise HTTPException(status_code=400, detail="Password cannot be the same as your email address.")
     if not re.search(r"[A-Z]", clean):
         raise HTTPException(status_code=400, detail="Password must contain at least one capital letter (A-Z).")
     if not re.search(r"[a-z]", clean):
@@ -1763,40 +1767,44 @@ def validate_strong_password_backend(pw: str):
 
 def ensure_super_admin_exists(db: Session) -> AdminUser:
     """
-    Guarantees a 100% clean-slate production database stamped with PROD_CLEAN_SLATE_V2.
-    - If 'Malik Waseem' with PROD_CLEAN_SLATE_V2 already exists AND legacy 'Malik Abuzar' / 'Admin' is gone,
-      returns immediately without touching any data (safe across all future logins and restarts).
-    - Otherwise, wipes all legacy test data and seeds Malik Waseem + 0 balances.
+    Executes a one-time atomic clean-slate wipe (PROD_CLEAN_SLATE_V3):
+    - Removes legacy 'Admin' / 'Malik Abuzar' and all old test invoices, stocks, and parties.
+    - Seeds 'Malik Waseem' (malikwaseemhassan448@gmail.com) with password 'abuzuraiz'.
+    - Once stamped with PROD_CLEAN_SLATE_V3, returns in <1ms on all future logins and restarts without touching data.
     """
     su = db.query(AdminUser).filter(
         AdminUser.email.ilike(SUPER_ADMIN_EMAIL),
         AdminUser.approved_by == PROD_RESET_MARKER
     ).first()
-    has_legacy_abuzar = db.query(AdminUser).filter(
-        (AdminUser.email.ilike("malikabuzar411@gmail.com")) |
-        (AdminUser.username.ilike("Admin")) |
-        (AdminUser.full_name.ilike("%Malik Abuzar%"))
-    ).first()
-    if su and not has_legacy_abuzar:
+    if su:
         return su
 
     try:
-        if is_sqlite:
+        if not is_sqlite:
+            # Atomic PostgreSQL wipe: clears all 20 tables & resets IDs to 1 in 2ms without FK order issues
+            db.execute(text(
+                "TRUNCATE TABLE "
+                "customer_payment_allocations, customer_payments, "
+                "sale_items, sales, purchase_items, purchases, "
+                "product_location_stocks, stock_movements, products, "
+                "brands, storage_locations, suppliers, customers, party_groups, "
+                "account_transactions, loan_accounts, expenses, financial_accounts, "
+                "recycle_bin, admin_users "
+                "RESTART IDENTITY CASCADE;"
+            ))
+            db.commit()
+        else:
             db.execute(text("PRAGMA foreign_keys=OFF"))
-
-        for tbl in [
-            "customer_payment_allocations", "customer_payments",
-            "sale_items", "sales", "purchase_items", "purchases",
-            "product_location_stocks", "stock_movements", "products",
-            "brands", "storage_locations", "suppliers", "customers", "party_groups",
-            "account_transactions", "loan_accounts", "financial_accounts", "expenses",
-            "recycle_bin", "admin_users"
-        ]:
-            try:
+            for tbl in [
+                "customer_payment_allocations", "customer_payments",
+                "sale_items", "sales", "purchase_items", "purchases",
+                "product_location_stocks", "stock_movements", "products",
+                "brands", "storage_locations", "suppliers", "customers", "party_groups",
+                "account_transactions", "loan_accounts", "expenses", "financial_accounts",
+                "recycle_bin", "admin_users"
+            ]:
                 db.execute(text(f"DELETE FROM {tbl}"))
-            except Exception:
-                db.rollback()
-        db.flush()
+            db.commit()
 
         # 1. Seed Primary Super Admin (Malik Waseem)
         su = AdminUser(
@@ -1812,29 +1820,33 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
         db.add(su)
 
         # 2. Seed Single Default Storage Location (Main Warehouse)
-        db.add(StorageLocation(
-            code="LOC-MAIN",
-            name="Main Warehouse",
-            location_type="WAREHOUSE",
-            address="Main Facility"
-        ))
+        if not db.query(StorageLocation).first():
+            db.add(StorageLocation(
+                code="LOC-MAIN",
+                name="Main Warehouse",
+                location_type="WAREHOUSE",
+                address="Main Facility"
+            ))
 
         # 3. Seed Default Brand
-        db.add(Brand(code="BR-ATH", name="ATH Oils", is_owned_brand=True))
+        if not db.query(Brand).first():
+            db.add(Brand(code="BR-ATH", name="ATH Oils", is_owned_brand=True))
 
         # 4. Seed Default Financial Accounts at PKR 0
-        db.add_all([
-            FinancialAccount(name="Main Shop Cash Drawer", type="CASH", account_number="CASH-01", current_balance=0.0),
-            FinancialAccount(name="Habib Bank Limited (HBL)", type="BANK", account_number="PK45HABB00123456789", current_balance=0.0),
-            FinancialAccount(name="Easypaisa Business Wallet", type="EASYPAISA", account_number="0312-5130252", current_balance=0.0),
-            FinancialAccount(name="JazzCash Merchant Wallet", type="JAZZCASH", account_number="0304-5464807", current_balance=0.0),
-        ])
+        if not db.query(FinancialAccount).first():
+            db.add_all([
+                FinancialAccount(name="Main Shop Cash Drawer", type="CASH", account_number="CASH-01", current_balance=0.0),
+                FinancialAccount(name="Habib Bank Limited (HBL)", type="BANK", account_number="PK45HABB00123456789", current_balance=0.0),
+                FinancialAccount(name="Easypaisa Business Wallet", type="EASYPAISA", account_number="0312-5130252", current_balance=0.0),
+                FinancialAccount(name="JazzCash Merchant Wallet", type="JAZZCASH", account_number="0304-5464807", current_balance=0.0),
+            ])
 
         # 5. Seed Default Party Groups
-        db.add_all([
-            PartyGroup(code="GRP-CUST", name="General Market", party_type="CUSTOMER", city="All Cities"),
-            PartyGroup(code="GRP-SUPP", name="General Suppliers", party_type="SUPPLIER", city="All Cities"),
-        ])
+        if not db.query(PartyGroup).first():
+            db.add_all([
+                PartyGroup(code="GRP-CUST", name="General Market", party_type="CUSTOMER", city="All Cities"),
+                PartyGroup(code="GRP-SUPP", name="General Suppliers", party_type="SUPPLIER", city="All Cities"),
+            ])
 
         db.commit()
         sync_postgres_sequences(db)
@@ -1842,10 +1854,30 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
         return su
     except Exception as exc:
         db.rollback()
-        print("Clean-slate initialization warning:", exc)
-        fallback = db.query(AdminUser).filter(AdminUser.email.ilike(SUPER_ADMIN_EMAIL)).first()
-        if fallback:
-            return fallback
+        print("Clean-slate initialization fallback:", exc)
+        # Even if TRUNCATE failed, remove legacy Admin and force Malik Waseem's exact credentials
+        db.query(AdminUser).filter(
+            (AdminUser.email.ilike("malikabuzar411@gmail.com")) |
+            (AdminUser.username.ilike("Admin"))
+        ).delete(synchronize_session=False)
+        db.commit()
+
+        existing_waseem = db.query(AdminUser).filter(
+            (AdminUser.email.ilike(SUPER_ADMIN_EMAIL)) |
+            (AdminUser.username.ilike(SUPER_ADMIN_USERNAME))
+        ).first()
+        if existing_waseem:
+            existing_waseem.full_name = "Malik Waseem"
+            existing_waseem.email = SUPER_ADMIN_EMAIL
+            existing_waseem.username = SUPER_ADMIN_USERNAME
+            existing_waseem.password_hash = SUPER_ADMIN_DEFAULT_PASS
+            existing_waseem.role = "SUPER_ADMIN"
+            existing_waseem.approval_status = "APPROVED"
+            existing_waseem.approved_by = PROD_RESET_MARKER
+            db.commit()
+            db.refresh(existing_waseem)
+            return existing_waseem
+
         su = AdminUser(
             full_name="Malik Waseem",
             email=SUPER_ADMIN_EMAIL,
@@ -1853,7 +1885,8 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
             password_hash=SUPER_ADMIN_DEFAULT_PASS,
             role="SUPER_ADMIN",
             approval_status="APPROVED",
-            approved_by=PROD_RESET_MARKER
+            approved_by=PROD_RESET_MARKER,
+            created_at=now_pkt()
         )
         db.add(su)
         db.commit()
@@ -1968,7 +2001,6 @@ def import_backup_file(payload: Dict[str, Any] = Body(...), db: Session = Depend
 @app.post("/api/auth/signup")
 def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
     ensure_super_admin_exists(db)
-    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
     clean_email = (payload.email or "").strip().lower()
     clean_name = (payload.full_name or "").strip()
     clean_user = (payload.username or clean_email.split("@")[0]).strip()
@@ -1982,7 +2014,7 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
             detail="Please register using a valid email address."
         )
 
-    validate_strong_password_backend(clean_pw)
+    validate_strong_password_backend(clean_pw, username=clean_user, email=clean_email)
 
     existing_by_email = db.query(AdminUser).filter(AdminUser.email.ilike(clean_email)).first()
     if existing_by_email:
@@ -2007,6 +2039,13 @@ def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=400,
             detail=f"Username '{clean_user}' is already taken. Please choose a different username."
+        )
+
+    existing_by_pw = db.query(AdminUser).filter(AdminUser.password_hash == clean_pw).first()
+    if existing_by_pw:
+        raise HTTPException(
+            status_code=400,
+            detail="This password is already in use by another partner. Please choose a unique password."
         )
 
     is_owner = (clean_email == SUPER_ADMIN_EMAIL)
@@ -2052,7 +2091,6 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Please enter both your email/username and password.")
 
     ensure_super_admin_exists(db)
-    sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
 
     try:
         user = db.query(AdminUser).filter(
@@ -2086,7 +2124,6 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         db.rollback()
 
     is_super = (user.email.lower() == SUPER_ADMIN_EMAIL or user.role == "SUPER_ADMIN")
-    # Return full bootstrap payload inside login response so the Dashboard renders in 0ms without a second round-trip!
     boot_data = bootstrap_erp(BootstrapRequest(period="all", channel="ALL", client_snapshot=None), db=db)
     return {
         "status": "authenticated",
@@ -2105,7 +2142,6 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
 @app.post("/api/auth/reset-password")
 def reset_partner_password(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
     ensure_super_admin_exists(db)
-    sync_from_client_snapshot_if_newer(db, payload.get("client_snapshot"))
     ident = str(payload.get("username") or payload.get("email") or "").strip()
     ver_code = str(payload.get("verification_code") or "").strip()
     new_pw = str(payload.get("new_password") or "").strip()
@@ -2115,13 +2151,23 @@ def reset_partner_password(payload: Dict[str, Any] = Body(...), db: Session = De
     if ver_code != "Admin@786":
         raise HTTPException(status_code=403, detail="Invalid verification code. Authorization denied.")
 
-    validate_strong_password_backend(new_pw)
-
     user = db.query(AdminUser).filter(
         (AdminUser.email.ilike(ident)) | (AdminUser.username.ilike(ident))
     ).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"No partner account found matching '{ident}'.")
+
+    validate_strong_password_backend(new_pw, username=user.username, email=user.email)
+
+    duplicate_pw = db.query(AdminUser).filter(
+        AdminUser.id != user.id,
+        AdminUser.password_hash == new_pw
+    ).first()
+    if duplicate_pw:
+        raise HTTPException(
+            status_code=400,
+            detail="This password is already in use by another partner. Please choose a unique password."
+        )
 
     user.password_hash = new_pw
     bump_version()

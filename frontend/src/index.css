@@ -534,7 +534,14 @@ body,
     align-items: center;
   }
 }
-
+/* Keep dark petrol input background when Chrome/Edge autofills saved usernames or passwords */
+.erp-input:-webkit-autofill,
+.erp-input:-webkit-autofill:hover,
+.erp-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #F7F7F5 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #00191D inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
 @media (max-width: 640px) {
   .glass-panel {
     padding: 0.8rem !important;
