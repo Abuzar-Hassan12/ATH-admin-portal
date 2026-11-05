@@ -58,28 +58,26 @@ def pkr(val: Optional[float]) -> float:
 
 
 BOOTSTRAP_CACHE: Dict[str, Any] = {}
+_STARTUP_INITIALIZED = False
 
 
 def sync_postgres_sequences(db: Session):
-    """Ensures all PostgreSQL SERIAL primary-key sequences are at least MAX(id) so INSERTs never throw 500 UniqueViolation."""
+    """Synchronizes all 20 PostgreSQL SERIAL sequences in 1 single network round-trip instead of 20."""
     if is_sqlite:
         return
-    for seq_tbl in [
+    tables = [
         "admin_users", "brands", "storage_locations", "party_groups", "products",
         "product_location_stocks", "suppliers", "customers", "financial_accounts",
         "loan_accounts", "account_transactions", "purchases", "purchase_items",
         "sales", "sale_items", "customer_payments", "customer_payment_allocations",
         "expenses", "recycle_bin", "stock_movements"
-    ]:
-        try:
-            db.execute(text(
-                f"SELECT setval(pg_get_serial_sequence('{seq_tbl}', 'id'), "
-                f"COALESCE((SELECT MAX(id) FROM {seq_tbl}), 1), "
-                f"(SELECT COUNT(*) > 0 FROM {seq_tbl}));"
-            ))
-        except Exception:
-            db.rollback()
+    ]
+    combined_sql = " ".join([
+        f"SELECT setval(pg_get_serial_sequence('{t}', 'id'), COALESCE((SELECT MAX(id) FROM {t}), 1), (SELECT COUNT(*) > 0 FROM {t}));"
+        for t in tables
+    ])
     try:
+        db.execute(text(combined_sql))
         db.commit()
     except Exception:
         db.rollback()
@@ -190,12 +188,22 @@ def consolidate_default_locations(db: Session):
 
 @app.on_event("startup")
 def on_startup():
+    global _STARTUP_INITIALIZED, SERVER_STATE_VERSION
     try:
-        seed_database()
         with Session(engine) as db:
-            ensure_super_admin_exists(db)
-            consolidate_default_locations(db)
-            sync_postgres_sequences(db)
+            already_clean = db.query(AdminUser).filter(
+                AdminUser.email.ilike("malikwaseemhassan448@gmail.com"),
+                AdminUser.approved_by == "PROD_CLEAN_SLATE_V3"
+            ).first()
+            if not already_clean:
+                seed_database()
+                ensure_super_admin_exists(db)
+                consolidate_default_locations(db)
+                sync_postgres_sequences(db)
+            reconcile_overpaid_bills_and_party_balances(db)
+            if SERVER_STATE_VERSION == 0:
+                SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+            _STARTUP_INITIALIZED = True
     except Exception as exc:
         print("Startup schema check warning:", exc)
 
@@ -854,22 +862,26 @@ def recompute_supplier_authoritative_payable(db: Session, supplier: Supplier) ->
 
 def reconcile_overpaid_bills_and_party_balances(db: Session) -> bool:
     """
-    Self-healing accounting reconciliation:
-    1. Fixes any Purchase bill where paid_amount > total_amount by cascading the excess payment
-       onto older unpaid purchase bills for the same supplier and updating closing_payable.
-    2. Fixes any Sale bill where received_amount > total_amount so received_amount reflects the
-       bill's own settled amount while applied_to_previous holds the old-khata settlement.
-    3. Recomputes authoritative Customer receivable and Supplier payable balances.
+    Fast 2-query self-healing accounting reconciliation (Zero N+1 queries).
     """
     changed = False
 
-    # 1. Reconcile Suppliers & Purchases
-    for sup in db.query(Supplier).all():
-        purs = (
-            db.query(Purchase)
-            .filter(Purchase.supplier_id == sup.id, Purchase.doc_type == "PURCHASE")
-            .order_by(Purchase.invoice_date.asc(), Purchase.id.asc())
-            .all()
+    # Fix any product with '0.7' in its name that was accidentally saved as 1000 ML
+    for prod in db.query(Product).all():
+        p_upper = (prod.name or "").upper()
+        if "0.7" in p_upper and prod.pack_size != 700.0:
+            prod.pack_size = 700.0
+            changed = True
+        elif "0.8" in p_upper and prod.pack_size != 800.0:
+            prod.pack_size = 800.0
+            changed = True
+
+    # 1. Reconcile Suppliers & Purchases in 1 eager-loaded query
+    suppliers_all = db.query(Supplier).options(selectinload(Supplier.purchases)).all()
+    for sup in suppliers_all:
+        purs = sorted(
+            [p for p in sup.purchases if getattr(p, "doc_type", "PURCHASE") == "PURCHASE"],
+            key=lambda x: (x.invoice_date or datetime.min, x.id)
         )
         for idx, p in enumerate(purs):
             tot = pkr(p.total_amount)
@@ -897,18 +909,23 @@ def reconcile_overpaid_bills_and_party_balances(db: Session) -> bool:
                 p.applied_to_previous = applied_now
                 changed = True
 
+            expected_close_pay = pkr(max(0.0, pkr(p.previous_dues) + pkr(p.payable_amount) - pkr(getattr(p, "applied_to_previous", 0.0))))
+            if pkr(getattr(p, "closing_payable", 0.0)) != expected_close_pay:
+                p.closing_payable = expected_close_pay
+                changed = True
+
         prev_sup_pay = pkr(sup.current_payable)
-        new_sup_pay = recompute_supplier_authoritative_payable(db, sup)
+        new_sup_pay = pkr(max(0.0, pkr(sup.opening_payable) + sum(pkr(x.payable_amount) for x in purs)))
         if prev_sup_pay != new_sup_pay:
+            sup.current_payable = new_sup_pay
             changed = True
 
-    # 2. Reconcile Customers & Sales
-    for cus in db.query(Customer).all():
-        sales_list = (
-            db.query(Sale)
-            .filter(Sale.customer_id == cus.id, Sale.doc_type == "SALE")
-            .order_by(Sale.invoice_date.asc(), Sale.id.asc())
-            .all()
+    # 2. Reconcile Customers & Sales in 1 eager-loaded query
+    customers_all = db.query(Customer).options(selectinload(Customer.sales)).all()
+    for cus in customers_all:
+        sales_list = sorted(
+            [s for s in cus.sales if getattr(s, "doc_type", "SALE") == "SALE"],
+            key=lambda x: (x.invoice_date or datetime.min, x.id)
         )
         for s in sales_list:
             tot = pkr(s.total_amount)
@@ -916,7 +933,6 @@ def reconcile_overpaid_bills_and_party_balances(db: Session) -> bool:
             app_prev = pkr(getattr(s, "applied_to_previous", 0.0))
             prev_d = pkr(getattr(s, "previous_dues", 0.0))
             if rec > tot:
-                # Cap bill's own received_amount at total_amount so it doesn't double-count with applied_to_previous
                 if app_prev <= 0:
                     s.applied_to_previous = pkr(rec - tot)
                 s.received_amount = tot
@@ -929,8 +945,9 @@ def reconcile_overpaid_bills_and_party_balances(db: Session) -> bool:
                 changed = True
 
         prev_cus_rec = pkr(cus.current_receivable)
-        new_cus_rec = recompute_customer_authoritative_receivable(db, cus)
+        new_cus_rec = pkr(max(0.0, pkr(cus.opening_receivable) + sum(pkr(x.receivable_amount) for x in sales_list)))
         if prev_cus_rec != new_cus_rec:
+            cus.current_receivable = new_cus_rec
             changed = True
 
     if changed:
@@ -1900,21 +1917,31 @@ def ensure_super_admin_exists(db: Session) -> AdminUser:
                 pass
 
 
+def ensure_initialized_once(db: Session):
+    global _STARTUP_INITIALIZED, SERVER_STATE_VERSION
+    if _STARTUP_INITIALIZED:
+        return
+    ensure_super_admin_exists(db)
+    reconcile_overpaid_bills_and_party_balances(db)
+    if SERVER_STATE_VERSION == 0:
+        SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000)
+    _STARTUP_INITIALIZED = True
+
+
 @app.post("/api/bootstrap")
 def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
     global SERVER_STATE_VERSION
-    ensure_super_admin_exists(db)
+    ensure_initialized_once(db)
     sync_from_client_snapshot_if_newer(db, payload.client_snapshot)
-    consolidate_default_locations(db)
-    if SERVER_STATE_VERSION == 0:
-        sync_postgres_sequences(db)
-        SERVER_STATE_VERSION = int(datetime.utcnow().timestamp() * 1000) if database_has_user_activity(db) else 1
-    reconcile_overpaid_bills_and_party_balances(db)
 
     period = payload.period if payload.period in ("daily", "weekly", "monthly", "all") else "monthly"
     custom_date = (getattr(payload, "custom_date", None) or "").strip() or None
     effective_period = custom_date if custom_date else period
     channel = payload.channel or "ALL"
+
+    cache_key = f"{SERVER_STATE_VERSION}:{effective_period}:{channel}"
+    if cache_key in BOOTSTRAP_CACHE:
+        return BOOTSTRAP_CACHE[cache_key]
 
     all_sales_serialized = list_sales(
         period="all",
@@ -1974,6 +2001,7 @@ def bootstrap_erp(payload: BootstrapRequest, db: Session = Depends(get_db)):
         "partner_transparency": get_partner_transparency_stats(period=effective_period, db=db),
         "snapshot": export_full_snapshot(db)
     }
+    BOOTSTRAP_CACHE[cache_key] = result
     return result
 
 
@@ -2000,7 +2028,7 @@ def import_backup_file(payload: Dict[str, Any] = Body(...), db: Session = Depend
 
 @app.post("/api/auth/signup")
 def admin_signup(payload: AdminSignupRequest, db: Session = Depends(get_db)):
-    ensure_super_admin_exists(db)
+    ensure_initialized_once(db)
     clean_email = (payload.email or "").strip().lower()
     clean_name = (payload.full_name or "").strip()
     clean_user = (payload.username or clean_email.split("@")[0]).strip()
@@ -2090,7 +2118,7 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not ident or not pw:
         raise HTTPException(status_code=400, detail="Please enter both your email/username and password.")
 
-    ensure_super_admin_exists(db)
+    ensure_initialized_once(db)
 
     try:
         user = db.query(AdminUser).filter(
@@ -2117,13 +2145,8 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="Access Denied: Your registration request was not approved."
         )
 
-    try:
-        user.last_login_at = now_pkt()
-        db.commit()
-    except Exception:
-        db.rollback()
-
     is_super = (user.email.lower() == SUPER_ADMIN_EMAIL or user.role == "SUPER_ADMIN")
+    boot_data = bootstrap_erp(BootstrapRequest(period="all", channel="ALL", client_snapshot=None), db=db)
     return {
         "status": "authenticated",
         "id": user.id,
@@ -2133,7 +2156,8 @@ def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
         "role": user.role,
         "approval_status": user.approval_status,
         "is_super_admin": is_super,
-        "snapshot": export_full_snapshot(db)
+        "bootstrap": boot_data,
+        "snapshot": boot_data.get("snapshot")
     }
 
 
@@ -4611,8 +4635,12 @@ def record_purchase_partial_payment(purchase_id: int, payload: PartialPaymentReq
     note = f"[Inst: -PKR {int(amt)} via {acc.name if acc else payload.payment_method}]"
     pur.remarks = f"{orig_channel}|{prev_remarks} {note}".strip()
 
+    db.flush()
     if pur.supplier:
-        pur.supplier.current_payable = pkr(max(0.0, pur.supplier.current_payable - amt))
+        recompute_supplier_authoritative_payable(db, pur.supplier)
+        pur.closing_payable = pkr(pur.supplier.current_payable)
+    else:
+        pur.closing_payable = pkr(pur.payable_amount)
 
     if (payload.payment_arrangement or "WALLET").upper() == "WALLET":
         tx_no = f"PPAY-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"

@@ -1172,8 +1172,15 @@ export default function App() {
     }
   };
 
-  // Only fetch from server on login; timeframe & date-range switches happen in 0ms in memory!
+  // Pre-warm Vercel & Neon DB connection while user is on the Login screen, and avoid duplicate fetch if login already hydrated data
   useEffect(() => {
+    if (!isAuthenticated) {
+      fetch(`${API_BASE}/health`).catch(() => {});
+      return;
+    }
+    if (initialSyncDone.current) {
+      return;
+    }
     fetchData();
   }, [isAuthenticated]);
 
@@ -3125,7 +3132,7 @@ export default function App() {
     const canvas = document.createElement('canvas');
     const width = 940;
     const rowHeight = 48;
-    const height = Math.max(920, 620 + items.length * rowHeight);
+    const height = Math.max(980, 690 + items.length * rowHeight);
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -3153,7 +3160,6 @@ export default function App() {
     ctx.font = '12px Inter, Arial, sans-serif';
     ctx.fillText('Gold 4T Series • Smoother Ride | Better Protection | Longer Life', 48, 125);
 
-    // Load /logo.png on Top Right if available
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -3184,7 +3190,8 @@ export default function App() {
     const partyCnic = isSale ? (doc as SaleRecord).customer_cnic : (doc as PurchaseRecord).supplier_cnic;
     const partyGroup = isSale ? (doc as SaleRecord).customer_group : (doc as PurchaseRecord).supplier_group;
     const locSummary = stripAwanTradeHub((doc as any).location_summary) || 'Main Warehouse';
-    const cleanRemarks = stripAwanTradeHub(doc.remarks) || 'Standard Trade Bill';
+    const rawCleanRem = stripAwanTradeHub(doc.remarks) || 'Standard Trade Bill';
+    const cleanRemarks = rawCleanRem.length > 34 ? `${rawCleanRem.slice(0, 32)}...` : rawCleanRem;
 
     // 3. 3-Column Meta Section: BILL TO | DISPATCH LOCATION | INVOICE DETAILS
     const metaY = 165;
@@ -3195,23 +3202,22 @@ export default function App() {
 
     ctx.fillStyle = '#0F172A';
     ctx.font = 'bold 16px Inter, Arial, sans-serif';
-    ctx.fillText(partyName || 'Valued Partner', 48, metaY + 24);
+    ctx.fillText(partyName || 'Valued Partner', 48, metaY + 24, 265);
     ctx.fillStyle = '#334155';
     ctx.font = '12px Inter, Arial, sans-serif';
-    ctx.fillText(`City / Route: ${partyCity || 'Local'} (${partyGroup || 'General'})`, 48, metaY + 44);
-    ctx.fillText(`Phone: ${partyPhone || 'N/A'}`, 48, metaY + 62);
-    ctx.fillText(`CNIC: ${partyCnic || 'N/A'}`, 48, metaY + 80);
+    ctx.fillText(`City / Route: ${partyCity || 'Local'} (${partyGroup || 'General'})`, 48, metaY + 44, 265);
+    ctx.fillText(`Phone: ${partyPhone || 'N/A'}`, 48, metaY + 62, 265);
+    ctx.fillText(`CNIC: ${partyCnic || 'N/A'}`, 48, metaY + 80, 265);
 
     ctx.fillStyle = '#0F172A';
     ctx.font = 'bold 14px Inter, Arial, sans-serif';
-    ctx.fillText(locSummary, 330, metaY + 24);
+    ctx.fillText(locSummary, 330, metaY + 24, 255);
     ctx.fillStyle = '#334155';
     ctx.font = '12px Inter, Arial, sans-serif';
-    ctx.fillText(`Channel: ${doc.payment_method || 'CASH'}`, 330, metaY + 44);
-    ctx.fillText(`Document: ${docType}`, 330, metaY + 62);
-    ctx.fillText(`Remarks: ${cleanRemarks}`, 330, metaY + 80);
+    ctx.fillText(`Channel: ${doc.payment_method || 'CASH'}`, 330, metaY + 44, 255);
+    ctx.fillText(`Document: ${docType}`, 330, metaY + 62, 255);
+    ctx.fillText(`Remarks: ${cleanRemarks}`, 330, metaY + 80, 255);
 
-    // Right Column Meta Labels & Values
     const drawMetaRight = (lbl: string, val: string, rY: number, highlight = false) => {
       ctx.fillStyle = '#00262B';
       ctx.font = 'bold 12px Inter, Arial, sans-serif';
@@ -3294,8 +3300,8 @@ export default function App() {
       y += rowHeight;
     });
 
-    // 6. Totals & Khata Summary (Right-Aligned)
-    y += 24;
+    // 6. Totals & Khata Summary (100% Exact Arithmetic: Total Payable - Paid Today = Net Closing Balance)
+    y += 26;
     const sDoc = doc as SaleRecord;
     const pDoc = doc as PurchaseRecord;
     const curTotal = pkr(doc.total_amount);
@@ -3305,15 +3311,13 @@ export default function App() {
     const rawPaid = isSale ? pkr(sDoc.received_amount) : pkr(pDoc.paid_amount);
     const billPortion = rawPaid > curTotal ? curTotal : rawPaid;
     const totalRecToday = pkr(billPortion + appliedPrev);
-    const closeBal = isSale
-      ? pkr(sDoc.closing_receivable ?? Math.max(0, grandPay - totalRecToday))
-      : pkr(pDoc.closing_payable ?? Math.max(0, grandPay - totalRecToday));
+    const closeBal = pkr(Math.max(0, grandPay - totalRecToday));
 
     const drawTotalRow = (label: string, val: string, rY: number, color = '#0F172A', isBold = false, isLarge = false) => {
       ctx.textAlign = 'right';
       ctx.fillStyle = isBold ? '#00262B' : '#475569';
       ctx.font = isLarge ? '900 16px Inter, Arial, sans-serif' : isBold ? 'bold 13px Inter, Arial, sans-serif' : '13px Inter, Arial, sans-serif';
-      ctx.fillText(label, 715, rY);
+      ctx.fillText(label, 700, rY);
       ctx.fillStyle = color;
       ctx.font = isLarge ? '900 18px monospace' : isBold ? 'bold 14px monospace' : '13px monospace';
       ctx.fillText(val, width - 58, rY);
@@ -3327,97 +3331,69 @@ export default function App() {
     drawTotalRow(
       isSale ? 'NET CLOSING KHATA BALANCE' : 'NET CLOSING SUPPLIER PAYABLE',
       `PKR ${closeBal.toLocaleString()}`,
-      y + 110,
+      y + 112,
       '#FF6B3D',
       true,
       true
     );
 
-    // 7. ATH "Fractured Current" Flowing Stripes & Dynamic Droplets Across Lower Section (Petrol Teal #005B66 & Coral Orange #FF6B3D)
-    const waveBaseY = y + 170;
-    ctx.save();
-    const drawFlowingStripe = (yOffset: number, color: string, lineW: number, dash: number[] = []) => {
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineW;
-      ctx.lineCap = 'round';
-      ctx.setLineDash(dash);
-      ctx.moveTo(30, waveBaseY + yOffset + 45);
-      ctx.bezierCurveTo(
-        width * 0.32,
-        waveBaseY + yOffset - 55,
-        width * 0.65,
-        waveBaseY + yOffset - 35,
-        width - 30,
-        waveBaseY + yOffset + 25
-      );
-      ctx.stroke();
-    };
-    drawFlowingStripe(0, 'rgba(0, 91, 102, 0.16)', 22);
-    drawFlowingStripe(18, 'rgba(255, 107, 61, 0.25)', 10);
-    drawFlowingStripe(34, 'rgba(0, 91, 102, 0.22)', 6, [18, 14]);
-    drawFlowingStripe(50, 'rgba(255, 107, 61, 0.18)', 14);
-    ctx.setLineDash([]);
-
-    // Dynamic ATH Oil Droplets along the Fractured Current
-    const droplets = [
-      { cx: 180, cy: waveBaseY + 12, r: 6, col: '#FF6B3D' },
-      { cx: 310, cy: waveBaseY - 8, r: 4.5, col: '#005B66' },
-      { cx: 460, cy: waveBaseY + 4, r: 7, col: '#FF6B3D' },
-      { cx: 590, cy: waveBaseY - 6, r: 5, col: '#005B66' },
-      { cx: 760, cy: waveBaseY + 15, r: 6, col: '#FF6B3D' }
-    ];
-    droplets.forEach(d => {
-      ctx.beginPath();
-      ctx.fillStyle = d.col;
-      ctx.arc(d.cx, d.cy, d.r, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.restore();
-
-    // 8. Authenticated User Signature (Handwritten Script Style)
+    // 7. Clean Executive Signature Block (No overlapping lines or dots behind text)
+    const sigBaseY = y + 185;
     const sigInfo = resolveInvoiceAuthorizerSignature(doc);
     ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = '#00262B';
     ctx.font = 'italic bold 32px "Segoe Script", "Brush Script MT", "Lucida Handwriting", Georgia, cursive';
-    ctx.fillText(sigInfo.signatureText, width - 195, waveBaseY - 4);
+    ctx.fillText(sigInfo.signatureText, width - 195, sigBaseY);
 
     ctx.strokeStyle = '#005B66';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(width - 315, waveBaseY + 10);
-    ctx.lineTo(width - 75, waveBaseY + 10);
+    ctx.moveTo(width - 320, sigBaseY + 12);
+    ctx.lineTo(width - 70, sigBaseY + 12);
     ctx.stroke();
 
     ctx.fillStyle = '#005B66';
     ctx.font = 'bold 11px Inter, Arial, sans-serif';
-    ctx.fillText(`AUTHORIZED SIGNATURE — ${sigInfo.fullName.toUpperCase()}`, width - 195, waveBaseY + 28);
+    ctx.fillText(`AUTHORIZED SIGNATURE — ${sigInfo.fullName.toUpperCase()}`, width - 195, sigBaseY + 30);
     ctx.fillStyle = '#64748B';
     ctx.font = '10px monospace';
-    ctx.fillText(`Verified By: ${sigInfo.roleLabel}`, width - 195, waveBaseY + 43);
+    ctx.fillText(`Verified By: ${sigInfo.roleLabel}`, width - 195, sigBaseY + 45);
     ctx.restore();
 
-    // 9. Bottom Footer: Script "Thank you" | TERMS & CONDITIONS
-    const footerY = height - 55;
+    // 8. Bottom Footer: Script "Thank you" | TERMS & CONDITIONS
+    const footerY = height - 58;
+    ctx.strokeStyle = '#CBD5E1';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(48, footerY - 36);
+    ctx.lineTo(width - 48, footerY - 36);
+    ctx.stroke();
+
     ctx.fillStyle = '#00262B';
-    ctx.font = 'italic bold 36px Georgia, "Times New Roman", serif';
-    ctx.fillText('Thank you', 160, footerY + 10);
+    ctx.font = 'italic bold 34px Georgia, "Times New Roman", serif';
+    ctx.fillText('Thank you', 140, footerY + 8);
 
     ctx.strokeStyle = '#005B66';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(395, footerY - 26);
-    ctx.lineTo(395, footerY + 24);
+    ctx.moveTo(370, footerY - 22);
+    ctx.lineTo(370, footerY + 22);
     ctx.stroke();
 
     ctx.fillStyle = '#FF6B3D';
     ctx.font = 'bold 12px Inter, Arial, sans-serif';
-    ctx.fillText('TERMS & CONDITIONS', 415, footerY - 10);
+    ctx.fillText('TERMS & CONDITIONS', 392, footerY - 8);
     ctx.fillStyle = '#334155';
     ctx.font = '11px Inter, Arial, sans-serif';
-    ctx.fillText('100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life', 415, footerY + 8);
-    ctx.fillText('Please quote Invoice # on all payments to ATH Lubricants.', 415, footerY + 24);
+    ctx.fillText('100% Whole-PKR Computerized Trade Bill • Smoother Ride | Better Protection | Longer Life', 392, footerY + 9);
+    ctx.fillText(`Please quote Invoice # ${refNo} on all payments to ATH Lubricants.`, 392, footerY + 25);
+
+    // Bottom Brand Accent Bar
+    ctx.fillStyle = '#005B66';
+    ctx.fillRect(0, height - 8, width * 0.62, 8);
+    ctx.fillStyle = '#FF6B3D';
+    ctx.fillRect(width * 0.62, height - 8, width * 0.38, 8);
 
     canvas.toBlob(async blob => {
       if (!blob) return;
@@ -3432,7 +3408,7 @@ export default function App() {
           });
           return;
         } catch {
-          // Fallback to download if share canceled or unsupported
+          // Fallback to download
         }
       }
       const url = URL.createObjectURL(blob);
@@ -3445,7 +3421,7 @@ export default function App() {
     }, 'image/png');
   };
 
-  // ==================== PRINT / SAVE PDF FOR SINGLE INVOICE (WHITE ATH FRACTURED CURRENT THEME) ====================
+  // ==================== PRINT / SAVE PDF FOR SINGLE INVOICE ====================
   const printSingleInvoicePdf = (thermal = false) => {
     if (!invoiceModal) return;
     const isSale = invoiceModal.kind === 'SALE';
@@ -3498,9 +3474,7 @@ export default function App() {
     const rawPaid = isSale ? pkr(sDoc.received_amount) : pkr(pDoc.paid_amount);
     const billPortion = rawPaid > curTotal ? curTotal : rawPaid;
     const recToday = pkr(billPortion + appliedPrev);
-    const closingBal = isSale
-      ? pkr(sDoc.closing_receivable ?? Math.max(0, grandPay - recToday))
-      : pkr(pDoc.closing_payable ?? Math.max(0, grandPay - recToday));
+    const closingBal = pkr(Math.max(0, grandPay - recToday));
 
     win.document.write(`
       <html>
@@ -3522,8 +3496,8 @@ export default function App() {
             .sum-table { width: ${thermal ? '100%' : '380px'}; font-size: 13px; }
             .sum-row { display: flex; justify-content: space-between; padding: 5px 0; }
             .sum-row.total { font-weight: 900; font-size: 16px; color: #FF6B3D; border-top: 2px solid #00262B; padding-top: 8px; margin-top: 4px; }
-            .wave-sig-wrap { position: relative; margin-top: 28px; padding-top: 10px; min-height: 120px; }
-            .sig-box { position: relative; z-index: 2; margin-left: auto; width: 260px; text-align: center; }
+            .wave-sig-wrap { margin-top: 28px; padding-top: 10px; display: flex; justify-content: flex-end; }
+            .sig-box { width: 260px; text-align: center; }
             .sig-script { font-family: 'Segoe Script', 'Brush Script MT', 'Lucida Handwriting', Georgia, cursive; font-size: 28px; font-weight: bold; font-style: italic; color: #00262B; line-height: 1.1; }
             .sig-line { border-top: 1.5px solid #005B66; margin-top: 4px; padding-top: 4px; font-size: 11px; font-weight: 800; color: #005B66; text-transform: uppercase; }
             .ftr { display: flex; align-items: center; gap: 20px; margin-top: 22px; padding-top: 14px; border-top: 1px solid #E2E8F0; }
@@ -3549,12 +3523,12 @@ export default function App() {
               <div>Phone: ${partyPhone || 'N/A'}</div>
               <div>CNIC: ${partyCnic || 'N/A'}</div>
             </div>
-            <div>
+            <div style="overflow:hidden;">
               <div class="meta-head">${isSale ? 'SHIP / DISPATCH FROM' : 'RECEIVING LOCATION'}</div>
               <div style="font-weight:800;font-size:14px;color:#0F172A;">${locSummary}</div>
               <div>Payment Channel: <strong>${doc.payment_method}</strong></div>
               <div>Document Type: <strong>${docType}</strong></div>
-              <div>Remarks: ${cleanRemarks}</div>
+              <div style="word-break:break-word;">Remarks: ${cleanRemarks}</div>
             </div>
             <div>
               <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#00262B;">INVOICE #</strong><span style="font-family:monospace;font-weight:800;color:#FF6B3D;">${refNo}</span></div>
@@ -3587,14 +3561,6 @@ export default function App() {
           </div>
 
           <div class="wave-sig-wrap">
-            <svg viewBox="0 0 800 120" style="position:absolute;inset:0;width:100%;height:120px;z-index:1;pointer-events:none;" preserveAspectRatio="none">
-              <path d="M 10 95 C 240 15, 520 20, 790 75" stroke="#005B66" stroke-opacity="0.16" stroke-width="18" fill="none" stroke-linecap="round" />
-              <path d="M 10 108 C 260 32, 540 35, 790 88" stroke="#FF6B3D" stroke-opacity="0.28" stroke-width="8" fill="none" stroke-linecap="round" />
-              <path d="M 30 116 C 280 48, 550 48, 790 102" stroke="#005B66" stroke-opacity="0.24" stroke-width="5" stroke-dasharray="14 12" fill="none" stroke-linecap="round" />
-              <circle cx="180" cy="65" r="5" fill="#FF6B3D" />
-              <circle cx="320" cy="46" r="4" fill="#005B66" />
-              <circle cx="450" cy="52" r="6" fill="#FF6B3D" />
-            </svg>
             <div class="sig-box">
               <div class="sig-script">${sigInfo.signatureText}</div>
               <div class="sig-line">Authorized Signature • ${sigInfo.fullName}</div>
@@ -6470,8 +6436,13 @@ if (!isAuthenticated) {
                           placeholder="Type Product Name"
                           value={purProductName}
                           onChange={e => {
-                            setPurProductName(e.target.value);
-                            const match = products.find(p => p.name.toLowerCase() === e.target.value.trim().toLowerCase());
+                            const val = e.target.value;
+                            setPurProductName(val);
+                            const upper = val.toUpperCase();
+                            if (upper.includes('0.7') || upper.includes('700')) setPurPackSize('700');
+                            else if (upper.includes('0.8') || upper.includes('800')) setPurPackSize('800');
+                            else if (upper.includes('1L') || upper.includes('1 L') || upper.includes('1000')) setPurPackSize('1000');
+                            const match = products.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
                             setPurProductId(match ? match.id : 0);
                           }}
                           className="mt-1 erp-input"
